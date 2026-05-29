@@ -5,6 +5,7 @@ import * as zod from "zod";
 import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
 import { motion } from "framer-motion";
+import { sanitizeUrl } from "../utils/security";
 import { X, User, FileText, ImageIcon, Loader2, Check } from "lucide-react";
 
 interface ProfilePanelProps {
@@ -116,7 +117,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose }) => {
             <div className="flex flex-col items-center gap-2.5 py-4">
               <img
                 src={
-                  profileData.avatar_url ||
+                  sanitizeUrl(profileData.avatar_url) ||
                   `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
                     profileData.username
                   )}`

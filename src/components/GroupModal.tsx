@@ -4,6 +4,7 @@ import { friendService } from "../services/friendService";
 import { chatService } from "../services/chatService";
 import type { Profile } from "../services/mockDb";
 import { X, Users, Loader2 } from "lucide-react";
+import { sanitizeUrl } from "../utils/security";
 
 interface GroupModalProps {
   onClose: () => void;
@@ -130,7 +131,7 @@ export const GroupModal: React.FC<GroupModalProps> = ({ onClose }) => {
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <img
-                          src={friend.avatar_url}
+                          src={sanitizeUrl(friend.avatar_url)}
                           alt="Avatar"
                           className="w-7 h-7 rounded-full object-cover shrink-0"
                         />

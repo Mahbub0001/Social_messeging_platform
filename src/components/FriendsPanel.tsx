@@ -5,6 +5,7 @@ import type { FriendRequestWithProfiles } from "../services/friendService";
 import type { Profile } from "../services/mockDb";
 import { chatService } from "../services/chatService";
 import { motion, AnimatePresence } from "framer-motion";
+import { sanitizeUrl } from "../utils/security";
 import { X, UserPlus, Users, Loader2, Check, Ban, AlertCircle } from "lucide-react";
 
 interface FriendsPanelProps {
@@ -192,7 +193,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <img
-                        src={req.sender?.avatar_url}
+                        src={sanitizeUrl(req.sender?.avatar_url)}
                         alt="Avatar"
                         className="w-8 h-8 rounded-full object-cover shrink-0"
                       />
@@ -246,7 +247,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <img
-                        src={friend.avatar_url}
+                        src={sanitizeUrl(friend.avatar_url)}
                         alt="Avatar"
                         className="w-8.5 h-8.5 rounded-full object-cover shrink-0 group-hover:scale-105 transition-transform"
                       />
