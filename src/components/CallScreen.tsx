@@ -2,28 +2,48 @@ import React, { useState, useEffect, useRef } from "react";
 import { useStore } from "../hooks/useStore";
 import { audioSynthesizer } from "../utils/audio";
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Camera, Loader2 } from "lucide-react";
+import { isMockMode } from "../lib/supabase";
 
 export const CallScreen: React.FC = () => {
-  const { callState, callType, callPartner, acceptCall, endCall } = useStore();
+  const { callState, callType, callPartner, acceptCall, endCall, localStream, remoteStream } = useStore();
   const [seconds, setSeconds] = useState(0);
   const [micMuted, setMicMuted] = useState(false);
   const [camMuted, setCamMuted] = useState(false);
   const timerRef = useRef<number | null>(null);
+
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Bind WebRTC streams to video elements
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream, camMuted]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
 
   // 1. Audio and Call Transitions Handler
   useEffect(() => {
     if (callState === "dialing") {
       audioSynthesizer.startDialingTone();
 
-      // Mock Bot Auto-Answer
-      const timeout = setTimeout(() => {
-        audioSynthesizer.stopRingtone();
-        audioSynthesizer.playConnectChime();
-        acceptCall();
-      }, 3500);
+      let timeout: any = null;
+      if (isMockMode) {
+        // Mock Bot Auto-Answer
+        timeout = setTimeout(() => {
+          audioSynthesizer.stopRingtone();
+          audioSynthesizer.playConnectChime();
+          acceptCall();
+        }, 3500);
+      }
 
       return () => {
-        clearTimeout(timeout);
+        if (timeout) clearTimeout(timeout);
         audioSynthesizer.stopRingtone();
       };
     } else if (callState === "receiving") {
@@ -60,6 +80,24 @@ export const CallScreen: React.FC = () => {
   const handleHangUp = () => {
     audioSynthesizer.playDisconnectChime();
     endCall();
+  };
+
+  const handleToggleMic = async () => {
+    const nextMuted = !micMuted;
+    setMicMuted(nextMuted);
+    if (!isMockMode) {
+      const { callService } = await import("../services/callService");
+      callService.toggleMic(nextMuted);
+    }
+  };
+
+  const handleToggleCam = async () => {
+    const nextMuted = !camMuted;
+    setCamMuted(nextMuted);
+    if (!isMockMode) {
+      const { callService } = await import("../services/callService");
+      callService.toggleCam(nextMuted);
+    }
   };
 
   const formatCallTime = (totalSecs: number) => {
@@ -120,8 +158,55 @@ export const CallScreen: React.FC = () => {
         )}
       </div>
 
-      {/* Simulated camera screen overlay for Video Calls */}
-      {callType === "video" && callState === "active" && (
+      {/* Real WebRTC video containers */}
+      {!isMockMode && callState === "active" && (
+        <div className="relative w-full max-w-lg aspect-video bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden mb-10 shadow-2xl flex items-center justify-center">
+          {/* Remote Video / Audio Feed */}
+          {callType === "video" ? (
+            <video
+              ref={remoteVideoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-20 h-20 rounded-full bg-violet-600/10 flex items-center justify-center border border-violet-500/20 animate-pulse">
+                <Mic className="w-8 h-8 text-violet-400" />
+              </div>
+              <span className="text-xs text-slate-400">Voice call active</span>
+            </div>
+          )}
+
+          {/* Hidden Remote Audio Stream Player for Voice Calls */}
+          {callType === "voice" && (
+            <video ref={remoteVideoRef} autoPlay playsInline className="hidden w-0 h-0" />
+          )}
+
+          {/* Local PIP Video overlay */}
+          {callType === "video" && (
+            <div className="absolute bottom-3 right-3 w-32 aspect-video bg-slate-950 border border-slate-700/50 rounded-xl overflow-hidden shadow-lg z-20 flex items-center justify-center">
+              {camMuted ? (
+                <div className="text-slate-500 text-[10px] flex flex-col items-center">
+                  <VideoOff className="w-4 h-4 mb-0.5" />
+                  <span>Cam Muted</span>
+                </div>
+              ) : (
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover scale-x-[-1]"
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Simulated camera screen overlay for Video Calls in Mock Mode */}
+      {isMockMode && callType === "video" && callState === "active" && (
         <div className="w-72 h-44 bg-slate-900 border border-slate-800 rounded-2xl relative overflow-hidden mb-10 shadow-inner flex items-center justify-center">
           {camMuted ? (
             <div className="text-slate-500 flex flex-col items-center gap-1">
@@ -176,7 +261,7 @@ export const CallScreen: React.FC = () => {
           <>
             {/* Mute Mic */}
             <button
-              onClick={() => setMicMuted((prev) => !prev)}
+              onClick={handleToggleMic}
               className={`w-12 h-12 rounded-full flex items-center justify-center border transition-all active:scale-90 ${
                 micMuted
                   ? "bg-slate-800 border-slate-750 text-red-400"
@@ -197,7 +282,7 @@ export const CallScreen: React.FC = () => {
             {/* Mute Camera (Only for Video calls) */}
             {callType === "video" && (
               <button
-                onClick={() => setCamMuted((prev) => !prev)}
+                onClick={handleToggleCam}
                 className={`w-12 h-12 rounded-full flex items-center justify-center border transition-all active:scale-90 ${
                   camMuted
                     ? "bg-slate-800 border-slate-750 text-red-400"
@@ -215,3 +300,4 @@ export const CallScreen: React.FC = () => {
 };
 
 export default CallScreen;
+

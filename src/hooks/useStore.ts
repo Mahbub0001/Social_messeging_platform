@@ -42,6 +42,8 @@ interface AppState {
   callState: "idle" | "dialing" | "receiving" | "active";
   callType: "voice" | "video" | null;
   callPartner: Profile | null;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
   startCall: (partner: Profile, type: "voice" | "video") => void;
   receiveCall: (partner: Profile, type: "voice" | "video") => void;
   acceptCall: () => void;
@@ -62,11 +64,44 @@ export const useStore = create<AppState>((set, get) => ({
   callState: "idle",
   callType: null,
   callPartner: null,
+  localStream: null,
+  remoteStream: null,
 
-  startCall: (partner, type) => set({ callState: "dialing", callPartner: partner, callType: type }),
+  startCall: async (partner, type) => {
+    const { isMockMode } = await import("../lib/supabase");
+    if (isMockMode) {
+      set({ callState: "dialing", callPartner: partner, callType: type });
+    } else {
+      const { callService } = await import("../services/callService");
+      callService.startCall(partner, type);
+    }
+  },
   receiveCall: (partner, type) => set({ callState: "receiving", callPartner: partner, callType: type }),
-  acceptCall: () => set({ callState: "active" }),
-  endCall: () => set({ callState: "idle", callPartner: null, callType: null }),
+  acceptCall: async () => {
+    const { isMockMode } = await import("../lib/supabase");
+    if (isMockMode) {
+      set({ callState: "active" });
+    } else {
+      const { callService } = await import("../services/callService");
+      callService.acceptCall();
+    }
+  },
+  endCall: async () => {
+    const { isMockMode } = await import("../lib/supabase");
+    if (isMockMode) {
+      set({ callState: "idle", callPartner: null, callType: null });
+    } else {
+      const { callService } = await import("../services/callService");
+      const state = get().callState;
+      if (state === "dialing") {
+        callService.cancelCall();
+      } else if (state === "receiving") {
+        callService.rejectCall();
+      } else if (state === "active") {
+        callService.endCall();
+      }
+    }
+  },
 
   setSession: (session) =>
     set({
@@ -78,7 +113,7 @@ export const useStore = create<AppState>((set, get) => ({
   initializeAuth: () => {
     set({ authLoading: true });
     // Listen for authentication state modifications
-    const unsubscribe = authService.onAuthStateChange((session) => {
+    const unsubscribe = authService.onAuthStateChange(async (session) => {
       set({
         session,
         user: session ? session.user : null,
@@ -88,9 +123,23 @@ export const useStore = create<AppState>((set, get) => ({
       if (session?.user) {
         // Fetch conversations once logged in
         get().fetchConversations();
+
+        // Initialize WebRTC signaling listener
+        const { isMockMode } = await import("../lib/supabase");
+        if (!isMockMode) {
+          const { callService } = await import("../services/callService");
+          callService.init(session.user.id);
+        }
       } else {
         // Clear state on logout
         set({ conversations: [], activeConversationId: null, messages: {} });
+
+        // Clean up WebRTC signaling channels
+        const { isMockMode } = await import("../lib/supabase");
+        if (!isMockMode) {
+          const { callService } = await import("../services/callService");
+          callService.cleanup();
+        }
       }
     });
 
