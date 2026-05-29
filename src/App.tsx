@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 
 export const App: React.FC = () => {
   const initializeAuth = useStore((state) => state.initializeAuth);
+  const theme = useStore((state) => state.theme);
 
   useEffect(() => {
     // Start session state observer
@@ -21,6 +22,15 @@ export const App: React.FC = () => {
       unsubscribe();
     };
   }, [initializeAuth]);
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === "light") {
+      root.classList.add("light");
+    } else {
+      root.classList.remove("light");
+    }
+  }, [theme]);
 
   return (
     <BrowserRouter>

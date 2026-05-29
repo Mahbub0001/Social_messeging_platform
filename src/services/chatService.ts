@@ -32,6 +32,7 @@ class ChatServiceClass {
   // Keep track of active channels for cleanup
   private activeMessageSubscriptions: Map<string, any> = new Map();
   private activeTypingChannels: Map<string, any> = new Map();
+  private reactionIdMap: Map<string, { messageId: string; userId: string; emoji: string }> = new Map();
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -360,6 +361,7 @@ class ChatServiceClass {
             mappedReactions[r.emoji] = [];
           }
           mappedReactions[r.emoji].push(r.user_id);
+          this.reactionIdMap.set(r.id, { messageId: r.message_id, userId: r.user_id, emoji: r.emoji });
         });
 
         // Pull reply context if needed in another query, or join inside. Let's do lazy resolved or basic structure
@@ -722,6 +724,7 @@ class ChatServiceClass {
                   mappedReactions[r.emoji] = [];
                 }
                 mappedReactions[r.emoji].push(r.user_id);
+                this.reactionIdMap.set(r.id, { messageId: r.message_id, userId: r.user_id, emoji: r.emoji });
               });
 
               // Map reply message
@@ -763,7 +766,19 @@ class ChatServiceClass {
             table: "message_reactions",
           },
           async (payload: any) => {
-            const messageId = payload.eventType === "DELETE" ? payload.old.message_id : payload.new.message_id;
+            let messageId = payload.eventType === "DELETE" ? payload.old.message_id : payload.new.message_id;
+            if (!messageId && payload.eventType === "DELETE" && payload.old.id) {
+              const cached = this.reactionIdMap.get(payload.old.id);
+              if (cached) {
+                messageId = cached.messageId;
+              }
+            }
+
+            // Clean up the cache for this deleted reaction ID
+            if (payload.eventType === "DELETE" && payload.old.id) {
+              this.reactionIdMap.delete(payload.old.id);
+            }
+
             if (!messageId) return;
 
             // Fetch the updated reactions for this message
@@ -778,6 +793,7 @@ class ChatServiceClass {
                 mappedReactions[r.emoji] = [];
               }
               mappedReactions[r.emoji].push(r.user_id);
+              this.reactionIdMap.set(r.id, { messageId: r.message_id, userId: r.user_id, emoji: r.emoji });
             });
 
             // Fetch original message
