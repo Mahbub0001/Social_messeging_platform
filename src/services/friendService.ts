@@ -192,6 +192,87 @@ class FriendServiceClass {
       return { error: null };
     }
   }
+
+  public async getDiscoverableUsers(userId: string): Promise<{ data: Profile[]; error: any }> {
+    if (isMockMode) {
+      const requests = mockDb.getFriendRequests();
+      const profiles = mockDb.getProfiles();
+
+      // Find user IDs linked by requests
+      const relatedUserIds = requests
+        .filter((r) => r.sender_id === userId || r.receiver_id === userId)
+        .map((r) => (r.sender_id === userId ? r.receiver_id : r.sender_id));
+
+      const discoverable = profiles.filter(
+        (p) => p.id !== userId && !relatedUserIds.includes(p.id)
+      );
+
+      return { data: discoverable, error: null };
+    } else {
+      // 1. Fetch all profiles except the current user
+      const { data: profiles, error: profError } = await supabase
+        .from("profiles")
+        .select("*")
+        .neq("id", userId);
+
+      if (profError) return { data: [], error: profError };
+
+      // 2. Fetch all friend requests involving this user
+      const { data: requests, error: reqError } = await supabase
+        .from("friend_requests")
+        .select("sender_id, receiver_id")
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+
+      if (reqError) return { data: [], error: reqError };
+
+      const relatedUserIds = (requests || []).map((r: any) =>
+        r.sender_id === userId ? r.receiver_id : r.sender_id
+      );
+
+      const discoverable = (profiles || []).filter(
+        (p: any) => !relatedUserIds.includes(p.id)
+      );
+
+      return { data: discoverable, error: null };
+    }
+  }
+
+  public async sendFriendRequestById(senderId: string, receiverId: string): Promise<{ data: any; error: any }> {
+    if (isMockMode) {
+      const requests = mockDb.getFriendRequests();
+      const exists = requests.find(
+        (r) =>
+          (r.sender_id === senderId && r.receiver_id === receiverId) ||
+          (r.sender_id === receiverId && r.receiver_id === senderId)
+      );
+
+      if (exists) {
+        return {
+          data: null,
+          error: { message: "Friend request or friendship already exists." },
+        };
+      }
+
+      const newReq: FriendRequest = {
+        id: "fr-" + Math.random().toString(36).substr(2, 9),
+        sender_id: senderId,
+        receiver_id: receiverId,
+        status: "pending",
+        created_at: new Date().toISOString(),
+      };
+
+      mockDb.saveFriendRequests([...requests, newReq]);
+      return { data: newReq, error: null };
+    } else {
+      const { data, error } = await supabase
+        .from("friend_requests")
+        .insert({ sender_id: senderId, receiver_id: receiverId })
+        .select()
+        .single();
+
+      return { data, error };
+    }
+  }
 }
 
 export const friendService = new FriendServiceClass();

@@ -15,6 +15,7 @@
 *   💬 **Real-Time Text Messaging**: Powered by Supabase Realtime socket events for sub-second text delivery.
 *   👥 **Group Chat Rooms**: Create, configure, and communicate in multi-user group spaces.
 *   📞 **Voice & Video Calls**: Native peer-to-peer audio and video calling powered by WebRTC, utilizing Supabase Realtime as a signaling server.
+*   🔍 **Discover & Add Friends**: Browse other registered users dynamically in the "Discover People" section and send friend invitations instantly with interactive loaders and animations.
 *   📁 **Media & File Attachments**: Drag-and-drop or select files (images, audio clips, PDFs) stored directly in Supabase Storage buckets.
 *   🎙️ **Voice Messaging**: Record, cancel, preview, and send audio voice clips using native audio APIs.
 *   📱 **Buttery-Smooth Mobile Responsiveness**: Perfect sliding transitions (between conversation lists and threads) and touch-compatible actions drawer triggers (tap to react, reply, edit, or delete messages).
@@ -96,7 +97,8 @@ src/
 
 ## 🛡️ Security Model
 
-The application enforces strict data privacy models:
+The application enforces strict data privacy and client-side protection:
 *   **Row Level Security (RLS)**: Conversations and messages are restricted so they are only viewable by verified members of that channel.
+*   **XSS Mitigation**: Strict sanitization of user-submitted urls/media protocols (`sanitizeUrl`) to prevent cross-site scripting (XSS) injection attacks via avatars or download links.
 *   **Authentication Gates**: Protected routes block direct access to dashboard spaces without an active Supabase session token.
 *   **Encrypted WebRTC Media**: Communication streams are encrypted end-to-end natively through RTC peer configurations.
