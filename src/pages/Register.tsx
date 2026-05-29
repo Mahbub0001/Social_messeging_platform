@@ -30,7 +30,32 @@ export const Register: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const setSession = useStore((state) => state.setSession);
+  const [socialLoading, setSocialLoading] = useState<"google" | "github" | null>(null);
+  const { user, setSession } = useStore();
+
+  React.useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
+
+  const handleSocialLogin = async (provider: "google" | "github") => {
+    setSocialLoading(provider);
+    setError(null);
+    try {
+      const { data: session, error: loginError } = await authService.signInWithOAuth(provider);
+      if (loginError) {
+        setError(loginError.message);
+      } else if (session) {
+        setSession(session);
+        navigate("/dashboard");
+      }
+    } catch (err: any) {
+      setError(`Failed to sign up with ${provider}.`);
+    } finally {
+      setSocialLoading(null);
+    }
+  };
 
   const {
     register,
@@ -173,7 +198,7 @@ export const Register: React.FC = () => {
         {/* Action Button */}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || socialLoading !== null}
           className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-violet-500/10 hover:shadow-violet-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
           {loading ? (
@@ -186,6 +211,49 @@ export const Register: React.FC = () => {
           )}
         </button>
       </form>
+
+      {/* Divider */}
+      <div className="flex items-center my-5">
+        <div className="flex-1 border-t border-slate-800"></div>
+        <span className="px-3 text-2xs uppercase text-slate-500 font-sans font-semibold tracking-wider">
+          Or Continue With
+        </span>
+        <div className="flex-1 border-t border-slate-800"></div>
+      </div>
+
+      {/* Social login buttons */}
+      <div className="mb-3">
+        <button
+          type="button"
+          onClick={() => handleSocialLogin("google")}
+          disabled={loading || socialLoading !== null}
+          className="w-full flex items-center justify-center gap-2.5 py-2.5 bg-slate-950 border border-slate-800 hover:bg-slate-900 text-slate-200 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
+        >
+          {socialLoading === "google" ? (
+            <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+          ) : (
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path
+                fill="#EA4335"
+                d="M5.266 9.765A7.077 7.077 0 0 1 12 4.909c1.69 0 3.218.6 4.418 1.582L19.91 3C17.782 1.145 15.055 0 12 0 7.27 0 3.198 2.698 1.24 6.65l4.026 3.115z"
+              />
+              <path
+                fill="#34A853"
+                d="M16.04 15.345c-1.07.728-2.512 1.155-4.04 1.155a7.077 7.077 0 0 1-6.734-4.856L1.24 14.76A11.97 11.97 0 0 0 12 24c3.245 0 6.18-1.09 8.41-2.945l-4.37-3.71z"
+              />
+              <path
+                fill="#4285F4"
+                d="M24 12c0-.82-.07-1.61-.2-2.38H12v4.51h6.73c-.29 1.53-1.15 2.82-2.45 3.69l4.37 3.71C23.195 19.345 24 16.02 24 12z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.266 14.235A7.077 7.077 0 0 1 4.91 12c0-.79.13-1.55.356-2.265L1.24 6.62A11.97 11.97 0 0 0 0 12c0 1.92.45 3.74 1.24 5.38l4.026-3.145z"
+              />
+            </svg>
+          )}
+          <span>Continue with Google</span>
+        </button>
+      </div>
 
       <p className="mt-6 text-center text-xs text-slate-400 font-sans">
         Already have an account?{" "}

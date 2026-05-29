@@ -73,15 +73,41 @@ create table if not exists public.friend_requests (
 -- 2. AUTOMATIC PROFILE SYNC TRIGGER
 -- ========================================================
 
+-- Helper function to generate a unique username by appending random digits if taken
+create or replace function public.generate_unique_username(base_username text)
+returns text as $$
+declare
+  candidate_username text;
+begin
+  candidate_username := base_username;
+  while exists (select 1 from public.profiles where username = candidate_username) loop
+    candidate_username := base_username || floor(random() * 10000)::text;
+  end loop;
+  return candidate_username;
+end;
+$$ language plpgsql;
+
 -- Trigger to automatically create a profile in public.profiles when a new user signs up in auth.users
 create or replace function public.handle_new_user()
 returns trigger as $$
+declare
+  base_username text;
+  final_username text;
 begin
+  -- Use username from metadata, or fall back to the email prefix before @
+  base_username := coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1));
+  if base_username is null or base_username = '' then
+    base_username := 'user_' || floor(random() * 100000)::text;
+  end if;
+  
+  -- Generate unique username if the base one is already taken
+  final_username := public.generate_unique_username(base_username);
+
   insert into public.profiles (id, username, avatar_url, bio)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
-    coalesce(new.raw_user_meta_data->>'avatar_url', 'https://api.dicebear.com/7.x/avataaars/svg?seed=' || split_part(new.email, '@', 1)),
+    final_username,
+    coalesce(new.raw_user_meta_data->>'avatar_url', 'https://api.dicebear.com/7.x/avataaars/svg?seed=' || final_username),
     'Hey there! I am new here.'
   );
   return new;
