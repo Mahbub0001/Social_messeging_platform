@@ -16,6 +16,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
   const { user, onlineUsers, conversations, setActiveConversationId, fetchConversations } = useStore();
   const [friends, setFriends] = useState<Profile[]>([]);
   const [pendingRequests, setPendingRequests] = useState<FriendRequestWithProfiles[]>([]);
+  const [discoverUsers, setDiscoverUsers] = useState<Profile[]>([]);
   
   const [targetUsername, setTargetUsername] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,13 +26,15 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
 
   const fetchFriendsData = async () => {
     if (!user?.id) return;
-    const [friendsRes, requestsRes] = await Promise.all([
+    const [friendsRes, requestsRes, discoverRes] = await Promise.all([
       friendService.getFriends(user.id),
       friendService.getPendingRequests(user.id),
+      friendService.getDiscoverableUsers(user.id),
     ]);
 
     if (!friendsRes.error) setFriends(friendsRes.data);
     if (!requestsRes.error) setPendingRequests(requestsRes.data);
+    if (!discoverRes.error) setDiscoverUsers(discoverRes.data);
   };
 
   useEffect(() => {
@@ -74,6 +77,27 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
       }
     } catch (err) {
       alert("Failed to respond to request.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleAddFriend = async (receiverId: string) => {
+    if (!user?.id) return;
+    setActionLoadingId(receiverId);
+    setReqSuccess(null);
+    setReqError(null);
+
+    try {
+      const { error } = await friendService.sendFriendRequestById(user.id, receiverId);
+      if (error) {
+        setReqError(error.message);
+      } else {
+        setReqSuccess("Friend request sent!");
+        fetchFriendsData();
+      }
+    } catch (err) {
+      setReqError("Failed to send friend request.");
     } finally {
       setActionLoadingId(null);
     }
@@ -218,6 +242,61 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
                           <Ban className="w-3.5 h-3.5" />
                         </button>
                       </div>
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+
+        <hr className="border-slate-800" />
+
+        {/* Discover People Section */}
+        <div>
+          <h4 className="text-2xs uppercase text-slate-500 font-semibold tracking-wider mb-3 flex items-center gap-1.5">
+            <UserPlus className="w-3.5 h-3.5 text-violet-400" />
+            <span>Discover People ({discoverUsers.length})</span>
+          </h4>
+          {discoverUsers.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No new people to discover right now.</p>
+          ) : (
+            <div className="space-y-2">
+              <AnimatePresence>
+                {discoverUsers.map((item) => (
+                  <motion.div
+                    key={item.id}
+                    layout
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="flex items-center justify-between p-2.5 bg-slate-950/40 border border-slate-850 hover:border-slate-800 rounded-xl transition-all font-sans"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={sanitizeUrl(item.avatar_url)}
+                        alt="Avatar"
+                        className="w-8 h-8 rounded-full object-cover shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h5 className="text-xs font-semibold text-slate-200 truncate">
+                          {item.username}
+                        </h5>
+                        <p className="text-[9px] text-slate-500 truncate max-w-[180px]">
+                          {item.bio || "Hey there! I am using কথাবার্তা."}
+                        </p>
+                      </div>
+                    </div>
+                    {actionLoadingId === item.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-slate-500 shrink-0" />
+                    ) : (
+                      <button
+                        onClick={() => handleAddFriend(item.id)}
+                        title="Add Friend"
+                        className="p-1.5 bg-violet-600/10 text-violet-400 border border-violet-500/20 hover:bg-violet-600 hover:text-white rounded-lg transition-all shrink-0 active:scale-95"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </motion.div>
                 ))}
