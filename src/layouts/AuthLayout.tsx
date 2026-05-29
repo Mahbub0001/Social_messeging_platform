@@ -31,7 +31,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
             </svg>
           </div>
           <h1 className="text-3xl font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-300 font-sans">
-            কোথাবার্তা
+            কথাবার্তা
           </h1>
           <p className="mt-1 text-sm text-slate-400 font-sans">
             Connect in Real-Time, Anywhere
@@ -39,7 +39,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
         </div>
 
         {/* Card wrapper */}
-        <div className="backdrop-blur-xl bg-slate-900/60 border border-slate-800 rounded-3xl p-8 shadow-2xl shadow-slate-950/50">
+        <div className="backdrop-blur-xl bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-slate-950/50">
           {children}
         </div>
       </div>

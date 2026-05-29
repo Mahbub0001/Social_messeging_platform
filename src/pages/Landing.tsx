@@ -55,7 +55,7 @@ export const Landing: React.FC = () => {
           <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-xl shadow-md shadow-violet-500/10">
             <MessageSquare className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-wider text-slate-100">কোথাবার্তা</span>
+          <span className="text-xl font-bold tracking-wider text-slate-100">কথাবার্তা</span>
         </div>
         <div>
           {user ? (
@@ -112,7 +112,7 @@ export const Landing: React.FC = () => {
             variants={itemVariants}
             className="max-w-2xl mx-auto text-sm md:text-base text-slate-400 leading-relaxed"
           >
-            কোথাবার্তা (Kotha Barta) is a premium, full-stack messaging platform engineered with React and Supabase. Features real-time state sync, full security models, and a sleek modern interface.
+            কথাবার্তা (Kotha Barta) is a premium, full-stack messaging platform engineered with React and Supabase. Features real-time state sync, full security models, and a sleek modern interface.
           </motion.p>
 
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">

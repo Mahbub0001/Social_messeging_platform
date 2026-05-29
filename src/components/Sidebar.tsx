@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-lg">
             <MessageSquare className="w-4 h-4 text-white" />
           </div>
-          <span className="text-md font-bold tracking-wider text-slate-100">কোথাবার্তা</span>
+          <span className="text-md font-bold tracking-wider text-slate-100">কথাবার্তা</span>
         </div>
         
         {/* Header Action Buttons */}
@@ -223,6 +223,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 previewText = isSelf ? "You sent a voice message" : "Sent a voice message";
               } else if (msg.media_type === "file") {
                 previewText = isSelf ? "You sent a document" : "Sent a document";
+              } else if (msg.media_type === "call") {
+                try {
+                  const callInfo = JSON.parse(msg.content);
+                  previewText = callInfo.callType === "video" ? "🎥 Video Call" : "📞 Voice Call";
+                } catch (e) {
+                  previewText = "Call Log";
+                }
               } else {
                 previewText = msg.content;
               }

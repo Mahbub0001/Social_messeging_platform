@@ -255,7 +255,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
                           {friend.username}
                         </h5>
                         <p className="text-[10px] text-slate-500 truncate max-w-[180px]">
-                          {friend.bio || "Hey there! I am using কোথাবার্তা."}
+                          {friend.bio || "Hey there! I am using কথাবার্তা."}
                         </p>
                       </div>
                     </div>

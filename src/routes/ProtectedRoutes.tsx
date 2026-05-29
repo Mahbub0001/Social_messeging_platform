@@ -15,7 +15,7 @@ export const ProtectedRoute: React.FC = () => {
           <div className="w-16 h-16 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin"></div>
         </div>
         <h1 className="mt-6 text-xl font-bold tracking-wider text-slate-200 font-sans">
-          কোথাবার্তা
+          কথাবার্তা
         </h1>
         <p className="mt-2 text-sm text-slate-400 font-sans">
           Loading secure session...

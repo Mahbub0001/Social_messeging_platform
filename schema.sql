@@ -1,4 +1,4 @@
--- Kotha Barta (কোথাবার্তা) — Supabase PostgreSQL Schema & RLS Policies
+-- Kotha Barta (কথাবার্তা) — Supabase PostgreSQL Schema & RLS Policies
 -- Execute this script in your Supabase SQL Editor to set up the database tables and security model.
 
 -- ========================================================

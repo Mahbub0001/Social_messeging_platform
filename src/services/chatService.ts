@@ -1005,13 +1005,13 @@ class ChatServiceClass {
       const cleaned = userMsg.toLowerCase().trim();
 
       if (cleaned.includes("help") || cleaned.includes("হ্যালো") || cleaned.includes("hi") || cleaned.includes("hello")) {
-        replyContent = "হ্যালো! আমি কোথাবার্তা বট। আপনাকে কীভাবে সাহায্য করতে পারি? আপনি জানতে চাইতে পারেন:\n\n- 'features': এই প্রজেক্টের প্রধান ফিচারগুলো দেখতে\n- 'developer': ডেভেলপারের তথ্য জানতে\n- 'supa': সুপাবেস কানেকশন সম্পর্কে জানতে";
+        replyContent = "হ্যালো! আমি কথাবার্তা বট। আপনাকে কীভাবে সাহায্য করতে পারি? আপনি জানতে চাইতে পারেন:\n\n- 'features': এই প্রজেক্টের প্রধান ফিচারগুলো দেখতে\n- 'developer': ডেভেলপারের তথ্য জানতে\n- 'supa': সুপাবেস কানেকশন সম্পর্কে জানতে";
       } else if (cleaned.includes("feature") || cleaned.includes("ফিচার")) {
-        replyContent = "কোথাবার্তা অ্যাপের দারুণ ফিচারসমূহ:\n1. 1-to-1 রিয়েল-টাইম চ্যাট\n2. গ্রুপ চ্যাট রুম\n3. ড্র্যাগ অ্যান্ড ড্রপ ফাইল/মিডিয়া শেয়ারিং\n4. অডিও মেসেজ রেকর্ডিং\n5. ইমোজি রিঅ্যাকশন\n6. টাইপিং ইন্ডিকেটর ও রিড রিসিটস\n7. ডার্ক/লাইট থিম ও ফ্রেমার মোশন অ্যানিমেশন।";
+        replyContent = "কথাবার্তা অ্যাপের দারুণ ফিচারসমূহ:\n1. 1-to-1 রিয়েল-টাইম চ্যাট\n2. গ্রুপ চ্যাট রুম\n3. ড্র্যাগ অ্যান্ড ড্রপ ফাইল/মিডিয়া শেয়ারিং\n4. অডিও মেসেজ রেকর্ডিং\n5. ইমোজি রিঅ্যাকশন\n6. টাইপিং ইন্ডিকেটর ও রিড রিসিটস\n7. ডার্ক/লাইট থিম ও ফ্রেমার মোশন অ্যানিমেশন।";
       } else if (cleaned.includes("dev") || cleaned.includes("sajeeb") || cleaned.includes("ডেভেলপার")) {
         replyContent = "এই প্রজেক্টের ডেভেলপার হলেন সজীব রহমান। তিনি একজন ফুল-স্ট্যাক ওয়েব ডেভেলপার যিনি React এবং Supabase ব্যবহার করে স্কেলেবল ওয়েব অ্যাপস তৈরি করেন। তার সাথে চ্যাট করতে সাইডবারের 'Sajeeb Rahman (Developer)' চ্যাটে ক্লিক করুন!";
       } else if (cleaned.includes("supa") || cleaned.includes("supabase")) {
-        replyContent = "কোথাবার্তা ব্যাকএন্ডে Supabase ব্যবহার করে। এটি Supabase Auth (Oauth সহ), Supabase Realtime Channels (মেসেজ এবং টাইপিং ইন্ডিকেটরের জন্য), Supabase Database (RLS পলিসি সহ) এবং Supabase Storage (ফাইল শেয়ারিংয়ের জন্য) নিয়ে গঠিত।";
+        replyContent = "কথাবার্তা ব্যাকএন্ডে Supabase ব্যবহার করে। এটি Supabase Auth (Oauth সহ), Supabase Realtime Channels (মেসেজ এবং টাইপিং ইন্ডিকেটরের জন্য), Supabase Database (RLS পলিসি সহ) এবং Supabase Storage (ফাইল শেয়ারিংয়ের জন্য) নিয়ে গঠিত।";
       }
 
       this.sendMessage("conv-bot", "bot-id", replyContent, null, null, replyToId);

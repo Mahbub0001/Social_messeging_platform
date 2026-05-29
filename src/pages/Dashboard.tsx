@@ -7,7 +7,7 @@ import ProfilePanel from "../components/ProfilePanel";
 import FriendsPanel from "../components/FriendsPanel";
 import GroupModal from "../components/GroupModal";
 import CallScreen from "../components/CallScreen";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 export const Dashboard: React.FC = () => {
   const { user, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations } = useStore();
@@ -57,11 +57,11 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden relative">
       {/* 2-Column Responsive Layout */}
-      <div className="flex h-full w-full relative">
+      <div className="flex h-full w-full relative overflow-hidden">
         {/* Sidebar Container */}
         <div
-          className={`h-full w-full md:w-[320px] shrink-0 transition-transform duration-300 md:translate-x-0 ${
-            activeConversationId ? "hidden md:block" : "block"
+          className={`h-full w-full md:w-[320px] shrink-0 transition-transform duration-300 md:translate-x-0 absolute md:relative z-10 bg-slate-900 ${
+            activeConversationId ? "-translate-x-full md:translate-x-0" : "translate-x-0"
           }`}
         >
           <Sidebar
@@ -73,13 +73,29 @@ export const Dashboard: React.FC = () => {
 
         {/* Chat Area Container */}
         <div
-          className={`h-full flex-1 transition-transform duration-300 ${
-            !activeConversationId ? "hidden md:flex" : "flex"
+          className={`h-full w-full md:w-auto flex-1 transition-transform duration-300 md:translate-x-0 absolute md:relative z-0 bg-slate-950 ${
+            !activeConversationId ? "translate-x-full md:translate-x-0" : "translate-x-0"
           }`}
         >
           <ChatArea onBack={() => setActiveConversationId(null)} />
         </div>
       </div>
+
+      {/* Backdrop for Slide-out Panels */}
+      <AnimatePresence>
+        {(showSettings || showFriends) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.5 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              setShowSettings(false);
+              setShowFriends(false);
+            }}
+            className="absolute inset-0 bg-black/60 z-20 backdrop-blur-xs cursor-pointer"
+          />
+        )}
+      </AnimatePresence>
 
       {/* Slide-out Panels (Settings & Friends) */}
       <AnimatePresence>

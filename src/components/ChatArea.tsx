@@ -20,6 +20,7 @@ import {
   Phone,
   Video,
   Search,
+  ArrowLeft,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -326,7 +327,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
         <div className="w-20 h-20 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-3xl flex items-center justify-center shadow-lg shadow-violet-500/10 mb-6 animate-pulse">
           <MessageSquare className="w-10 h-10 text-white" />
         </div>
-        <h3 className="text-xl font-bold text-slate-200 mb-2 font-sans">কোথাবার্তা চ্যাট রুম</h3>
+        <h3 className="text-xl font-bold text-slate-200 mb-2 font-sans">কথাবার্তা চ্যাট রুম</h3>
         <p className="max-w-xs text-xs text-slate-500 leading-relaxed font-sans">
           Select a chat room from the sidebar or add friends to open a secure direct channel.
         </p>
@@ -401,7 +402,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
               onClick={onBack}
               className="md:hidden p-1.5 -ml-1 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-800 transition-colors"
             >
-              <X className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
 
             {/* Avatar */}
@@ -508,6 +509,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                   {/* Reaction and Action panel on hover */}
                   {hoveredMessageId === msg.id && !isDeleted && (
                     <div
+                      onClick={(e) => e.stopPropagation()}
                       className={cn(
                         "absolute top-[-30px] z-10 flex items-center bg-slate-900 border border-slate-800 rounded-full px-2 py-1 shadow-lg gap-1.5 scale-95 transition-transform",
                         isSelf ? "right-2" : "left-2"
@@ -571,8 +573,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                   {/* Actual text / media bubble */}
                   {msg.media_type === "call" ? (
                     <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHoveredMessageId(hoveredMessageId === msg.id ? null : msg.id);
+                      }}
                       className={cn(
-                        "p-3 rounded-2xl relative shadow-md text-xs leading-relaxed break-words border flex flex-col gap-2 min-w-[200px]",
+                        "p-3 rounded-2xl relative shadow-md text-xs leading-relaxed break-words border flex flex-col gap-2 min-w-[200px] cursor-pointer select-none",
                         isSelf
                           ? "bg-slate-900/90 text-white rounded-tr-none border-violet-500/20 shadow-violet-950/20"
                           : "bg-slate-900/90 text-slate-200 rounded-tl-none border-slate-800/80 shadow-black/40"
@@ -675,7 +681,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                             {/* Call Back Button */}
                             {otherMember && (
                               <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   startCall(otherMember, callInfo.callType, activeChat?.id);
                                 }}
                                 className="w-full mt-1.5 py-1 bg-slate-950/60 hover:bg-slate-950 border border-slate-800 hover:border-slate-700/80 rounded-lg text-[10px] font-semibold text-violet-400 hover:text-violet-300 transition-all flex items-center justify-center gap-1 active:scale-[0.98]"
@@ -703,8 +710,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                     </div>
                   ) : (
                     <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHoveredMessageId(hoveredMessageId === msg.id ? null : msg.id);
+                      }}
                       className={cn(
-                        "px-4 py-2.5 rounded-2xl relative shadow-md text-xs leading-relaxed break-words",
+                        "px-4 py-2.5 rounded-2xl relative shadow-md text-xs leading-relaxed break-words cursor-pointer select-none",
                         isDeleted
                           ? "bg-slate-900/30 text-slate-500 border border-slate-900/50 italic font-sans"
                           : isSelf
@@ -720,15 +731,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                               src={msg.media_url}
                               alt="Attachment"
                               className="object-cover cursor-pointer hover:opacity-90 transition-opacity w-full max-h-[160px]"
-                              onClick={() => window.open(msg.media_url, "_blank")}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(msg.media_url, "_blank");
+                              }}
                             />
                           ) : msg.media_type === "audio" ? (
-                            <audio src={msg.media_url} controls className="w-[180px] h-8 bg-transparent" />
+                            <audio 
+                              src={msg.media_url} 
+                              controls 
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-[180px] h-8 bg-transparent" 
+                            />
                           ) : (
                             <a
                               href={msg.media_url}
                               target="_blank"
                               rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
                               className="flex items-center gap-2 p-2 bg-slate-950/60 rounded border border-slate-800 text-slate-200 hover:underline"
                             >
                               <FileText className="w-4 h-4 text-violet-400 shrink-0" />

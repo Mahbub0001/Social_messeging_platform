@@ -56,7 +56,7 @@ export interface FriendRequest {
 const SEED_PROFILES: Profile[] = [
   {
     id: "bot-id",
-    username: "কোথাবার্তা বট (Kotha Barta Bot)",
+    username: "কথাবার্তা বট (Kotha Barta Bot)",
     avatar_url: "https://api.dicebear.com/7.x/bottts/svg?seed=kothabarta",
     bio: "I am an automated assistant here to guide you through the features of Kotha Barta!",
     is_online: true,
@@ -113,7 +113,7 @@ const getSeedMessages = (_currentUserId: string): Message[] => [
     id: "msg-b1",
     conversation_id: "conv-bot",
     sender_id: "bot-id",
-    content: "Welcome to Kotha Barta (কোথাবার্তা)! 👋",
+    content: "Welcome to Kotha Barta (কথাবার্তা)! 👋",
     is_edited: false,
     created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
   },
