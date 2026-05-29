@@ -1,4 +1,4 @@
-# কথাবার্তা (Kotha Barta) — Premium Real-Time Messaging Platform
+# কথাবার্তা (Kotha Barta) — Premium Real-Time Messaging Platform (https://mahbub-social-messeging-platform.vercel.app/)
 
 [![Vite](https://img.shields.io/badge/Vite-8.0.12-646CFF?logo=vite&logoColor=white&style=flat-square)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-19.2.6-61DAFB?logo=react&logoColor=black&style=flat-square)](https://react.dev/)
