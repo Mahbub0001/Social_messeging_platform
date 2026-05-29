@@ -450,14 +450,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
           {!activeChat.is_group && otherMember && (
             <>
               <button
-                onClick={() => startCall(otherMember, "voice")}
+                onClick={() => startCall(otherMember, "voice", activeChat.id)}
                 title="Voice Call"
                 className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all"
               >
                 <Phone className="w-4.5 h-4.5" />
               </button>
               <button
-                onClick={() => startCall(otherMember, "video")}
+                onClick={() => startCall(otherMember, "video", activeChat.id)}
                 title="Video Call"
                 className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all"
               >
@@ -569,61 +569,195 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                   )}
 
                   {/* Actual text / media bubble */}
-                  <div
-                    className={cn(
-                      "px-4 py-2.5 rounded-2xl relative shadow-md text-xs leading-relaxed break-words",
-                      isDeleted
-                        ? "bg-slate-900/30 text-slate-500 border border-slate-900/50 italic font-sans"
-                        : isSelf
-                        ? "bg-gradient-to-tr from-violet-600 to-indigo-600 text-white rounded-tr-none font-sans"
-                        : "bg-slate-900 text-slate-200 rounded-tl-none font-sans border border-slate-800/80"
-                    )}
-                  >
-                    {/* Media Render */}
-                    {!isDeleted && msg.media_url && (
-                      <div className="mb-2 max-w-[200px] overflow-hidden rounded-lg">
-                        {msg.media_type === "image" ? (
-                          <img
-                            src={msg.media_url}
-                            alt="Attachment"
-                            className="object-cover cursor-pointer hover:opacity-90 transition-opacity w-full max-h-[160px]"
-                            onClick={() => window.open(msg.media_url, "_blank")}
-                          />
-                        ) : msg.media_type === "audio" ? (
-                          <audio src={msg.media_url} controls className="w-[180px] h-8 bg-transparent" />
-                        ) : (
-                          <a
-                            href={msg.media_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-2 p-2 bg-slate-950/60 rounded border border-slate-800 text-slate-200 hover:underline"
-                          >
-                            <FileText className="w-4 h-4 text-violet-400 shrink-0" />
-                            <span className="truncate max-w-[120px] text-2xs">{msg.content}</span>
-                          </a>
+                  {msg.media_type === "call" ? (
+                    <div
+                      className={cn(
+                        "p-3 rounded-2xl relative shadow-md text-xs leading-relaxed break-words border flex flex-col gap-2 min-w-[200px]",
+                        isSelf
+                          ? "bg-slate-900/90 text-white rounded-tr-none border-violet-500/20 shadow-violet-950/20"
+                          : "bg-slate-900/90 text-slate-200 rounded-tl-none border-slate-800/80 shadow-black/40"
+                      )}
+                    >
+                      {/* Call Log Card */}
+                      {(() => {
+                        let callInfo: any = null;
+                        try {
+                          callInfo = JSON.parse(msg.content);
+                        } catch (e) {
+                          return <p>Call log data corrupted</p>;
+                        }
+
+                        const isCallTypeVideo = callInfo.callType === "video";
+                        const isIncoming = callInfo.receiverId === user?.id;
+                        const status = callInfo.status;
+                        const duration = callInfo.duration;
+
+                        // Formatting duration
+                        let durationText = "";
+                        if (status === "completed") {
+                          if (duration < 60) {
+                            durationText = `${duration}s`;
+                          } else {
+                            durationText = `${Math.floor(duration / 60)}m ${duration % 60}s`;
+                          }
+                        }
+
+                        let statusText = "";
+                        let statusColor = "text-slate-400";
+
+                        if (isIncoming) {
+                          if (status === "completed") {
+                            statusText = `Incoming (${durationText})`;
+                            statusColor = "text-emerald-400";
+                          } else if (status === "missed") {
+                            statusText = "Missed Call";
+                            statusColor = "text-red-400";
+                          } else if (status === "declined") {
+                            statusText = "Declined";
+                            statusColor = "text-red-400/80";
+                          }
+                        } else {
+                          // Outgoing
+                          if (status === "completed") {
+                            statusText = `Outgoing (${durationText})`;
+                            statusColor = "text-violet-400";
+                          } else if (status === "missed") {
+                            statusText = "Cancelled";
+                            statusColor = "text-slate-400";
+                          } else if (status === "declined") {
+                            statusText = "No Answer";
+                            statusColor = "text-slate-400";
+                          }
+                        }
+
+                        return (
+                          <>
+                            <div className="flex items-center gap-3">
+                              {/* Call Type Icon with Badge */}
+                              <div className="relative p-2.5 bg-slate-950/80 border border-slate-800 rounded-xl flex items-center justify-center shrink-0">
+                                {isCallTypeVideo ? (
+                                  <Video className="w-5 h-5 text-slate-200" />
+                                ) : (
+                                  <Phone className="w-5 h-5 text-slate-200" />
+                                )}
+                                
+                                {/* Arrow Overlay */}
+                                <div className="absolute -bottom-1 -right-1 bg-slate-950 p-0.5 rounded-full border border-slate-900 flex items-center justify-center">
+                                  {isIncoming ? (
+                                    status === "completed" ? (
+                                      <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 5L5 19M5 19h10M5 19V9" />
+                                      </svg>
+                                    ) : (
+                                      <svg className="w-2.5 h-2.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 5L5 19M5 19h10M5 19V9" />
+                                      </svg>
+                                    )
+                                  ) : (
+                                    <svg className="w-2.5 h-2.5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 19L19 5M19 5H9M19 5v10" />
+                                    </svg>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Title and Subtitle details */}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-xs font-semibold text-slate-100 truncate">
+                                  {isCallTypeVideo ? "Video Call" : "Voice Call"}
+                                </h4>
+                                <p className={cn("text-[10px] font-medium tracking-wide mt-0.5", statusColor)}>
+                                  {statusText}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Call Back Button */}
+                            {otherMember && (
+                              <button
+                                onClick={() => {
+                                  startCall(otherMember, callInfo.callType, activeChat?.id);
+                                }}
+                                className="w-full mt-1.5 py-1 bg-slate-950/60 hover:bg-slate-950 border border-slate-800 hover:border-slate-700/80 rounded-lg text-[10px] font-semibold text-violet-400 hover:text-violet-300 transition-all flex items-center justify-center gap-1 active:scale-[0.98]"
+                              >
+                                {isCallTypeVideo ? <Video className="w-3 h-3" /> : <Phone className="w-3 h-3" />}
+                                <span>Call Back</span>
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
+
+                      {/* Footer time stamp */}
+                      <div className="flex items-center justify-end gap-1.5 text-[9px] text-slate-500/80 mt-0.5 select-none font-mono">
+                        <span>
+                          {new Date(msg.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        {isSelf && (
+                          <CheckCheck className="w-3.5 h-3.5 text-violet-500/50" />
                         )}
                       </div>
-                    )}
-
-                    {/* Text Body */}
-                    {!(msg.media_url && msg.media_type !== "image") && (
-                      <p className={cn(isDeleted && "italic")}>{msg.content}</p>
-                    )}
-
-                    {/* Footer stats: Edit tag + time + check receipts */}
-                    <div className="flex items-center justify-end gap-1.5 mt-1 select-none text-[9px] text-slate-400/80">
-                      {msg.is_edited && !isDeleted && <span>edited</span>}
-                      <span>
-                        {new Date(msg.created_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      {isSelf && (
-                        <CheckCheck className="w-3.5 h-3.5 text-violet-300" />
-                      )}
                     </div>
-                  </div>
+                  ) : (
+                    <div
+                      className={cn(
+                        "px-4 py-2.5 rounded-2xl relative shadow-md text-xs leading-relaxed break-words",
+                        isDeleted
+                          ? "bg-slate-900/30 text-slate-500 border border-slate-900/50 italic font-sans"
+                          : isSelf
+                          ? "bg-gradient-to-tr from-violet-600 to-indigo-600 text-white rounded-tr-none font-sans"
+                          : "bg-slate-900 text-slate-200 rounded-tl-none font-sans border border-slate-800/80"
+                      )}
+                    >
+                      {/* Media Render */}
+                      {!isDeleted && msg.media_url && (
+                        <div className="mb-2 max-w-[200px] overflow-hidden rounded-lg">
+                          {msg.media_type === "image" ? (
+                            <img
+                              src={msg.media_url}
+                              alt="Attachment"
+                              className="object-cover cursor-pointer hover:opacity-90 transition-opacity w-full max-h-[160px]"
+                              onClick={() => window.open(msg.media_url, "_blank")}
+                            />
+                          ) : msg.media_type === "audio" ? (
+                            <audio src={msg.media_url} controls className="w-[180px] h-8 bg-transparent" />
+                          ) : (
+                            <a
+                              href={msg.media_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-2 p-2 bg-slate-950/60 rounded border border-slate-800 text-slate-200 hover:underline"
+                            >
+                              <FileText className="w-4 h-4 text-violet-400 shrink-0" />
+                              <span className="truncate max-w-[120px] text-2xs">{msg.content}</span>
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Text Body */}
+                      {!(msg.media_url && msg.media_type !== "image") && (
+                        <p className={cn(isDeleted && "italic")}>{msg.content}</p>
+                      )}
+
+                      {/* Footer stats: Edit tag + time + check receipts */}
+                      <div className="flex items-center justify-end gap-1.5 mt-1 select-none text-[9px] text-slate-400/80">
+                        {msg.is_edited && !isDeleted && <span>edited</span>}
+                        <span>
+                          {new Date(msg.created_at).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        {isSelf && (
+                          <CheckCheck className="w-3.5 h-3.5 text-violet-300" />
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Reactions list */}

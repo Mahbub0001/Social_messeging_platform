@@ -403,7 +403,7 @@ class ChatServiceClass {
     senderId: string,
     content: string,
     mediaUrl: string | null = null,
-    mediaType: "image" | "file" | "audio" | null = null,
+    mediaType: "image" | "file" | "audio" | "call" | null = null,
     replyToMessageId: string | null = null
   ): Promise<{ data: MessageWithSender | null; error: any }> {
     if (isMockMode) {

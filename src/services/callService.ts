@@ -12,6 +12,12 @@ class CallServiceClass {
   private callId: string | null = null;
   private partnerId: string | null = null;
 
+  // Logging & metadata tracking
+  private conversationId: string | null = null;
+  private receiverName: string | null = null;
+  private callConnectedTime: number | null = null;
+  private hasLoggedCurrentCall = false;
+
   private iceServers = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
@@ -43,12 +49,16 @@ class CallServiceClass {
     this.endCall();
   }
 
-  public async startCall(partner: Profile, type: "voice" | "video") {
+  public async startCall(partner: Profile, type: "voice" | "video", conversationId?: string) {
     const myUser = useStore.getState().user;
     if (!myUser) return;
 
     this.callId = `call-${Math.random().toString(36).substr(2, 9)}`;
     this.partnerId = partner.id;
+    this.receiverName = partner.username;
+    this.conversationId = conversationId || null;
+    this.callConnectedTime = null;
+    this.hasLoggedCurrentCall = false;
 
     // Set local store state
     useStore.setState({
@@ -153,6 +163,7 @@ class CallServiceClass {
     if (!myUser || !this.callId || !this.partnerId) return;
 
     if (isMockMode) {
+      this.callConnectedTime = Date.now();
       useStore.setState({ callState: "active" });
       return;
     }
@@ -248,6 +259,7 @@ class CallServiceClass {
       });
     }
 
+    this.createCallLog("missed");
     this.resetCallState();
   }
 
@@ -261,6 +273,7 @@ class CallServiceClass {
   private handleReject(payload: { callId: string; reason: string }) {
     if (payload.callId === this.callId) {
       audioSynthesizer.playDisconnectChime();
+      this.createCallLog("declined");
       this.resetCallState();
       if (payload.reason === "busy") {
         alert("The user is busy on another call.");
@@ -275,6 +288,7 @@ class CallServiceClass {
     audioSynthesizer.playConnectChime();
 
     useStore.setState({ callState: "active" });
+    this.callConnectedTime = Date.now();
 
     // Setup peer connection
     await this.setupPeerConnection();
@@ -316,6 +330,7 @@ class CallServiceClass {
 
     if (payload.end) {
       audioSynthesizer.playDisconnectChime();
+      this.createCallLog("completed");
       this.resetCallState();
       return;
     }
@@ -389,6 +404,7 @@ class CallServiceClass {
 
   public endCall() {
     if (isMockMode) {
+      this.createCallLog("completed");
       this.resetCallState();
       return;
     }
@@ -397,7 +413,72 @@ class CallServiceClass {
       this.sendSignalingMessage({ end: true });
     }
 
+    this.createCallLog("completed");
     this.resetCallState();
+  }
+
+  private async createCallLog(status: "completed" | "missed" | "declined") {
+    if (this.hasLoggedCurrentCall || !this.callId || !this.partnerId) return;
+    this.hasLoggedCurrentCall = true;
+
+    const myUser = useStore.getState().user;
+    if (!myUser) return;
+
+    let duration = 0;
+    if (status === "completed" && this.callConnectedTime) {
+      duration = Math.floor((Date.now() - this.callConnectedTime) / 1000);
+    }
+
+    const payload = {
+      callType: useStore.getState().callType || "voice",
+      status,
+      duration,
+      callerId: myUser.id,
+      callerName: myUser.user_metadata?.username || myUser.email.split("@")[0],
+      receiverId: this.partnerId,
+      receiverName: this.receiverName || "User",
+    };
+
+    let conversationId = this.conversationId;
+    if (!conversationId) {
+      // Find direct conversation in local store
+      const conversations = useStore.getState().conversations;
+      const directConv = conversations.find(
+        (c) =>
+          c.is_group === false &&
+          c.members &&
+          c.members.some((m: any) => m.profile_id === this.partnerId)
+      );
+      if (directConv) {
+        conversationId = directConv.id;
+      } else {
+        // Fallback: create direct conversation
+        try {
+          const { chatService } = await import("./chatService");
+          const { data } = await chatService.createConversation([myUser.id, this.partnerId], null, false);
+          if (data) {
+            conversationId = data.id;
+          }
+        } catch (e) {
+          console.error("Failed to auto-create conversation for call log:", e);
+        }
+      }
+    }
+
+    if (conversationId) {
+      try {
+        const { chatService } = await import("./chatService");
+        await chatService.sendMessage(
+          conversationId,
+          myUser.id,
+          JSON.stringify(payload),
+          null,
+          "call"
+        );
+      } catch (err) {
+        console.error("Failed to save call log message:", err);
+      }
+    }
   }
 
   private resetCallState() {
@@ -420,6 +501,10 @@ class CallServiceClass {
 
     this.callId = null;
     this.partnerId = null;
+    this.conversationId = null;
+    this.receiverName = null;
+    this.callConnectedTime = null;
+    this.hasLoggedCurrentCall = false;
 
     useStore.setState({
       callState: "idle",
@@ -449,3 +534,4 @@ class CallServiceClass {
 
 export const callService = new CallServiceClass();
 export default callService;
+

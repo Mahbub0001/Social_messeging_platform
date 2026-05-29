@@ -43,7 +43,7 @@ create table if not exists public.messages (
   sender_id uuid references public.profiles(id) on delete cascade not null,
   content text,
   media_url text,
-  media_type text check (media_type in ('image', 'file', 'audio')),
+  media_type text check (media_type in ('image', 'file', 'audio', 'call')),
   reply_to_message_id uuid references public.messages(id) on delete set null,
   is_edited boolean default false not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
@@ -353,3 +353,10 @@ create policy "Allow public select from chat-media" on storage.objects
 -- Create policy to allow authenticated users to upload files to the chat-media bucket
 create policy "Allow authenticated insert to chat-media" on storage.objects
   for insert with check (bucket_id = 'chat-media' and auth.role() = 'authenticated');
+
+
+DROP POLICY IF EXISTS "authenticated can receive broadcasts" ON "realtime"."messages";
+CREATE POLICY "authenticated can receive broadcasts"
+ON "realtime"."messages"
+FOR SELECT TO authenticated
+USING (true);
