@@ -17,6 +17,7 @@ type AuthCallback = (session: UserSession | null) => void;
 class AuthServiceClass {
   private authListeners: Set<AuthCallback> = new Set();
   private currentSession: UserSession | null = null;
+  private isInitialized = false;
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -42,17 +43,23 @@ class AuthServiceClass {
         // Seed mock database for this user
         mockDb.init(profile.id, profile.username);
       }
+      this.isInitialized = true;
+      this.notifyListeners();
     } else {
       // Supabase session listener
       supabase.auth.getSession().then(({ data: { session } }: any) => {
         if (session) {
           this.currentSession = { user: session.user };
+        }
+        if (!this.isInitialized) {
+          this.isInitialized = true;
           this.notifyListeners();
         }
       });
 
       supabase.auth.onAuthStateChange((_event: any, session: any) => {
         this.currentSession = session ? { user: session.user } : null;
+        this.isInitialized = true;
         this.notifyListeners();
       });
     }
@@ -64,8 +71,10 @@ class AuthServiceClass {
 
   public onAuthStateChange(callback: AuthCallback) {
     this.authListeners.add(callback);
-    // Execute immediately with current state
-    callback(this.currentSession);
+    // Execute immediately only if initialized
+    if (this.isInitialized) {
+      callback(this.currentSession);
+    }
     return () => {
       this.authListeners.delete(callback);
     };
@@ -178,6 +187,52 @@ class AuthServiceClass {
     }
   }
 
+  public async signInWithOAuth(provider: "google" | "github"): Promise<{ data: any; error: any }> {
+    if (isMockMode) {
+      // Mock OAuth Login Flow
+      const mockUsername = `${provider === "google" ? "Google" : "GitHub"} User`;
+      const cleanUsername = mockUsername.trim();
+      const mockEmail = `${provider}_${Math.random().toString(36).substr(2, 5)}@example.com`;
+      const mockUserId = `oauth-${provider}-${Math.random().toString(36).substr(2, 9)}`;
+
+      const newProfile: Profile = {
+        id: mockUserId,
+        username: cleanUsername,
+        avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(cleanUsername)}`,
+        bio: `Logged in via mock ${provider} OAuth.`,
+        is_online: true,
+        last_seen: new Date().toISOString(),
+      };
+
+      const profiles = mockDb.getProfiles();
+      profiles.push(newProfile);
+      mockDb.saveProfiles(profiles);
+
+      mockDb.init(mockUserId, cleanUsername);
+
+      this.currentSession = {
+        user: {
+          id: mockUserId,
+          email: mockEmail,
+          user_metadata: { username: cleanUsername },
+        },
+      };
+
+      localStorage.setItem("kb_mock_user", JSON.stringify(newProfile));
+      this.notifyListeners();
+
+      return { data: this.currentSession, error: null };
+    } else {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+      return { data, error };
+    }
+  }
+
   public async signOut(): Promise<{ error: any }> {
     if (isMockMode) {
       const savedUser = localStorage.getItem("kb_mock_user");
@@ -204,6 +259,17 @@ class AuthServiceClass {
   public async updateProfile(userId: string, data: { username?: string; bio?: string; avatar_url?: string }): Promise<{ data: any; error: any }> {
     if (isMockMode) {
       const profiles = mockDb.getProfiles();
+
+      // Check if username is already taken by another user
+      if (data.username) {
+        const usernameExists = profiles.some(
+          (p) => p.id !== userId && p.username.toLowerCase() === data.username!.toLowerCase()
+        );
+        if (usernameExists) {
+          return { data: null, error: { message: "This username is already taken. Please choose a different one." } };
+        }
+      }
+
       const profileIndex = profiles.findIndex((p) => p.id === userId);
       if (profileIndex === -1) {
         return { data: null, error: { message: "Profile not found." } };
@@ -243,6 +309,13 @@ class AuthServiceClass {
         .eq("id", userId)
         .select()
         .single();
+      
+      if (error) {
+        if (error.code === "23505") {
+          return { data: null, error: { message: "This username is already taken. Please choose a different one." } };
+        }
+        return { data: null, error };
+      }
       return { data: updatedData, error };
     }
   }
