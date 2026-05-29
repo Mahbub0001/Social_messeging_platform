@@ -46,6 +46,10 @@ interface AppState {
   receiveCall: (partner: Profile, type: "voice" | "video") => void;
   acceptCall: () => void;
   endCall: () => void;
+
+  // Theme state
+  theme: "light" | "dark";
+  toggleTheme: () => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -227,4 +231,15 @@ export const useStore = create<AppState>((set, get) => ({
   // Presence initial state
   onlineUsers: [],
   setOnlineUsers: (onlineUsers) => set({ onlineUsers }),
+
+  // Theme initial state
+  theme: (typeof window !== "undefined" && localStorage.getItem("kb_theme") === "light") ? "light" : "dark",
+
+  toggleTheme: () => {
+    const nextTheme = get().theme === "dark" ? "light" : "dark";
+    set({ theme: nextTheme });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("kb_theme", nextTheme);
+    }
+  },
 }));
