@@ -196,4 +196,3 @@ Mahbub Ul Alam Bhuiyan
 
 ---
 
-Would you like me to add a demo GIF, a CONTRIBUTING guide, or commit-ready `start` and `lint` scripts to `package.json`? 
