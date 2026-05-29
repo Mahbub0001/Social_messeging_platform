@@ -33,28 +33,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onlineUsers,
     typingUsers,
     conversationsLoading,
+    theme,
+    toggleTheme,
   } = useStore();
-
-  const [theme, setTheme] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("kb_theme") || "dark";
-    }
-    return "dark";
-  });
-
-  React.useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === "light") {
-      root.classList.add("light");
-    } else {
-      root.classList.remove("light");
-    }
-    localStorage.setItem("kb_theme", theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  };
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "direct" | "groups">("all");

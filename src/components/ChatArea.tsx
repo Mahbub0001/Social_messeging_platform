@@ -271,6 +271,54 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
+  // Reaction Click Handler (WhatsApp-style: single active reaction per user per message)
+  const handleReactionClick = async (messageId: string, emoji: string, hasReacted: boolean) => {
+    if (!user?.id || !activeConversationId) return;
+
+    const chatMessages = messages[activeConversationId] || [];
+    const msg = chatMessages.find((m) => m.id === messageId);
+    if (!msg) return;
+
+    // 1. Optimistic Update in UI State
+    const currentReactions = { ...msg.reactions };
+    
+    // Clear any reaction by this user across ALL emojis (WhatsApp-style single reaction)
+    Object.keys(currentReactions).forEach((key) => {
+      currentReactions[key] = (currentReactions[key] || []).filter((uid) => uid !== user.id);
+      if (currentReactions[key].length === 0) {
+        delete currentReactions[key];
+      }
+    });
+
+    // If they clicked a reaction they didn't have, add it
+    if (!hasReacted) {
+      if (!currentReactions[emoji]) {
+        currentReactions[emoji] = [];
+      }
+      if (!currentReactions[emoji].includes(user.id)) {
+        currentReactions[emoji].push(user.id);
+      }
+    }
+
+    const updatedMsg = {
+      ...msg,
+      reactions: currentReactions,
+    };
+    
+    updateMessageInStore(activeConversationId, updatedMsg);
+
+    // 2. Call backend service to persist
+    try {
+      if (hasReacted) {
+        await chatService.removeReaction(messageId, user.id, emoji);
+      } else {
+        await chatService.addReaction(messageId, user.id, emoji);
+      }
+    } catch (err) {
+      console.error("Failed to persist reaction:", err);
+    }
+  };
+
   // Chat Metadata
   if (!activeChat) {
     return (
@@ -471,11 +519,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                         return (
                           <button
                             key={emoji}
-                            onClick={() =>
-                              hasReacted
-                                ? chatService.removeReaction(msg.id, user!.id, emoji)
-                                : chatService.addReaction(msg.id, user!.id, emoji)
-                            }
+                            onClick={() => handleReactionClick(msg.id, emoji, hasReacted)}
                             className={cn(
                               "text-xs hover:scale-125 transition-transform p-0.5 rounded",
                               hasReacted && "bg-slate-800"
@@ -591,11 +635,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                       return (
                         <button
                           key={emoji}
-                          onClick={() =>
-                            userHasReacted
-                              ? chatService.removeReaction(msg.id, user!.id, emoji)
-                              : chatService.addReaction(msg.id, user!.id, emoji)
-                          }
+                          onClick={() => handleReactionClick(msg.id, emoji, userHasReacted)}
                           className={cn(
                             "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-2xs bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors shadow",
                             userHasReacted && "border-violet-500/40 bg-violet-950/10 text-violet-300"
