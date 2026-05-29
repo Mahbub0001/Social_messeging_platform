@@ -223,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 previewText = isSelf ? "You sent a voice message" : "Sent a voice message";
               } else if (msg.media_type === "file") {
                 previewText = isSelf ? "You sent a document" : "Sent a document";
-              } else if (msg.media_type === "call") {
+              } else if (msg.media_type === "call" || (msg.content && msg.content.startsWith('{"callType":'))) {
                 try {
                   const callInfo = JSON.parse(msg.content);
                   previewText = callInfo.callType === "video" ? "🎥 Video Call" : "📞 Voice Call";

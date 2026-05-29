@@ -68,41 +68,25 @@ export const useStore = create<AppState>((set, get) => ({
   remoteStream: null,
 
   startCall: async (partner, type, conversationId) => {
-    const { isMockMode } = await import("../lib/supabase");
-    if (isMockMode) {
-      set({ callState: "dialing", callPartner: partner, callType: type });
-    } else {
-      const { callService } = await import("../services/callService");
-      callService.startCall(partner, type, conversationId);
-    }
+    const { callService } = await import("../services/callService");
+    callService.startCall(partner, type, conversationId);
   },
   receiveCall: (partner, type) => set({ callState: "receiving", callPartner: partner, callType: type }),
   acceptCall: async () => {
-    const { isMockMode } = await import("../lib/supabase");
-    if (isMockMode) {
-      set({ callState: "active" });
-    } else {
-      const { callService } = await import("../services/callService");
-      callService.acceptCall();
-    }
+    const { callService } = await import("../services/callService");
+    callService.acceptCall();
   },
   endCall: async () => {
-    const { isMockMode } = await import("../lib/supabase");
-    if (isMockMode) {
-      set({ callState: "idle", callPartner: null, callType: null });
-    } else {
-      const { callService } = await import("../services/callService");
-      const state = get().callState;
-      if (state === "dialing") {
-        callService.cancelCall();
-      } else if (state === "receiving") {
-        callService.rejectCall();
-      } else if (state === "active") {
-        callService.endCall();
-      }
+    const { callService } = await import("../services/callService");
+    const state = get().callState;
+    if (state === "dialing") {
+      callService.cancelCall();
+    } else if (state === "receiving") {
+      callService.rejectCall();
+    } else if (state === "active") {
+      callService.endCall();
     }
   },
-
   setSession: (session) =>
     set({
       session,
