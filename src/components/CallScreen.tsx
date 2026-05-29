@@ -160,7 +160,7 @@ export const CallScreen: React.FC = () => {
 
       {/* Real WebRTC video containers */}
       {!isMockMode && callState === "active" && (
-        <div className="relative w-full max-w-lg aspect-video bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden mb-10 shadow-2xl flex items-center justify-center">
+        <div className="relative w-full max-w-xs sm:max-w-lg aspect-[3/4] sm:aspect-video bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden mb-8 shadow-2xl flex items-center justify-center">
           {/* Remote Video / Audio Feed */}
           {callType === "video" ? (
             <video
@@ -185,7 +185,7 @@ export const CallScreen: React.FC = () => {
 
           {/* Local PIP Video overlay */}
           {callType === "video" && (
-            <div className="absolute bottom-3 right-3 w-32 aspect-video bg-slate-950 border border-slate-700/50 rounded-xl overflow-hidden shadow-lg z-20 flex items-center justify-center">
+            <div className="absolute bottom-3 right-3 w-20 sm:w-32 aspect-[3/4] sm:aspect-video bg-slate-950 border border-slate-700/50 rounded-xl overflow-hidden shadow-lg z-20 flex items-center justify-center">
               {camMuted ? (
                 <div className="text-slate-500 text-[10px] flex flex-col items-center">
                   <VideoOff className="w-4 h-4 mb-0.5" />
@@ -207,7 +207,7 @@ export const CallScreen: React.FC = () => {
 
       {/* Simulated camera screen overlay for Video Calls in Mock Mode */}
       {isMockMode && callType === "video" && callState === "active" && (
-        <div className="w-72 h-44 bg-slate-900 border border-slate-800 rounded-2xl relative overflow-hidden mb-10 shadow-inner flex items-center justify-center">
+        <div className="w-full max-w-xs sm:w-72 h-80 sm:h-44 bg-slate-900 border border-slate-800 rounded-2xl relative overflow-hidden mb-8 shadow-inner flex items-center justify-center">
           {camMuted ? (
             <div className="text-slate-500 flex flex-col items-center gap-1">
               <VideoOff className="w-6 h-6" />
