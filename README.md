@@ -143,6 +143,50 @@ flowchart TB
 - To simulate two peers for calls, open the app in two different browsers or one normal + one incognito window.
 - Logs for call signaling are routed through Supabase channels — see `src/services/callService.ts` for channel names and message structure.
 
+---
+
+## Demo & Screencast
+
+Add a short demo GIF or screencast to the repository to showcase the app (recommended path: `public/demo.gif` or `public/demo.webm`). Below are concise recording, conversion, and embedding instructions.
+
+Recording (recommended tools):
+
+- Windows: ScreenToGif (lightweight) or OBS Studio
+- macOS: QuickTime (record) + `ffmpeg` to convert
+- Linux: OBS Studio or `ffmpeg` screen capture
+
+Convert/resize and optimize (using `ffmpeg` + `gifsicle`):
+
+```bash
+# Convert MP4 to GIF (reasonable size)
+ffmpeg -i demo.mp4 -vf "fps=15,scale=640:-1:flags=lanczos" -y public/demo.gif
+
+# OR create a small WebM (better quality & size)
+ffmpeg -i demo.mp4 -vf "scale=640:-1" -c:v libvpx-vp9 -crf 30 -b:v 0 -y public/demo.webm
+
+# (Optional) Optimize GIF with gifsicle
+#gifsicle -O3 public/demo.gif -o public/demo.gif
+```
+
+Embedding the GIF in this README (example):
+
+```md
+![App Demo](public/demo.gif)
+```
+
+Prefer a `webm` or short `mp4` for better compression when possible — embed with HTML to provide autoplay & loop fallback:
+
+```html
+<video src="/public/demo.webm" autoplay loop muted playsinline style="max-width:640px;">
+  <img src="/public/demo.gif" alt="App demo" />
+</video>
+```
+
+Notes:
+
+- Keep the demo under 3–5 seconds for GIFs to limit repo size. Use WebM for longer demos. 
+- Add `public/demo.gif` (or `.webm`) to `.gitignore` if you prefer not to commit large binaries; instead host on GitHub Releases or an image CDN and link to it.
+
 ## Author
 
 Mahbub Ul Alam Bhuiyan
