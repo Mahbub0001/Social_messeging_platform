@@ -44,7 +44,7 @@ interface AppState {
   callPartner: Profile | null;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
-  startCall: (partner: Profile, type: "voice" | "video") => void;
+  startCall: (partner: Profile, type: "voice" | "video", conversationId?: string) => void;
   receiveCall: (partner: Profile, type: "voice" | "video") => void;
   acceptCall: () => void;
   endCall: () => void;
@@ -67,13 +67,13 @@ export const useStore = create<AppState>((set, get) => ({
   localStream: null,
   remoteStream: null,
 
-  startCall: async (partner, type) => {
+  startCall: async (partner, type, conversationId) => {
     const { isMockMode } = await import("../lib/supabase");
     if (isMockMode) {
       set({ callState: "dialing", callPartner: partner, callType: type });
     } else {
       const { callService } = await import("../services/callService");
-      callService.startCall(partner, type);
+      callService.startCall(partner, type, conversationId);
     }
   },
   receiveCall: (partner, type) => set({ callState: "receiving", callPartner: partner, callType: type }),
