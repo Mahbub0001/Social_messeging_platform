@@ -544,16 +544,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
 
                       {isSelf && (
                         <>
-                          <button
-                            onClick={() => {
-                              setEditingMessage(msg);
-                              setInputText(msg.content);
-                            }}
-                            title="Edit"
-                            className="text-slate-400 hover:text-slate-200 transition-colors p-0.5"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+                          {!(msg.media_type === "call" || (msg.content && msg.content.startsWith('{"callType":'))) && (
+                            <button
+                              onClick={() => {
+                                setEditingMessage(msg);
+                                setInputText(msg.content);
+                              }}
+                              title="Edit"
+                              className="text-slate-400 hover:text-slate-200 transition-colors p-0.5"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               if (window.confirm("Delete this message for everyone?")) {
@@ -571,7 +573,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                   )}
 
                   {/* Actual text / media bubble */}
-                  {msg.media_type === "call" ? (
+                  {msg.media_type === "call" || (msg.content && msg.content.startsWith('{"callType":')) ? (
                     <div
                       onClick={(e) => {
                         e.stopPropagation();

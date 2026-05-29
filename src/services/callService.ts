@@ -447,7 +447,7 @@ class CallServiceClass {
         (c) =>
           c.is_group === false &&
           c.members &&
-          c.members.some((m: any) => m.profile_id === this.partnerId)
+          c.members.some((m: any) => m.id === this.partnerId)
       );
       if (directConv) {
         conversationId = directConv.id;
@@ -473,7 +473,7 @@ class CallServiceClass {
           myUser.id,
           JSON.stringify(payload),
           null,
-          "call"
+          null
         );
       } catch (err) {
         console.error("Failed to save call log message:", err);
