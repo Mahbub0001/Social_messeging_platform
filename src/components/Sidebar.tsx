@@ -13,6 +13,7 @@ import {
   Moon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { sanitizeUrl } from "../utils/security";
 
 interface SidebarProps {
   onToggleSettings: () => void;
@@ -258,7 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Avatar and status indicator */}
                 <div className="relative shrink-0 select-none">
                   <img
-                    src={avatar}
+                    src={sanitizeUrl(avatar)}
                     alt={title || "Chat avatar"}
                     className="w-11 h-11 rounded-full object-cover bg-slate-800 border border-slate-700/60"
                   />

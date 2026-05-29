@@ -23,6 +23,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { sanitizeUrl } from "../utils/security";
 
 interface ChatAreaProps {
   onBack: () => void; // Mobile back button
@@ -407,7 +408,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
 
             {/* Avatar */}
             <div className="relative select-none">
-              <img src={avatar} alt={title || "Chat avatar"} className="w-10 h-10 rounded-full object-cover" />
+              <img src={sanitizeUrl(avatar)} alt={title || "Chat avatar"} className="w-10 h-10 rounded-full object-cover" />
               {isOnline && (
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></div>
               )}
@@ -730,24 +731,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                         <div className="mb-2 max-w-[200px] overflow-hidden rounded-lg">
                           {msg.media_type === "image" ? (
                             <img
-                              src={msg.media_url}
+                              src={sanitizeUrl(msg.media_url)}
                               alt="Attachment"
                               className="object-cover cursor-pointer hover:opacity-90 transition-opacity w-full max-h-[160px]"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open(msg.media_url, "_blank");
+                                window.open(sanitizeUrl(msg.media_url), "_blank");
                               }}
                             />
                           ) : msg.media_type === "audio" ? (
                             <audio 
-                              src={msg.media_url} 
+                              src={sanitizeUrl(msg.media_url)} 
                               controls 
                               onClick={(e) => e.stopPropagation()}
                               className="w-[180px] h-8 bg-transparent" 
                             />
                           ) : (
                             <a
-                              href={msg.media_url}
+                              href={sanitizeUrl(msg.media_url)}
                               target="_blank"
                               rel="noreferrer"
                               onClick={(e) => e.stopPropagation()}
