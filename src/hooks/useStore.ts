@@ -38,6 +38,12 @@ interface AppState {
   onlineUsers: string[]; // array of userIds
   setOnlineUsers: (userIds: string[]) => void;
 
+  // Blocking state
+  blockedUsers: string[]; // array of blocked user_ids
+  fetchBlockedUsers: (userId: string) => Promise<void>;
+  blockUser: (blockerId: string, blockedId: string) => Promise<void>;
+  unblockUser: (blockerId: string, blockedId: string) => Promise<void>;
+
   // Calling state
   callState: "idle" | "dialing" | "receiving" | "active";
   callType: "voice" | "video" | null;
@@ -107,6 +113,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (session?.user) {
         // Fetch conversations once logged in
         get().fetchConversations();
+        get().fetchBlockedUsers(session.user.id);
 
         // Initialize WebRTC signaling listener
         const { isMockMode } = await import("../lib/supabase");
@@ -264,6 +271,23 @@ export const useStore = create<AppState>((set, get) => ({
   // Presence initial state
   onlineUsers: [],
   setOnlineUsers: (onlineUsers) => set({ onlineUsers }),
+
+  blockedUsers: [],
+  fetchBlockedUsers: async (userId) => {
+    const { blockService } = await import("../services/blockService");
+    const { data } = await blockService.getBlockedUsers(userId);
+    set({ blockedUsers: data || [] });
+  },
+  blockUser: async (blockerId, blockedId) => {
+    const { blockService } = await import("../services/blockService");
+    await blockService.blockUser(blockerId, blockedId);
+    set((state) => ({ blockedUsers: [...state.blockedUsers, blockedId] }));
+  },
+  unblockUser: async (blockerId, blockedId) => {
+    const { blockService } = await import("../services/blockService");
+    await blockService.unblockUser(blockerId, blockedId);
+    set((state) => ({ blockedUsers: state.blockedUsers.filter(id => id !== blockedId) }));
+  },
 
   // Theme initial state
   theme: (typeof window !== "undefined" && localStorage.getItem("kb_theme") === "light") ? "light" : "dark",

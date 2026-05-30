@@ -21,9 +21,12 @@ import {
   Video,
   Search,
   ArrowLeft,
+  Settings,
+  Ban,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { sanitizeUrl } from "../utils/security";
+import { GroupSettingsModal } from "./GroupSettingsModal";
 
 interface ChatAreaProps {
   onBack: () => void; // Mobile back button
@@ -42,10 +45,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
     onlineUsers,
     typingUsers,
     startCall,
+    blockedUsers,
+    blockUser,
+    unblockUser,
   } = useStore();
 
   const [showSearchInput, setShowSearchInput] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
+  const [showGroupSettings, setShowGroupSettings] = useState(false);
 
   const activeChat = conversations.find((c) => c.id === activeConversationId);
 
@@ -345,7 +352,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
   const isOnline = !activeChat.is_group && otherMember && onlineUsers.includes(otherMember.id);
   const activeMessages = messages[activeChat.id] || [];
 
+  const amIBlockingPartner = !activeChat.is_group && otherMember && blockedUsers.includes(otherMember.id);
+
   const filteredMessages = activeMessages.filter((msg) => {
+    if (amIBlockingPartner && msg.sender_id !== user?.id) return false;
     if (!messageSearchQuery.trim()) return true;
     return msg.content.toLowerCase().includes(messageSearchQuery.toLowerCase());
   });
@@ -354,6 +364,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
   const typingList = typingUsers[activeChat.id] || [];
   const otherTypingList = typingList.filter((uid) => uid !== user?.id);
   const isTyping = otherTypingList.length > 0;
+
+  const handleToggleBlock = async () => {
+    if (!user || !otherMember) return;
+    if (amIBlockingPartner) {
+      await unblockUser(user.id, otherMember.id);
+    } else {
+      if (window.confirm(`Are you sure you want to block ${otherMember.username}?`)) {
+        await blockUser(user.id, otherMember.id);
+      }
+    }
+  };
   
   return (
     <div
@@ -454,21 +475,47 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
               <button
                 onClick={() => startCall(otherMember, "voice", activeChat.id)}
                 title="Voice Call"
-                className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all"
+                disabled={amIBlockingPartner}
+                className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Phone className="w-4.5 h-4.5" />
               </button>
               <button
                 onClick={() => startCall(otherMember, "video", activeChat.id)}
                 title="Video Call"
-                className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all"
+                disabled={amIBlockingPartner}
+                className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Video className="w-4.5 h-4.5" />
               </button>
+              <button
+                onClick={handleToggleBlock}
+                title={amIBlockingPartner ? "Unblock User" : "Block User"}
+                className={`p-2 rounded-xl transition-all ${amIBlockingPartner ? "text-red-400 bg-red-950/40 hover:bg-red-900/50" : "text-slate-400 hover:text-red-400 hover:bg-slate-800/80"}`}
+              >
+                <Ban className="w-4.5 h-4.5" />
+              </button>
             </>
+          )}
+
+          {activeChat.is_group && (
+            <button
+              onClick={() => setShowGroupSettings(true)}
+              title="Group Settings"
+              className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all"
+            >
+              <Settings className="w-4.5 h-4.5" />
+            </button>
           )}
         </div>
       </div>
+
+      {showGroupSettings && activeChat.is_group && (
+        <GroupSettingsModal
+          conversationId={activeChat.id}
+          onClose={() => setShowGroupSettings(false)}
+        />
+      )}
 
       {/* Message Feed */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
@@ -865,7 +912,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
         </div>
       )}
 
-      {/* Input Action Controls */}
+      {amIBlockingPartner ? (
+        <div className="px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-center">
+          <p className="text-slate-500 text-sm font-sans flex items-center gap-2">
+            <Ban className="w-4 h-4" /> You blocked this user. You can't send messages or call them.
+          </p>
+        </div>
+      ) : (
+      /* Input Action Controls */
       <form onSubmit={handleSend} className="px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center gap-3">
         {/* Hidden File input */}
         <input
@@ -953,6 +1007,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
           )
         )}
       </form>
+      )}
     </div>
   );
 };

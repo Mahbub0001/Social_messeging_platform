@@ -6,7 +6,8 @@ import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
 import { motion } from "framer-motion";
 import { sanitizeUrl } from "../utils/security";
-import { X, User, FileText, ImageIcon, Loader2, Check } from "lucide-react";
+import { X, User, FileText, ImageIcon, Loader2, Check, Upload } from "lucide-react";
+import { storageService } from "../services/storageService";
 
 interface ProfilePanelProps {
   onClose: () => void;
@@ -28,6 +29,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose }) => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [profileData, setProfileData] = useState<{
     username: string;
@@ -53,11 +55,40 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose }) => {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<ProfileFormInputs>({
     resolver: zodResolver(profileSchema),
     values: profileData || { username: "", bio: "", avatar_url: "" },
   });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file.");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image size should be less than 5MB.");
+      return;
+    }
+
+    setUploadingImage(true);
+    setError(null);
+
+    try {
+      const publicUrl = await storageService.uploadMedia(file, "chat-media");
+      setValue("avatar_url", publicUrl);
+      setProfileData((prev) => prev && { ...prev, avatar_url: publicUrl });
+    } catch (err) {
+      setError("Failed to upload image. Please try again.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const onSubmit = async (data: ProfileFormInputs) => {
     if (!user?.id) return;
@@ -114,18 +145,35 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose }) => {
         {profileData ? (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 font-sans text-xs">
             {/* Avatar Preview */}
-            <div className="flex flex-col items-center gap-2.5 py-4">
-              <img
-                src={
-                  sanitizeUrl(profileData.avatar_url) ||
-                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
-                    profileData.username
-                  )}`
-                }
-                alt="Avatar"
-                className="w-20 h-20 rounded-full object-cover bg-slate-850 border border-slate-800 shadow"
-              />
-              <span className="text-[10px] text-slate-500 font-semibold">Avatar Preview</span>
+            <div className="flex flex-col items-center gap-2.5 py-4 relative group">
+              <div className="relative w-20 h-20 rounded-full overflow-hidden bg-slate-850 border border-slate-800 shadow cursor-pointer">
+                <img
+                  src={
+                    sanitizeUrl(profileData.avatar_url) ||
+                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
+                      profileData.username
+                    )}`
+                  }
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  {uploadingImage ? (
+                    <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  ) : (
+                    <Upload className="w-5 h-5 text-white" />
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                  title="Upload profile picture"
+                />
+              </div>
+              <span className="text-[10px] text-slate-500 font-semibold">Avatar Preview (Click to Upload)</span>
             </div>
 
             {error && (

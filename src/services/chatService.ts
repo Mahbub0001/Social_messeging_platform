@@ -10,10 +10,14 @@ export interface MessageWithSender extends Message {
   reactions?: { [emoji: string]: string[] }; // emoji -> array of user_ids
 }
 
+export interface ProfileWithRole extends Profile {
+  role?: "admin" | "member";
+}
+
 export interface ConversationWithDetails extends Conversation {
   unread_count?: number;
   last_message?: Message | null;
-  members?: Profile[];
+  members?: ProfileWithRole[];
 }
 
 type MessageSubscriptionCallback = (event: {
@@ -164,7 +168,10 @@ class ChatServiceClass {
 
       const conversationsWithDetails = (conversations || []).map((conv: any) => {
         // Map members
-        const members = conv.conversation_members.map((m: any) => m.profiles);
+        const members = conv.conversation_members.map((m: any) => ({
+          ...m.profiles,
+          role: m.role
+        }));
         // Get last message (sorted in JS or DB)
         const sortedMsgs = (conv.messages || []).sort(
           (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -192,6 +199,84 @@ class ChatServiceClass {
       });
 
       return { data: conversationsWithDetails, error: null };
+    }
+  }
+
+  public async updateConversation(
+    conversationId: string,
+    updates: Partial<{ name: string; avatar_url: string }>
+  ): Promise<{ error: any }> {
+    if (isMockMode) {
+      const conversations = mockDb.getConversations();
+      const idx = conversations.findIndex(c => c.id === conversationId);
+      if (idx !== -1) {
+        conversations[idx] = { ...conversations[idx], ...updates, updated_at: new Date().toISOString() };
+        mockDb.saveConversations(conversations);
+      }
+      return { error: null };
+    } else {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", conversationId);
+      return { error };
+    }
+  }
+
+  public async addMembers(conversationId: string, userIds: string[]): Promise<{ error: any }> {
+    if (isMockMode) {
+      const members = mockDb.getConversationMembers();
+      const newMembers = userIds.map((uId, idx) => ({
+        id: `mem-${conversationId}-${idx}-${Date.now()}`,
+        conversation_id: conversationId,
+        user_id: uId,
+        role: "member" as "admin" | "member",
+        joined_at: new Date().toISOString(),
+      }));
+      mockDb.saveConversationMembers([...members, ...newMembers]);
+      return { error: null };
+    } else {
+      const inserts = userIds.map((uId) => ({
+        conversation_id: conversationId,
+        user_id: uId,
+        role: "member",
+      }));
+      const { error } = await supabase.from("conversation_members").insert(inserts);
+      return { error };
+    }
+  }
+
+  public async removeMember(conversationId: string, userId: string): Promise<{ error: any }> {
+    if (isMockMode) {
+      const members = mockDb.getConversationMembers();
+      mockDb.saveConversationMembers(members.filter(m => !(m.conversation_id === conversationId && m.user_id === userId)));
+      return { error: null };
+    } else {
+      const { error } = await supabase
+        .from("conversation_members")
+        .delete()
+        .eq("conversation_id", conversationId)
+        .eq("user_id", userId);
+      return { error };
+    }
+  }
+
+  public async updateMemberRole(conversationId: string, userId: string, role: "admin" | "member"): Promise<{ error: any }> {
+    if (isMockMode) {
+      const members = mockDb.getConversationMembers();
+      const member = members.find(m => m.conversation_id === conversationId && m.user_id === userId);
+      if (member) {
+        member.role = role;
+        mockDb.saveConversationMembers(members);
+      }
+      return { error: null };
+    } else {
+      const { error } = await supabase
+        .from("conversation_members")
+        .update({ role })
+        .eq("conversation_id", conversationId)
+        .eq("user_id", userId);
+      return { error };
     }
   }
 
@@ -233,7 +318,10 @@ class ChatServiceClass {
 
       const detailedConv: ConversationWithDetails = {
         ...newConv,
-        members: mappedProfiles,
+        members: mappedProfiles.map((p, idx) => ({
+          ...p,
+          role: (idx === 0 && isGroup ? "admin" : "member") as "admin" | "member"
+        })),
         last_message: null,
         unread_count: 0,
       };
@@ -275,7 +363,10 @@ class ChatServiceClass {
 
       const detailedConv: ConversationWithDetails = {
         ...conv,
-        members: profiles || [],
+        members: (profiles || []).map((p: any, idx: number) => ({
+          ...p,
+          role: (idx === 0 && isGroup ? "admin" : "member") as "admin" | "member"
+        })),
         last_message: null,
         unread_count: 0,
       };
