@@ -360,3 +360,140 @@ CREATE POLICY "authenticated can receive broadcasts"
 ON "realtime"."messages"
 FOR SELECT TO authenticated
 USING (true);
+-- Blocks Table
+create table if not exists public.blocks (
+  id uuid default gen_random_uuid() primary key,
+  blocker_id uuid references public.profiles(id) on delete cascade not null,
+  blocked_id uuid references public.profiles(id) on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique (blocker_id, blocked_id)
+);
+
+alter table public.blocks enable row level security;
+
+drop policy if exists "Users can view their own blocks" on public.blocks;
+create policy "Users can view their own blocks" on public.blocks
+  for select using (auth.uid() = blocker_id or auth.uid() = blocked_id);
+
+drop policy if exists "Users can create blocks" on public.blocks;
+create policy "Users can create blocks" on public.blocks
+  for insert with check (auth.uid() = blocker_id);
+
+drop policy if exists "Users can delete their own blocks" on public.blocks;
+create policy "Users can delete their own blocks" on public.blocks
+  for delete using (auth.uid() = blocker_id);
+
+-- Group admin updates
+drop policy if exists "Group admins can update conversations" on public.conversations;
+create policy "Group admins can update conversations" on public.conversations
+  for update using (
+    exists (
+      select 1 from public.conversation_members cm
+      where cm.conversation_id = conversations.id
+      and cm.user_id = auth.uid()
+      and cm.role = 'admin'
+    )
+  );
+
+-- Group admin conversation_members
+drop policy if exists "Members can leave or admins can remove members" on public.conversation_members;
+create policy "Members can leave or admins can remove members" on public.conversation_members
+  for delete using (
+    auth.uid() = user_id
+    or
+    exists (
+      select 1 from public.conversation_members cm
+      where cm.conversation_id = conversation_members.conversation_id
+      and cm.user_id = auth.uid()
+      and cm.role = 'admin'
+    )
+  );
+
+drop policy if exists "Group admins can update conversation_members" on public.conversation_members;
+create policy "Group admins can update conversation_members" on public.conversation_members
+  for update using (
+    exists (
+      select 1 from public.conversation_members cm
+      where cm.conversation_id = conversation_members.conversation_id
+      and cm.user_id = auth.uid()
+      and cm.role = 'admin'
+    )
+  );
+
+-- Realtime for blocks
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_rel pr
+    join pg_class c on pr.prrelid = c.oid
+    join pg_namespace n on c.relnamespace = n.oid
+    where pr.prpubid = (select oid from pg_publication where pubname = 'supabase_realtime')
+      and n.nspname = 'public'
+      and c.relname = 'blocks'
+  ) then
+    alter publication supabase_realtime add table public.blocks;
+  end if;
+end;
+$$;
+
+-- RLS to prevent viewing messages from blocked users
+drop policy if exists "Users cannot view messages from blocked users" on public.messages;
+create policy "Users cannot view messages from blocked users" on public.messages
+  for select using (
+    not exists (
+      select 1 from public.blocks
+      where blocker_id = auth.uid() and blocked_id = sender_id
+    )
+  );
+
+-- RLS to prevent sending messages to users that blocked you (in 1-1)
+-- Because a conversation might have multiple members, an exhaustive approach would block sending if ANY member blocked you.
+-- But standard practice for group chats is you can see each other if both are in the group,
+-- or we block direct messages if the *other* person blocked you.
+-- Since we are doing 1-1 blocking primarily in the frontend UI, let's keep it simple and just rely on frontend.
+-- Drop the flawed messages policy
+drop policy if exists "Users cannot view messages from blocked users" on public.messages;
+
+-- Create an AS RESTRICTIVE policy to apply AND logic
+create policy "Restrict messages from blocked users" on public.messages
+  AS RESTRICTIVE for select using (
+    not exists (
+      select 1 from public.blocks
+      where blocker_id = auth.uid() and blocked_id = sender_id
+    )
+  );
+
+-- Fix conversation members add members to only allow adding members if you're an admin
+drop policy if exists "Group admins can add members" on public.conversation_members;
+create policy "Group admins can add members" on public.conversation_members
+  for insert with check (
+    exists (
+      select 1 from public.conversation_members cm
+      where cm.conversation_id = conversation_members.conversation_id
+      and cm.user_id = auth.uid()
+      and cm.role = 'admin'
+    )
+    or
+    not exists (
+      select 1 from public.conversation_members cm
+      where cm.conversation_id = conversation_members.conversation_id
+    )
+  );
+
+-- Keep the general authenticated one as well for 1on1 chats maybe? Let's drop "Authenticated users can add members" because "Group admins can add members" is safer.
+drop policy if exists "Authenticated users can add members" on public.conversation_members;
+
+-- Prevent blocked users from sending messages to the blocker
+drop policy if exists "Users cannot send messages to blockers" on public.messages;
+create policy "Users cannot send messages to blockers" on public.messages
+  AS RESTRICTIVE for insert with check (
+    not exists (
+      select 1 from public.blocks b
+      where b.blocker_id = (
+          select cm.user_id from public.conversation_members cm
+          where cm.conversation_id = messages.conversation_id and cm.user_id != auth.uid()
+          limit 1
+      )
+      and b.blocked_id = auth.uid()
+    )
+  );

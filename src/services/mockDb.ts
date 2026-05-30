@@ -52,6 +52,13 @@ export interface FriendRequest {
   created_at: string;
 }
 
+export interface Block {
+  id: string;
+  blocker_id: string;
+  blocked_id: string;
+  created_at: string;
+}
+
 // Initial data to seed if LocalStorage is empty
 const SEED_PROFILES: Profile[] = [
   {
@@ -221,6 +228,9 @@ class MockDatabase {
         { id: "fr2", sender_id: "anika-id", receiver_id: currentUserId, status: "pending", created_at: new Date().toISOString() },
       ];
       this.setStorageItem("friend_requests", requests);
+
+      // Seed blocks
+      this.setStorageItem("blocks", []);
     }
   }
 
@@ -271,6 +281,14 @@ class MockDatabase {
 
   public saveFriendRequests(requests: FriendRequest[]): void {
     this.setStorageItem("friend_requests", requests);
+  }
+
+  public getBlocks(): Block[] {
+    return this.getStorageItem<Block[]>("blocks", []);
+  }
+
+  public saveBlocks(blocks: Block[]): void {
+    this.setStorageItem("blocks", blocks);
   }
 }
 
