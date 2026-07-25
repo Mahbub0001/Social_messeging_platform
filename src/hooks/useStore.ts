@@ -3,6 +3,8 @@ import { authService } from "../services/authService";
 import type { UserSession } from "../services/authService";
 import { chatService } from "../services/chatService";
 import type { ConversationWithDetails, MessageWithSender } from "../services/chatService";
+import { storyService } from "../services/storyService";
+import type { StoryWithDetails } from "../services/storyService";
 import type { Profile } from "../services/mockDb";
 import { audioSynthesizer } from "../utils/audio";
 
@@ -44,6 +46,14 @@ interface AppState {
   blockUser: (blockerId: string, blockedId: string) => Promise<void>;
   unblockUser: (blockerId: string, blockedId: string) => Promise<void>;
 
+  // Stories state
+  stories: StoryWithDetails[];
+  storiesLoading: boolean;
+  fetchActiveStories: () => Promise<void>;
+  addStory: (story: StoryWithDetails) => void;
+  removeStory: (storyId: string) => void;
+  subscribeToStories: () => () => void;
+
   // Calling state
   callState: "idle" | "dialing" | "receiving" | "active";
   callType: "voice" | "video" | null;
@@ -66,6 +76,10 @@ export const useStore = create<AppState>((set, get) => ({
   session: null,
   authLoading: true,
   
+  // Stories initial state
+  stories: [],
+  storiesLoading: false,
+
   // Calling initial state
   callState: "idle",
   callType: null,
@@ -114,6 +128,10 @@ export const useStore = create<AppState>((set, get) => ({
         // Fetch conversations once logged in
         get().fetchConversations();
         get().fetchBlockedUsers(session.user.id);
+        get().fetchActiveStories();
+
+        // Subscribe to real-time stories
+        get().subscribeToStories();
 
         // Initialize WebRTC signaling listener
         const { isMockMode } = await import("../lib/supabase");
@@ -123,7 +141,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
       } else {
         // Clear state on logout
-        set({ conversations: [], activeConversationId: null, messages: {} });
+        set({ conversations: [], activeConversationId: null, messages: {}, stories: [] });
 
         // Clean up WebRTC signaling channels
         const { isMockMode } = await import("../lib/supabase");
@@ -287,6 +305,43 @@ export const useStore = create<AppState>((set, get) => ({
     const { blockService } = await import("../services/blockService");
     await blockService.unblockUser(blockerId, blockedId);
     set((state) => ({ blockedUsers: state.blockedUsers.filter(id => id !== blockedId) }));
+  },
+
+  // Stories state management
+  fetchActiveStories: async () => {
+    const userId = get().user?.id;
+    if (!userId) return;
+
+    set({ storiesLoading: true });
+    const { data, error } = await storyService.getActiveStories(userId);
+    if (!error && data) {
+      set({ stories: data, storiesLoading: false });
+    } else {
+      set({ storiesLoading: false });
+    }
+  },
+
+  addStory: (story) => {
+    set((state) => {
+      if (state.stories.some((s) => s.id === story.id)) {
+        return state;
+      }
+      return { stories: [story, ...state.stories] };
+    });
+  },
+
+  removeStory: (storyId) => {
+    set((state) => ({
+      stories: state.stories.filter((s) => s.id !== storyId),
+    }));
+  },
+
+  subscribeToStories: () => {
+    const unsubscribe = storyService.subscribeToStories((newStory) => {
+      get().addStory(newStory as StoryWithDetails);
+    });
+
+    return unsubscribe;
   },
 
   // Theme initial state
