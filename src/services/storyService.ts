@@ -102,7 +102,7 @@ class StoryService {
   }
 
   // Get all previous stories (archive) - both expired and active
-  async getAllPreviousStories(userId: string) {
+  async getAllPreviousStories(_userId: string) {
     try {
       if (isMockMode) {
         return { data: mockDb.getAllPreviousStories(), error: null };

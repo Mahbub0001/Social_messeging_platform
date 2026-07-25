@@ -7,20 +7,26 @@ import ProfilePanel from "../components/ProfilePanel";
 import FriendsPanel from "../components/FriendsPanel";
 import GroupModal from "../components/GroupModal";
 import CallScreen from "../components/CallScreen";
+import StoryCircles from "../components/StoryCircles";
+import StoryUploadModal from "../components/StoryUploadModal";
+import StoryViewer from "../components/StoryViewer";
+import { StoryArchive } from "../components/StoryArchive";
 import { AnimatePresence, motion } from "framer-motion";
 
 export const Dashboard: React.FC = () => {
-  const { user, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations } = useStore();
+  const { user, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations, stories } = useStore();
 
   const [showSettings, setShowSettings] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showStoryUpload, setShowStoryUpload] = useState(false);
+  const [showStoryViewer, setShowStoryViewer] = useState(false);
+  const [showStoryArchive, setShowStoryArchive] = useState(false);
+  const [storyViewerIndex, setStoryViewerIndex] = useState(0);
 
-  // 1. Sync presence online/offline status
   useEffect(() => {
     if (!user?.id) return;
 
-    // Track our online presence state and get update logs of active users
     const unsubscribePresence = chatService.trackPresence(user.id, (onlineIds) => {
       setOnlineUsers(onlineIds);
     });
@@ -30,7 +36,6 @@ export const Dashboard: React.FC = () => {
     };
   }, [user?.id, setOnlineUsers]);
 
-  // 2. Listen to new conversations/memberships in real-time
   useEffect(() => {
     if (!user?.id) return;
 
@@ -43,7 +48,6 @@ export const Dashboard: React.FC = () => {
     };
   }, [user?.id, fetchConversations]);
 
-  // Disable alternate panels on select
   const handleToggleSettings = () => {
     setShowSettings((prev) => !prev);
     setShowFriends(false);
@@ -54,11 +58,18 @@ export const Dashboard: React.FC = () => {
     setShowSettings(false);
   };
 
+  const handleStoryClick = (index: number) => {
+    setStoryViewerIndex(index);
+    setShowStoryViewer(true);
+  };
+
+  const handleUploadComplete = () => {
+    useStore.getState().fetchActiveStories();
+  };
+
   return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden relative">
-      {/* 2-Column Responsive Layout */}
       <div className="flex h-full w-full relative overflow-hidden">
-        {/* Sidebar Container */}
         <div
           className={`h-full w-full md:w-[320px] shrink-0 transition-transform duration-300 md:translate-x-0 absolute md:relative z-10 bg-slate-900 ${
             activeConversationId ? "-translate-x-full md:translate-x-0" : "translate-x-0"
@@ -68,10 +79,10 @@ export const Dashboard: React.FC = () => {
             onToggleSettings={handleToggleSettings}
             onToggleFriends={handleToggleFriends}
             onCreateGroup={() => setShowGroupModal(true)}
+            onStoryArchiveClick={() => setShowStoryArchive(true)}
           />
         </div>
 
-        {/* Chat Area Container */}
         <div
           className={`h-full w-full md:w-auto flex-1 transition-transform duration-300 md:translate-x-0 absolute md:relative z-0 bg-slate-950 ${
             !activeConversationId ? "translate-x-full md:translate-x-0" : "translate-x-0"
@@ -81,7 +92,14 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Backdrop for Slide-out Panels */}
+      {/* Story Circles - Overlay at top of chat area */}
+      <div className="absolute top-0 left-0 right-0 z-20 pt-12 md:pt-0 md:left-[320px] bg-gradient-to-b from-slate-950/90 via-slate-950/70 to-transparent pb-2">
+        <StoryCircles
+          onStoryClick={handleStoryClick}
+          onUploadClick={() => setShowStoryUpload(true)}
+        />
+      </div>
+
       <AnimatePresence>
         {(showSettings || showFriends) && (
           <motion.div
@@ -97,23 +115,46 @@ export const Dashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Slide-out Panels (Settings & Friends) */}
       <AnimatePresence>
         {showSettings && (
-          <ProfilePanel onClose={() => setShowSettings(false)} />
+          <ProfilePanel
+            onClose={() => setShowSettings(false)}
+            onOpenStoryArchive={() => {
+              setShowSettings(false);
+              setShowStoryArchive(true);
+            }}
+          />
         )}
         {showFriends && (
           <FriendsPanel onClose={() => setShowFriends(false)} />
         )}
       </AnimatePresence>
 
-      {/* Centered Modal (Create Group) */}
       {showGroupModal && (
         <GroupModal onClose={() => setShowGroupModal(false)} />
       )}
 
-      {/* Voice & Video Calling Screen */}
       <CallScreen />
+
+      {/* Story modals */}
+      {showStoryUpload && (
+        <StoryUploadModal
+          onClose={() => setShowStoryUpload(false)}
+          onUploadComplete={handleUploadComplete}
+        />
+      )}
+
+      {showStoryViewer && stories.length > 0 && (
+        <StoryViewer
+          stories={stories}
+          initialIndex={storyViewerIndex}
+          onClose={() => setShowStoryViewer(false)}
+        />
+      )}
+
+      {showStoryArchive && (
+        <StoryArchive onClose={() => setShowStoryArchive(false)} />
+      )}
     </div>
   );
 };

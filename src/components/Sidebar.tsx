@@ -11,6 +11,7 @@ import {
   Compass,
   Sun,
   Moon,
+  Clock,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { sanitizeUrl } from "../utils/security";
@@ -19,12 +20,14 @@ interface SidebarProps {
   onToggleSettings: () => void;
   onToggleFriends: () => void;
   onCreateGroup: () => void;
+  onStoryArchiveClick: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   onToggleSettings,
   onToggleFriends,
   onCreateGroup,
+  onStoryArchiveClick,
 }) => {
   const {
     user,
@@ -92,6 +95,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all"
           >
             <UserPlus className="w-4.5 h-4.5" />
+          </button>
+          <button
+            onClick={onStoryArchiveClick}
+            title="Stories"
+            className="p-2 text-slate-400 hover:text-violet-400 hover:bg-slate-800/80 rounded-xl transition-all"
+          >
+            <Clock className="w-4.5 h-4.5" />
           </button>
           <button
             onClick={onToggleSettings}

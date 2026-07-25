@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Clock, Eye, Trash2, X } from "lucide-react";
 import { useStore } from "../hooks/useStore";
 import { storyService } from "../services/storyService";
-import type { StoryWithDetails, StoryView } from "../services/storyService";
+import type { StoryWithDetails } from "../services/storyService";
 
 interface StoryArchiveProps {
   onClose: () => void;

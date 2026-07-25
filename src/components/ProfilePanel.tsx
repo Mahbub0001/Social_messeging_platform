@@ -1,30 +1,31 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as zod from "zod";
+import * as z from "zod";
 import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
 import { motion } from "framer-motion";
 import { sanitizeUrl } from "../utils/security";
-import { X, User, FileText, ImageIcon, Loader2, Check, Upload } from "lucide-react";
+import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock } from "lucide-react";
 import { storageService } from "../services/storageService";
 
 interface ProfilePanelProps {
   onClose: () => void;
+  onOpenStoryArchive?: () => void;
 }
 
-const profileSchema = zod.object({
-  username: zod
+const profileSchema = z.object({
+  username: z
     .string()
     .min(3, "Username must be at least 3 characters")
     .max(20, "Username must be under 20 characters"),
-  bio: zod.string().max(160, "Bio must be under 160 characters"),
-  avatar_url: zod.string().url("Please enter a valid image URL").or(zod.string().length(0)),
+  bio: z.string().max(160, "Bio must be under 160 characters"),
+  avatar_url: z.string().url("Please enter a valid image URL").or(z.string().length(0)),
 });
 
-type ProfileFormInputs = zod.infer<typeof profileSchema>;
+type ProfileFormInputs = z.infer<typeof profileSchema>;
 
-export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose }) => {
+export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStoryArchive }) => {
   const { user } = useStore();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -268,6 +269,17 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose }) => {
                 "Save Changes"
               )}
             </button>
+
+            {onOpenStoryArchive && (
+              <button
+                type="button"
+                onClick={onOpenStoryArchive}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border border-slate-700 hover:border-violet-500 hover:bg-slate-800/50 text-slate-300 hover:text-violet-400 rounded-xl font-semibold transition-all"
+              >
+                <Clock size={16} />
+                Your Stories
+              </button>
+            )}
           </form>
         ) : (
           <div className="flex justify-center py-12">
