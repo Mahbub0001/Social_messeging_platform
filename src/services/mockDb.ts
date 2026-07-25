@@ -248,6 +248,41 @@ class MockDatabase {
 
       // Seed blocks
       this.setStorageItem("blocks", []);
+
+      // Seed stories (from mock users so friends can see them)
+      const now = new Date();
+      const addHours = (h: number) => new Date(now.getTime() + h * 3600000).toISOString();
+      const seedStories: Story[] = [
+        {
+          id: "story-s1",
+          user_id: "sajeeb-id",
+          media_url: "https://images.unsplash.com/photo-1571171637578-41bc2dd41cd2?w=600&h=800&fit=crop",
+          media_type: "image",
+          caption: "Building something cool today!",
+          created_at: addHours(-3),
+          expires_at: addHours(21),
+        },
+        {
+          id: "story-s2",
+          user_id: "anika-id",
+          media_url: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=600&h=800&fit=crop",
+          media_type: "image",
+          caption: "New design mockups ready",
+          created_at: addHours(-5),
+          expires_at: addHours(19),
+        },
+        {
+          id: "story-s3",
+          user_id: "sajeeb-id",
+          media_url: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&h=800&fit=crop",
+          media_type: "image",
+          caption: "Sunset vibes 🌅",
+          created_at: addHours(-26),
+          expires_at: addHours(-2),
+        },
+      ];
+      this.setStorageItem("stories", seedStories);
+      this.setStorageItem("story_views", []);
     }
   }
 
@@ -328,14 +363,34 @@ class MockDatabase {
     const profiles = this.getProfiles();
     const stories = this.getStories();
     const views = this.getStoryViews();
+    const requests = this.getFriendRequests();
+    const blocks = this.getBlocks();
     const now = new Date();
 
-    const active = stories.filter((s) => new Date(s.expires_at) > now);
+    const friendIds = requests
+      .filter((r) => r.status === "accepted" && (r.sender_id === userId || r.receiver_id === userId))
+      .map((r) => (r.sender_id === userId ? r.receiver_id : r.sender_id));
+
+    const blockedIds = blocks
+      .filter((b) => b.blocker_id === userId)
+      .map((b) => b.blocked_id);
+
+    const active = stories.filter(
+      (s) =>
+        new Date(s.expires_at) > now &&
+        friendIds.includes(s.user_id) &&
+        !blockedIds.includes(s.user_id)
+    );
+
     return active.map((s) => {
       const user = profiles.find((p) => p.id === s.user_id);
-      const viewCount = views.filter((v) => v.story_id === s.id).length;
-      const hasViewed = views.some((v) => v.story_id === s.id && v.viewer_id === userId);
-      return { ...s, user, viewCount, hasViewed, view_count: [{ count: viewCount }] };
+      const storyViewers = views.filter((v) => v.story_id === s.id);
+      return {
+        ...s,
+        user,
+        viewCount: storyViewers.length,
+        hasViewed: storyViewers.some((v) => v.viewer_id === userId),
+      };
     });
   }
 
