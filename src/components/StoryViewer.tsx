@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { X, Eye } from "lucide-react";
+import { X } from "lucide-react";
 import { useStore } from "../hooks/useStore";
 import { storyService } from "../services/storyService";
 import type { StoryWithDetails } from "../services/storyService";
@@ -12,189 +12,189 @@ interface StoryViewerProps {
 }
 
 const STORY_DURATION = 7000;
-const PROGRESS_INTERVAL = 40;
+const TICK = 50;
 
 export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, initialIndex, onClose }) => {
   const user = useStore((state) => state.user);
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [currentIdx, setCurrentIdx] = useState(initialIndex);
   const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const touchStartX = useRef<number>(0);
+  const touchStartY = useRef<number>(0);
 
-  const currentStory = stories[currentIndex];
+  const currentStory = stories[currentIdx];
+  const currentUser = currentStory?.user;
 
   useEffect(() => {
     if (currentStory && user) {
       storyService.recordStoryView(currentStory.id, user.id);
     }
-  }, [currentStory?.id, user]);
+  }, [currentStory?.id]);
 
   const goNext = useCallback(() => {
-    if (currentIndex < stories.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setProgress(0);
+    if (currentIdx < stories.length - 1) {
+      setCurrentIdx((p) => p + 1);
     } else {
       onClose();
     }
-  }, [currentIndex, stories.length, onClose]);
+  }, [currentIdx, stories.length, onClose]);
 
   const goPrev = useCallback(() => {
-    if (currentIndex > 0) {
-      setCurrentIndex((prev) => prev - 1);
-      setProgress(0);
-    }
-  }, [currentIndex]);
+    if (currentIdx > 0) setCurrentIdx((p) => p - 1);
+  }, [currentIdx]);
 
   useEffect(() => {
     setProgress(0);
     setPaused(false);
-  }, [currentIndex]);
+  }, [currentIdx]);
 
   useEffect(() => {
-    const story = stories[currentIndex];
-    if (!story || story.media_type !== "image") return;
+    if (currentStory?.media_type === "video") return;
     if (paused) return;
 
-    const interval = setInterval(() => {
+    timerRef.current = window.setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
+        const next = prev + (TICK / STORY_DURATION) * 100;
+        if (next >= 100) {
+          if (timerRef.current) clearInterval(timerRef.current);
           goNext();
           return 100;
         }
-        return prev + (PROGRESS_INTERVAL / STORY_DURATION) * 100;
+        return next;
       });
-    }, PROGRESS_INTERVAL);
+    }, TICK);
 
-    return () => clearInterval(interval);
-  }, [currentIndex, paused, stories, goNext]);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [currentIdx, paused, currentStory?.media_type, goNext]);
 
-  const handleVideoEnded = () => {
-    goNext();
-  };
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") goNext();
       else if (e.key === "ArrowLeft") goPrev();
       else if (e.key === "Escape") onClose();
-    },
-    [goNext, goPrev, onClose]
-  );
-
-  useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [goNext, goPrev, onClose]);
 
   if (!currentStory) return null;
 
-  const handleMediaClick = () => {
-    if (currentStory.media_type === "image") {
-      setPaused((prev) => !prev);
-    } else {
-      const video = videoRef.current;
-      if (video) {
-        if (video.paused) {
-          video.play();
-          setPaused(false);
-        } else {
-          video.pause();
-          setPaused(true);
-        }
-      }
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dy) > Math.abs(dx) && dy > 100) {
+      onClose();
+    } else if (Math.abs(dx) > 60) {
+      if (dx > 0) goPrev();
+      else goNext();
     }
   };
 
+  const handleVideoEnded = () => goNext();
+
+  const togglePause = () => {
+    if (currentStory.media_type === "video") {
+      const v = videoRef.current;
+      if (!v) return;
+      v.paused ? v.play() : v.pause();
+      setPaused(!v.paused);
+    } else {
+      setPaused((p) => !p);
+    }
+  };
+
+  const onTap = (side: "left" | "right") => {
+    if (side === "left") goPrev();
+    else goNext();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black z-50 select-none">
-      {/* Progress bars */}
-      <div className="absolute top-0 left-0 right-0 z-30 flex gap-1 px-2 pt-2">
+    <div
+      className="fixed inset-0 bg-black z-50 flex flex-col"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Progress bar row */}
+      <div className="absolute top-0 left-0 right-0 z-40 flex gap-1.5 px-2 pt-3">
         {stories.map((_, i) => (
-          <div
-            key={i}
-            className="flex-1 h-[3px] bg-white/25 rounded-full overflow-hidden"
-          >
+          <div key={i} className="flex-1 h-[3px] bg-white/25 rounded-full overflow-hidden">
             <div
               className="h-full bg-white rounded-full transition-all duration-75 ease-linear"
-              style={{
-                width: i < currentIndex ? "100%" : i === currentIndex ? `${progress}%` : "0%",
-              }}
+              style={{ width: i < currentIdx ? "100%" : i === currentIdx ? `${progress}%` : "0%" }}
             />
           </div>
         ))}
       </div>
 
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-3 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition"
-      >
-        <X size={20} />
-      </button>
-
-      {/* Header */}
-      <div className="absolute top-10 left-4 right-4 z-20 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full overflow-hidden border border-white/20 flex-shrink-0">
+      {/* Top bar: avatar + name + time + close */}
+      <div className="absolute top-4 left-0 right-0 z-30 flex items-center gap-3 px-4 pt-2">
+        <div className="w-9 h-9 rounded-full overflow-hidden ring-1 ring-white/20 flex-shrink-0">
           <img
             src={
-              sanitizeUrl(currentStory.user?.avatar_url || "") ||
-              `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentStory.user?.username || "u")}`
+              sanitizeUrl(currentUser?.avatar_url || "") ||
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser?.username || "u")}`
             }
             alt=""
             className="w-full h-full object-cover"
           />
         </div>
-        <div className="min-w-0">
-          <p className="text-white text-sm font-semibold truncate">
-            {currentStory.user?.username}
+        <div className="flex-1 min-w-0">
+          <p className="text-white text-sm font-semibold truncate leading-tight">
+            {currentUser?.username}
           </p>
-          <p className="text-white/50 text-[11px]">
+          <p className="text-white/50 text-[11px] leading-tight">
             {new Date(currentStory.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            {" · "}
-            <Eye size={10} className="inline" /> {currentStory.viewCount || 0}
           </p>
         </div>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-white/80 hover:text-white transition-colors"
+        >
+          <X size={20} />
+        </button>
       </div>
 
-      {/* Navigation: left 30% = prev, right 70% = next */}
-      <div className="absolute inset-0 z-10 flex">
-        <button
-          className="w-[30%] h-full cursor-default"
-          onClick={goPrev}
-        />
-        <button
-          className="w-[70%] h-full cursor-default"
-          onClick={goNext}
-        />
+      {/* Tap zones: left 40% prev, right 60% next, top/bottom areas close */}
+      <div className="flex-1 flex z-20 mt-16 mb-16">
+        <button onClick={() => onTap("left")} className="w-[40%] h-full cursor-default" />
+        <button onClick={() => onTap("right")} className="w-[60%] h-full cursor-default" />
       </div>
 
       {/* Media */}
-      <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-        <div
-          className="relative max-w-lg w-full pointer-events-auto"
-          onClick={handleMediaClick}
-        >
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        onClick={togglePause}
+      >
+        <div className="pointer-events-auto max-w-lg w-full px-2">
           {currentStory.media_type === "image" ? (
-            <>
+            <div className="relative">
               <img
                 src={sanitizeUrl(currentStory.media_url)}
-                alt="Story"
-                className="w-full max-h-[85vh] object-contain rounded-sm"
+                alt=""
+                className="w-full max-h-[75vh] object-contain rounded-md select-none"
               />
               {paused && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-12 h-12 rounded-full bg-black/40 flex items-center justify-center">
-                    <div className="w-0 h-0 border-l-[16px] border-t-[10px] border-b-[10px] border-l-white border-t-transparent border-b-transparent ml-1" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-md">
+                  <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+                    <div className="w-0 h-0 border-l-[18px] border-t-[11px] border-b-[11px] border-l-white border-t-transparent border-b-transparent ml-1" />
                   </div>
                 </div>
               )}
-            </>
+            </div>
           ) : (
             <video
               ref={videoRef}
               src={sanitizeUrl(currentStory.media_url)}
-              className="w-full max-h-[85vh] object-contain rounded-sm"
+              className="w-full max-h-[75vh] object-contain rounded-md select-none"
               autoPlay
               playsInline
               onEnded={handleVideoEnded}
@@ -202,8 +202,8 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, initialIndex,
           )}
 
           {currentStory.caption && (
-            <div className="absolute bottom-16 left-0 right-0 px-4">
-              <p className="text-white/90 text-sm text-center drop-shadow-lg">
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              <p className="text-white text-sm text-center drop-shadow-lg bg-black/40 backdrop-blur-sm rounded-xl px-4 py-2 mx-4">
                 {currentStory.caption}
               </p>
             </div>
@@ -211,25 +211,22 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, initialIndex,
         </div>
       </div>
 
-      {/* Bottom dismiss zone */}
-      <div className="absolute bottom-0 left-0 right-0 h-[15%] z-30 flex items-end justify-center pb-6">
-        <p className="text-white/30 text-xs">swipe down to close</p>
+      {/* Bottom gradient + counter */}
+      <div className="absolute bottom-0 left-0 right-0 z-30 pb-6 pt-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none">
+        <p className="text-center text-white/40 text-xs">
+          {currentIdx + 1} / {stories.length}
+        </p>
       </div>
 
-      {/* Swipe down to close */}
-      <div
-        className="absolute inset-0 z-5"
-        onTouchEnd={(e) => {
-          const endY = e.changedTouches[0].clientY;
-          const startY = (e.target as HTMLElement).dataset?.startY;
-          if (startY && endY - Number(startY) > 120) {
-            onClose();
-          }
-        }}
-        onTouchStart={(e) => {
-          (e.currentTarget as HTMLElement).dataset.startY = String(e.touches[0].clientY);
-        }}
-      />
+      {/* Pulse indicator for current story */}
+      {currentStory.media_type === "video" && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40">
+          <div className="flex items-center gap-1">
+            <div className="w-1 h-1 rounded-full bg-white/60 animate-pulse" />
+            <span className="text-white/50 text-[10px]">Video</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

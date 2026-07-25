@@ -10,6 +10,7 @@ import CallScreen from "../components/CallScreen";
 import StoryUploadModal from "../components/StoryUploadModal";
 import StoryViewer from "../components/StoryViewer";
 import { StoryArchive } from "../components/StoryArchive";
+import type { StoryWithDetails } from "../services/storyService";
 import { AnimatePresence, motion } from "framer-motion";
 
 export const Dashboard: React.FC = () => {
@@ -21,30 +22,19 @@ export const Dashboard: React.FC = () => {
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [showStoryViewer, setShowStoryViewer] = useState(false);
   const [showStoryArchive, setShowStoryArchive] = useState(false);
-  const [storyViewerIndex, setStoryViewerIndex] = useState(0);
+  const [viewerStories, setViewerStories] = useState<StoryWithDetails[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
 
   useEffect(() => {
     if (!user?.id) return;
-
-    const unsubscribePresence = chatService.trackPresence(user.id, (onlineIds) => {
-      setOnlineUsers(onlineIds);
-    });
-
-    return () => {
-      unsubscribePresence();
-    };
+    const unsubscribePresence = chatService.trackPresence(user.id, (onlineIds) => setOnlineUsers(onlineIds));
+    return () => unsubscribePresence();
   }, [user?.id, setOnlineUsers]);
 
   useEffect(() => {
     if (!user?.id) return;
-
-    const unsubscribeConv = chatService.subscribeToNewConversations(user.id, () => {
-      fetchConversations();
-    });
-
-    return () => {
-      unsubscribeConv();
-    };
+    const unsubscribeConv = chatService.subscribeToNewConversations(user.id, () => fetchConversations());
+    return () => unsubscribeConv();
   }, [user?.id, fetchConversations]);
 
   const handleToggleSettings = () => {
@@ -57,8 +47,10 @@ export const Dashboard: React.FC = () => {
     setShowSettings(false);
   };
 
-  const handleStoryClick = (index: number) => {
-    setStoryViewerIndex(index);
+  const handleStoryClick = (userId: string) => {
+    const userStories = stories.filter((s) => s.user_id === userId);
+    setViewerStories(userStories);
+    setViewerIndex(0);
     setShowStoryViewer(true);
   };
 
@@ -101,10 +93,7 @@ export const Dashboard: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.5 }}
             exit={{ opacity: 0 }}
-            onClick={() => {
-              setShowSettings(false);
-              setShowFriends(false);
-            }}
+            onClick={() => { setShowSettings(false); setShowFriends(false); }}
             className="absolute inset-0 bg-black/60 z-20 backdrop-blur-xs cursor-pointer"
           />
         )}
@@ -114,24 +103,15 @@ export const Dashboard: React.FC = () => {
         {showSettings && (
           <ProfilePanel
             onClose={() => setShowSettings(false)}
-            onOpenStoryArchive={() => {
-              setShowSettings(false);
-              setShowStoryArchive(true);
-            }}
+            onOpenStoryArchive={() => { setShowSettings(false); setShowStoryArchive(true); }}
           />
         )}
-        {showFriends && (
-          <FriendsPanel onClose={() => setShowFriends(false)} />
-        )}
+        {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} />}
       </AnimatePresence>
 
-      {showGroupModal && (
-        <GroupModal onClose={() => setShowGroupModal(false)} />
-      )}
-
+      {showGroupModal && <GroupModal onClose={() => setShowGroupModal(false)} />}
       <CallScreen />
 
-      {/* Story modals */}
       {showStoryUpload && (
         <StoryUploadModal
           onClose={() => setShowStoryUpload(false)}
@@ -139,17 +119,15 @@ export const Dashboard: React.FC = () => {
         />
       )}
 
-      {showStoryViewer && stories.length > 0 && (
+      {showStoryViewer && viewerStories.length > 0 && (
         <StoryViewer
-          stories={stories}
-          initialIndex={storyViewerIndex}
+          stories={viewerStories}
+          initialIndex={viewerIndex}
           onClose={() => setShowStoryViewer(false)}
         />
       )}
 
-      {showStoryArchive && (
-        <StoryArchive onClose={() => setShowStoryArchive(false)} />
-      )}
+      {showStoryArchive && <StoryArchive onClose={() => setShowStoryArchive(false)} />}
     </div>
   );
 };
