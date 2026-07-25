@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useStore } from "../hooks/useStore";
-import { storyService } from "../services/storyService";
-import type { StoryWithDetails } from "../services/storyService";
+import { sanitizeUrl } from "../utils/security";
 
 interface StoryCirclesProps {
-  onStoryClick: (storyId: string) => void;
+  onStoryClick: (index: number) => void;
   onUploadClick: () => void;
 }
 
@@ -12,37 +11,16 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
   onStoryClick,
   onUploadClick,
 }) => {
-  const user = useStore((state) => state.user);
-  const [stories, setStories] = useState<StoryWithDetails[]>([]);
-  const [loading, setLoading] = useState(true);
+  const stories = useStore((state) => state.stories);
+  const storiesLoading = useStore((state) => state.storiesLoading);
 
-  useEffect(() => {
-    loadActiveStories();
-
-    // Subscribe to new stories
-    const unsubscribe = storyService.subscribeToStories((newStory) => {
-      setStories((prev) => [newStory as StoryWithDetails, ...prev]);
-    });
-
-    return unsubscribe;
-  }, [user]);
-
-  const loadActiveStories = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    const { data } = await storyService.getActiveStories(user.id);
-    setStories(data || []);
-    setLoading(false);
-  };
-
-  if (loading) {
+  if (storiesLoading) {
     return (
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="flex gap-3 overflow-x-auto pb-2 px-4">
         {[...Array(3)].map((_, i) => (
           <div
             key={i}
-            className="w-16 h-16 rounded-full bg-gray-300 dark:bg-slate-700 animate-pulse flex-shrink-0"
+            className="w-14 h-14 rounded-full bg-gray-300 dark:bg-slate-700 animate-pulse flex-shrink-0"
           />
         ))}
       </div>
@@ -51,48 +29,45 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
 
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 px-4">
-      {/* Add story circle */}
       <button
         onClick={onUploadClick}
-        className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex-shrink-0 flex items-center justify-center text-white font-bold text-2xl hover:shadow-lg transition relative group"
+        className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white font-bold text-xl hover:shadow-lg hover:shadow-violet-500/20 transition relative"
+        title="Add Story"
       >
         +
-        <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-          Add Story
-        </div>
       </button>
 
-      {/* Story circles */}
-      {stories.map((story) => (
+      {stories.map((story, idx) => (
         <button
           key={story.id}
-          onClick={() => onStoryClick(story.id)}
-          className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden relative group hover:shadow-lg transition"
+          onClick={() => onStoryClick(idx)}
+          className="relative w-14 h-14 rounded-full flex-shrink-0 overflow-hidden hover:shadow-lg transition"
         >
-          {story.media_type === "image" ? (
-            <img
-              src={story.media_url}
-              alt={story.user?.username}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <video
-              src={story.media_url}
-              className="w-full h-full object-cover"
-            />
-          )}
-
-          {/* Border for unviewed */}
           <div
-            className={`absolute inset-0 rounded-full border-2 ${
+            className={`absolute inset-0 rounded-full p-[2px] ${
               story.hasViewed
-                ? "border-gray-400"
-                : "border-gradient-to-r from-blue-400 to-pink-400"
+                ? "bg-gray-500"
+                : "bg-gradient-to-tr from-violet-500 via-pink-500 to-orange-400"
             }`}
-          />
+          >
+            <div className="w-full h-full rounded-full overflow-hidden bg-slate-800">
+              {story.media_type === "image" ? (
+                <img
+                  src={sanitizeUrl(story.media_url)}
+                  alt={story.user?.username}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <video
+                  src={sanitizeUrl(story.media_url)}
+                  className="w-full h-full object-cover"
+                  muted
+                />
+              )}
+            </div>
+          </div>
 
-          {/* Username on hover */}
-          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap max-w-xs truncate">
+          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-white text-[10px] whitespace-nowrap max-w-[80px] truncate opacity-70">
             {story.user?.username}
           </div>
         </button>
@@ -100,3 +75,5 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
     </div>
   );
 };
+
+export default StoryCircles;

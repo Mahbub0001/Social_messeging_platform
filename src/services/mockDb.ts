@@ -59,6 +59,23 @@ export interface Block {
   created_at: string;
 }
 
+export interface Story {
+  id: string;
+  user_id: string;
+  media_url: string;
+  media_type: "image" | "video";
+  caption?: string;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface StoryView {
+  id: string;
+  story_id: string;
+  viewer_id: string;
+  viewed_at: string;
+}
+
 // Initial data to seed if LocalStorage is empty
 const SEED_PROFILES: Profile[] = [
   {
@@ -289,6 +306,128 @@ class MockDatabase {
 
   public saveBlocks(blocks: Block[]): void {
     this.setStorageItem("blocks", blocks);
+  }
+
+  public getStories(): Story[] {
+    return this.getStorageItem<Story[]>("stories", []);
+  }
+
+  public saveStories(stories: Story[]): void {
+    this.setStorageItem("stories", stories);
+  }
+
+  public getStoryViews(): StoryView[] {
+    return this.getStorageItem<StoryView[]>("story_views", []);
+  }
+
+  public saveStoryViews(views: StoryView[]): void {
+    this.setStorageItem("story_views", views);
+  }
+
+  public getActiveStories(userId: string) {
+    const profiles = this.getProfiles();
+    const stories = this.getStories();
+    const views = this.getStoryViews();
+    const now = new Date();
+
+    const active = stories.filter((s) => new Date(s.expires_at) > now);
+    return active.map((s) => {
+      const user = profiles.find((p) => p.id === s.user_id);
+      const viewCount = views.filter((v) => v.story_id === s.id).length;
+      const hasViewed = views.some((v) => v.story_id === s.id && v.viewer_id === userId);
+      return { ...s, user, viewCount, hasViewed, view_count: [{ count: viewCount }] };
+    });
+  }
+
+  public getUserStories(userId: string) {
+    const stories = this.getStories();
+    const profiles = this.getProfiles();
+    const views = this.getStoryViews();
+
+    const userStories = stories
+      .filter((s) => s.user_id === userId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return userStories.map((s) => {
+      const user = profiles.find((p) => p.id === s.user_id);
+      const storyViews = views
+        .filter((v) => v.story_id === s.id)
+        .map((v) => ({
+          viewer_id: v.viewer_id,
+          viewed_at: v.viewed_at,
+          user: profiles.find((p) => p.id === v.viewer_id),
+        }));
+      return { ...s, user, story_views: storyViews, viewCount: storyViews.length };
+    });
+  }
+
+  public getAllPreviousStories() {
+    const stories = this.getStories();
+    const profiles = this.getProfiles();
+    const views = this.getStoryViews();
+
+    return stories
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .map((s) => {
+        const user = profiles.find((p) => p.id === s.user_id);
+        const storyViews = views.filter((v) => v.story_id === s.id);
+        return { ...s, user, story_views: storyViews, viewCount: storyViews.length };
+      });
+  }
+
+  public createStory(userId: string, mediaUrl: string, mediaType: "image" | "video", caption?: string) {
+    const stories = this.getStories();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    const newStory: Story = {
+      id: `story-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      user_id: userId,
+      media_url: mediaUrl,
+      media_type: mediaType,
+      caption,
+      created_at: now.toISOString(),
+      expires_at: expiresAt.toISOString(),
+    };
+
+    this.saveStories([newStory, ...stories]);
+    return newStory;
+  }
+
+  public recordStoryView(storyId: string, viewerId: string) {
+    const views = this.getStoryViews();
+    const alreadyViewed = views.some((v) => v.story_id === storyId && v.viewer_id === viewerId);
+    if (alreadyViewed) return;
+
+    const newView: StoryView = {
+      id: `sv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      story_id: storyId,
+      viewer_id: viewerId,
+      viewed_at: new Date().toISOString(),
+    };
+
+    this.saveStoryViews([...views, newView]);
+  }
+
+  public getStoryViewers(storyId: string) {
+    const views = this.getStoryViews();
+    const profiles = this.getProfiles();
+
+    return views
+      .filter((v) => v.story_id === storyId)
+      .map((v) => ({
+        viewer_id: v.viewer_id,
+        viewed_at: v.viewed_at,
+        user: profiles.find((p) => p.id === v.viewer_id),
+      }))
+      .sort((a, b) => new Date(b.viewed_at).getTime() - new Date(a.viewed_at).getTime());
+  }
+
+  public deleteStory(storyId: string) {
+    const stories = this.getStories();
+    const views = this.getStoryViews();
+    this.saveStories(stories.filter((s) => s.id !== storyId));
+    this.saveStoryViews(views.filter((v) => v.story_id !== storyId));
   }
 }
 
