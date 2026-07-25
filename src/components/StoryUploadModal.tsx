@@ -121,7 +121,7 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({ onClose, onU
                 <Upload size={24} className="text-violet-400" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-white">Drag photos & videos here</p>
+                <p className="text-sm font-medium text-white">Add to My Story</p>
                 <p className="text-xs text-slate-400 mt-1">or click to browse. Max 50MB.</p>
               </div>
               <input

@@ -31,7 +31,7 @@ import StoryCircles from "./StoryCircles";
 
 interface ChatAreaProps {
   onBack: () => void;
-  onStoryClick: (index: number) => void;
+  onStoryClick: (userId: string) => void;
   onStoryUploadClick: () => void;
 }
 

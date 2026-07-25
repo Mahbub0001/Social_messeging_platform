@@ -274,7 +274,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
               <button
                 type="button"
                 onClick={onOpenStoryArchive}
-                className="w-full flex items-center justify-center gap-2 py-2.5 border border-slate-700 hover:border-violet-500 hover:bg-slate-800/50 text-slate-300 hover:text-violet-400 rounded-xl font-semibold transition-all"
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-violet-600/10 to-indigo-600/10 border border-violet-500/20 hover:border-violet-500/40 text-violet-400 hover:text-violet-300 rounded-xl font-semibold text-sm transition-all"
               >
                 <Clock size={16} />
                 Your Stories
