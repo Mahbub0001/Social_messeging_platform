@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Upload, Image as ImageIcon, Video as VideoIcon, Loader2 } from "lucide-react";
+import { X, Upload, Loader2, Image, Video, Type } from "lucide-react";
 import { useStore } from "../hooks/useStore";
 import { storyService } from "../services/storyService";
 import { storageService } from "../services/storageService";
@@ -39,13 +39,11 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({ onClose, onU
     }
 
     setMediaFile(file);
-    const url = URL.createObjectURL(file);
-    setPreview(url);
+    setPreview(URL.createObjectURL(file));
   };
 
   const handleUpload = async () => {
     if (!user || !mediaFile || !mediaType) return;
-
     setUploading(true);
     setError(null);
 
@@ -57,7 +55,6 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({ onClose, onU
         mediaType,
         caption.trim() || undefined
       );
-
       if (uploadError) {
         setError("Failed to upload story.");
       } else {
@@ -72,39 +69,32 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({ onClose, onU
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="flex justify-between items-center p-4 border-b dark:border-slate-700">
-          <h2 className="text-lg font-bold dark:text-white">Add to Story</h2>
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
+      <div className="bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-violet-500" />
+            Create Story
+          </h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded-full"
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
           >
-            <X size={20} className="dark:text-gray-400" />
+            <X size={18} />
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-5 space-y-4">
           {error && (
-            <div className="p-3 bg-red-100 dark:bg-red-950/40 border border-red-300 dark:border-red-800/60 rounded-xl text-red-600 dark:text-red-300 text-sm">
-              {error}
-            </div>
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-sm">{error}</div>
           )}
 
           {preview ? (
-            <div className="relative">
+            <div className="relative rounded-xl overflow-hidden bg-slate-950">
               {mediaType === "image" ? (
-                <img
-                  src={preview}
-                  alt="Preview"
-                  className="w-full h-64 object-cover rounded-lg"
-                />
+                <img src={preview} alt="Preview" className="w-full h-64 object-contain" />
               ) : (
-                <video
-                  src={preview}
-                  className="w-full h-64 object-cover rounded-lg"
-                  controls
-                />
+                <video src={preview} className="w-full h-64 object-contain" controls />
               )}
               <button
                 onClick={() => {
@@ -112,27 +102,26 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({ onClose, onU
                   setMediaFile(null);
                   setMediaType(null);
                 }}
-                className="absolute top-2 right-2 p-1 bg-black/50 hover:bg-black/70 text-white rounded-full"
+                className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 text-white transition"
               >
                 <X size={16} />
               </button>
+
+              {mediaType && (
+                <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/60 text-white text-xs flex items-center gap-1">
+                  {mediaType === "image" ? <Image size={12} /> : <Video size={12} />}
+                  {mediaType === "image" ? "Photo" : "Video"}
+                </div>
+              )}
             </div>
           ) : (
-            <label className="flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed border-gray-300 dark:border-slate-700 rounded-lg cursor-pointer hover:border-violet-500 dark:hover:border-violet-500 transition">
-              <Upload size={40} className="text-gray-400 dark:text-gray-500" />
-              <div className="text-center">
-                <p className="text-sm font-medium dark:text-white">Click to upload media</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Photos or videos. Max 50MB.
-                </p>
+            <label className="flex flex-col items-center justify-center gap-3 p-10 border-2 border-dashed border-slate-700 rounded-xl cursor-pointer hover:border-violet-500/70 hover:bg-slate-800/30 transition-all group">
+              <div className="w-14 h-14 rounded-full bg-violet-500/10 flex items-center justify-center group-hover:bg-violet-500/20 transition-colors">
+                <Upload size={24} className="text-violet-400" />
               </div>
-              <div className="flex gap-2">
-                <span className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg text-xs font-medium dark:text-gray-300">
-                  <ImageIcon size={14} /> Image
-                </span>
-                <span className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-lg text-xs font-medium dark:text-gray-300">
-                  <VideoIcon size={14} /> Video
-                </span>
+              <div className="text-center">
+                <p className="text-sm font-medium text-white">Drag photos & videos here</p>
+                <p className="text-xs text-slate-400 mt-1">or click to browse. Max 50MB.</p>
               </div>
               <input
                 type="file"
@@ -143,29 +132,33 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({ onClose, onU
             </label>
           )}
 
-          <div>
+          <div className="relative">
+            <Type size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
             <input
               type="text"
               placeholder="Add a caption..."
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               maxLength={200}
-              className="w-full px-4 py-2 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-sm dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="w-full pl-9 pr-14 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition"
             />
+            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+              {caption.length}/200
+            </span>
           </div>
 
           <button
             onClick={handleUpload}
             disabled={!mediaFile || uploading}
-            className="w-full py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition"
+            className="w-full py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
           >
             {uploading ? (
               <>
-                <Loader2 size={18} className="animate-spin" />
-                Uploading...
+                <Loader2 size={16} className="animate-spin" />
+                Sharing...
               </>
             ) : (
-              "Share to Story"
+              "Share to My Story"
             )}
           </button>
         </div>
