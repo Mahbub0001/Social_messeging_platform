@@ -49,7 +49,7 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({ onClose, onU
 
     try {
       const mediaUrl = await storageService.uploadMedia(mediaFile, "chat-media");
-      const { error: uploadError } = await storyService.uploadStory(
+      const { data: newStory, error: uploadError } = await storyService.uploadStory(
         user.id,
         mediaUrl,
         mediaType,
@@ -57,7 +57,8 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({ onClose, onU
       );
       if (uploadError) {
         setError("Failed to upload story.");
-      } else {
+      } else if (newStory) {
+        useStore.getState().addStory(newStory);
         onUploadComplete();
         onClose();
       }

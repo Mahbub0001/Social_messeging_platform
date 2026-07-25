@@ -49,10 +49,12 @@ interface AppState {
   // Stories state
   stories: StoryWithDetails[];
   storiesLoading: boolean;
+  storiesUnsubscribe: (() => void) | null;
   fetchActiveStories: () => Promise<void>;
   addStory: (story: StoryWithDetails) => void;
   removeStory: (storyId: string) => void;
-  subscribeToStories: () => () => void;
+  subscribeToStories: () => void;
+  cleanupStories: () => void;
 
   // Calling state
   callState: "idle" | "dialing" | "receiving" | "active";
@@ -142,6 +144,7 @@ export const useStore = create<AppState>((set, get) => ({
       } else {
         // Clear state on logout
         set({ conversations: [], activeConversationId: null, messages: {}, stories: [] });
+        get().cleanupStories();
 
         // Clean up WebRTC signaling channels
         const { isMockMode } = await import("../lib/supabase");
@@ -308,6 +311,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Stories state management
+  storiesUnsubscribe: null,
+
   fetchActiveStories: async () => {
     const userId = get().user?.id;
     if (!userId) return;
@@ -337,11 +342,26 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   subscribeToStories: () => {
-    const unsubscribe = storyService.subscribeToStories((newStory) => {
-      get().addStory(newStory as StoryWithDetails);
+    get().cleanupStories();
+
+    const unsubscribe = storyService.subscribeToStories(async () => {
+      const userId = get().user?.id;
+      if (!userId) return;
+      const { data } = await storyService.getActiveStories(userId);
+      if (data) {
+        set({ stories: data });
+      }
     });
 
-    return unsubscribe;
+    set({ storiesUnsubscribe: unsubscribe });
+  },
+
+  cleanupStories: () => {
+    const unsub = get().storiesUnsubscribe;
+    if (unsub) {
+      unsub();
+      set({ storiesUnsubscribe: null });
+    }
   },
 
   // Theme initial state
