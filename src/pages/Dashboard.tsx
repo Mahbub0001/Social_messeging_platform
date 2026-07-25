@@ -7,7 +7,6 @@ import ProfilePanel from "../components/ProfilePanel";
 import FriendsPanel from "../components/FriendsPanel";
 import GroupModal from "../components/GroupModal";
 import CallScreen from "../components/CallScreen";
-import StoryCircles from "../components/StoryCircles";
 import StoryUploadModal from "../components/StoryUploadModal";
 import StoryViewer from "../components/StoryViewer";
 import { StoryArchive } from "../components/StoryArchive";
@@ -88,16 +87,12 @@ export const Dashboard: React.FC = () => {
             !activeConversationId ? "translate-x-full md:translate-x-0" : "translate-x-0"
           }`}
         >
-          <ChatArea onBack={() => setActiveConversationId(null)} />
+          <ChatArea
+            onBack={() => setActiveConversationId(null)}
+            onStoryClick={handleStoryClick}
+            onStoryUploadClick={() => setShowStoryUpload(true)}
+          />
         </div>
-      </div>
-
-      {/* Story Circles - Overlay at top of chat area */}
-      <div className="absolute top-0 left-0 right-0 z-20 pt-12 md:pt-0 md:left-[320px] bg-gradient-to-b from-slate-950/90 via-slate-950/70 to-transparent pb-2">
-        <StoryCircles
-          onStoryClick={handleStoryClick}
-          onUploadClick={() => setShowStoryUpload(true)}
-        />
       </div>
 
       <AnimatePresence>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { X, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { X, Eye } from "lucide-react";
 import { useStore } from "../hooks/useStore";
 import { storyService } from "../services/storyService";
 import type { StoryWithDetails } from "../services/storyService";
@@ -12,7 +12,7 @@ interface StoryViewerProps {
 }
 
 const STORY_DURATION = 7000;
-const PROGRESS_INTERVAL = 50;
+const PROGRESS_INTERVAL = 40;
 
 export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, initialIndex, onClose }) => {
   const user = useStore((state) => state.user);
@@ -53,7 +53,6 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, initialIndex,
   useEffect(() => {
     const story = stories[currentIndex];
     if (!story || story.media_type !== "image") return;
-
     if (paused) return;
 
     const interval = setInterval(() => {
@@ -90,41 +89,34 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, initialIndex,
 
   if (!currentStory) return null;
 
-  const touchStartX = useRef<number | null>(null);
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (diff > 80) goPrev();
-    else if (diff < -80) goNext();
-    touchStartX.current = null;
+  const handleMediaClick = () => {
+    if (currentStory.media_type === "image") {
+      setPaused((prev) => !prev);
+    } else {
+      const video = videoRef.current;
+      if (video) {
+        if (video.paused) {
+          video.play();
+          setPaused(false);
+        } else {
+          video.pause();
+          setPaused(true);
+        }
+      }
+    }
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black z-50 flex items-center justify-center"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-20 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition"
-      >
-        <X size={24} />
-      </button>
-
+    <div className="fixed inset-0 bg-black z-50 select-none">
       {/* Progress bars */}
-      <div className="absolute top-4 left-4 right-16 flex gap-1 z-20">
+      <div className="absolute top-0 left-0 right-0 z-30 flex gap-1 px-2 pt-2">
         {stories.map((_, i) => (
           <div
             key={i}
-            className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden"
+            className="flex-1 h-[3px] bg-white/25 rounded-full overflow-hidden"
           >
             <div
-              className="h-full bg-white rounded-full transition-all duration-100"
+              className="h-full bg-white rounded-full transition-all duration-75 ease-linear"
               style={{
                 width: i < currentIndex ? "100%" : i === currentIndex ? `${progress}%` : "0%",
               }}
@@ -133,96 +125,111 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ stories, initialIndex,
         ))}
       </div>
 
-      {/* Story header */}
-      <div className="absolute top-10 left-4 flex items-center gap-3 z-20">
-        <img
-          src={
-            sanitizeUrl(currentStory.user?.avatar_url || "") ||
-            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentStory.user?.username || "user")}`
-          }
-          alt={currentStory.user?.username}
-          className="w-10 h-10 rounded-full border-2 border-white"
-        />
-        <div>
-          <p className="text-white text-sm font-semibold">
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-3 right-3 z-30 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition"
+      >
+        <X size={20} />
+      </button>
+
+      {/* Header */}
+      <div className="absolute top-10 left-4 right-4 z-20 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full overflow-hidden border border-white/20 flex-shrink-0">
+          <img
+            src={
+              sanitizeUrl(currentStory.user?.avatar_url || "") ||
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentStory.user?.username || "u")}`
+            }
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="min-w-0">
+          <p className="text-white text-sm font-semibold truncate">
             {currentStory.user?.username}
           </p>
-          <p className="text-white/60 text-xs">
-            {new Date(currentStory.created_at).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+          <p className="text-white/50 text-[11px]">
+            {new Date(currentStory.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            {" · "}
+            <Eye size={10} className="inline" /> {currentStory.viewCount || 0}
           </p>
         </div>
       </div>
 
-      {/* Navigation buttons */}
-      {currentIndex > 0 && (
+      {/* Navigation: left 30% = prev, right 70% = next */}
+      <div className="absolute inset-0 z-10 flex">
         <button
-          onClick={(e) => { e.stopPropagation(); goPrev(); }}
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition"
-        >
-          <ChevronLeft size={28} />
-        </button>
-      )}
-      {currentIndex < stories.length - 1 && (
-        <button
-          onClick={(e) => { e.stopPropagation(); goNext(); }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition"
-        >
-          <ChevronRight size={28} />
-        </button>
-      )}
-
-      {/* Left / Right tap zones */}
-      <div className="absolute inset-0 flex z-10">
-        <div
-          className="w-1/2 h-full"
-          onClick={(e) => { e.stopPropagation(); goPrev(); }}
+          className="w-[30%] h-full cursor-default"
+          onClick={goPrev}
         />
-        <div
-          className="w-1/2 h-full"
-          onClick={(e) => { e.stopPropagation(); goNext(); }}
+        <button
+          className="w-[70%] h-full cursor-default"
+          onClick={goNext}
         />
       </div>
 
-      {/* Media content */}
-      <div
-        className="relative max-w-lg w-full mx-4"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-      >
-        {currentStory.media_type === "image" ? (
-          <img
-            src={sanitizeUrl(currentStory.media_url)}
-            alt="Story"
-            className="w-full max-h-[80vh] object-contain rounded-lg select-none"
-          />
-        ) : (
-          <video
-            ref={videoRef}
-            src={sanitizeUrl(currentStory.media_url)}
-            className="w-full max-h-[80vh] object-contain rounded-lg select-none"
-            autoPlay
-            muted
-            playsInline
-            onEnded={handleVideoEnded}
-          />
-        )}
+      {/* Media */}
+      <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div
+          className="relative max-w-lg w-full pointer-events-auto"
+          onClick={handleMediaClick}
+        >
+          {currentStory.media_type === "image" ? (
+            <>
+              <img
+                src={sanitizeUrl(currentStory.media_url)}
+                alt="Story"
+                className="w-full max-h-[85vh] object-contain rounded-sm"
+              />
+              {paused && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-black/40 flex items-center justify-center">
+                    <div className="w-0 h-0 border-l-[16px] border-t-[10px] border-b-[10px] border-l-white border-t-transparent border-b-transparent ml-1" />
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <video
+              ref={videoRef}
+              src={sanitizeUrl(currentStory.media_url)}
+              className="w-full max-h-[85vh] object-contain rounded-sm"
+              autoPlay
+              playsInline
+              onEnded={handleVideoEnded}
+            />
+          )}
 
-        {/* Caption */}
-        {currentStory.caption && (
-          <div className="absolute bottom-4 left-4 right-4 bg-black/50 backdrop-blur-sm rounded-lg p-3">
-            <p className="text-white text-sm">{currentStory.caption}</p>
-          </div>
-        )}
-
-        {/* View count badge */}
-        <div className="absolute bottom-4 right-4 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-3 py-1.5 text-white text-xs">
-          <Eye size={12} />
-          <span>{currentStory.viewCount || 0}</span>
+          {currentStory.caption && (
+            <div className="absolute bottom-16 left-0 right-0 px-4">
+              <p className="text-white/90 text-sm text-center drop-shadow-lg">
+                {currentStory.caption}
+              </p>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Bottom dismiss zone */}
+      <div className="absolute bottom-0 left-0 right-0 h-[15%] z-30 flex items-end justify-center pb-6">
+        <p className="text-white/30 text-xs">swipe down to close</p>
+      </div>
+
+      {/* Swipe down to close */}
+      <div
+        className="absolute inset-0 z-5"
+        onTouchEnd={(e) => {
+          const endY = e.changedTouches[0].clientY;
+          const startY = (e.target as HTMLElement).dataset?.startY;
+          if (startY && endY - Number(startY) > 120) {
+            onClose();
+          }
+        }}
+        onTouchStart={(e) => {
+          (e.currentTarget as HTMLElement).dataset.startY = String(e.touches[0].clientY);
+        }}
+      />
     </div>
   );
 };

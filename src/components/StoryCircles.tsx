@@ -1,6 +1,7 @@
 import React from "react";
 import { useStore } from "../hooks/useStore";
 import { sanitizeUrl } from "../utils/security";
+import { Plus } from "lucide-react";
 
 interface StoryCirclesProps {
   onStoryClick: (index: number) => void;
@@ -14,64 +15,65 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
   const stories = useStore((state) => state.stories);
   const storiesLoading = useStore((state) => state.storiesLoading);
 
-  if (storiesLoading) {
-    return (
-      <div className="flex gap-3 overflow-x-auto pb-2 px-4">
-        {[...Array(3)].map((_, i) => (
-          <div
-            key={i}
-            className="w-14 h-14 rounded-full bg-gray-300 dark:bg-slate-700 animate-pulse flex-shrink-0"
-          />
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2 px-4">
+    <div className="flex items-center gap-3 overflow-x-auto px-4 py-3 scrollbar-none">
       <button
         onClick={onUploadClick}
-        className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white font-bold text-xl hover:shadow-lg hover:shadow-violet-500/20 transition relative"
-        title="Add Story"
+        className="flex flex-col items-center gap-1 flex-shrink-0 group"
       >
-        +
+        <div className="relative w-[62px] h-[62px] rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center border-2 border-dashed border-slate-600 group-hover:border-violet-500 transition-colors">
+          <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center group-hover:bg-violet-500 group-hover:scale-110 transition-all">
+            <Plus size={16} className="text-violet-400 group-hover:text-white transition-colors" />
+          </div>
+        </div>
+        <span className="text-[10px] text-slate-400 group-hover:text-violet-400 transition-colors max-w-[62px] truncate">
+          Your story
+        </span>
       </button>
 
-      {stories.map((story, idx) => (
-        <button
-          key={story.id}
-          onClick={() => onStoryClick(idx)}
-          className="relative w-14 h-14 rounded-full flex-shrink-0 overflow-hidden hover:shadow-lg transition"
-        >
-          <div
-            className={`absolute inset-0 rounded-full p-[2px] ${
-              story.hasViewed
-                ? "bg-gray-500"
-                : "bg-gradient-to-tr from-violet-500 via-pink-500 to-orange-400"
-            }`}
+      {storiesLoading ? (
+        [...Array(3)].map((_, i) => (
+          <div key={i} className="flex flex-col items-center gap-1 flex-shrink-0">
+            <div className="w-[62px] h-[62px] rounded-full bg-slate-800 animate-pulse" />
+            <div className="w-[50px] h-[10px] rounded bg-slate-800 animate-pulse" />
+          </div>
+        ))
+      ) : stories.length === 0 ? null : (
+        stories.map((story, idx) => (
+          <button
+            key={story.id}
+            onClick={() => onStoryClick(idx)}
+            className="flex flex-col items-center gap-1 flex-shrink-0 group"
           >
-            <div className="w-full h-full rounded-full overflow-hidden bg-slate-800">
-              {story.media_type === "image" ? (
-                <img
-                  src={sanitizeUrl(story.media_url)}
-                  alt={story.user?.username}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <video
-                  src={sanitizeUrl(story.media_url)}
-                  className="w-full h-full object-cover"
-                  muted
-                />
-              )}
+            <div
+              className={`w-[62px] h-[62px] rounded-full p-[2.5px] ${
+                story.hasViewed
+                  ? "bg-slate-600"
+                  : "bg-gradient-to-tr from-violet-600 via-pink-500 to-orange-400"
+              }`}
+            >
+              <div className="w-full h-full rounded-full overflow-hidden bg-slate-800 ring-2 ring-slate-950">
+                {story.media_type === "image" ? (
+                  <img
+                    src={sanitizeUrl(story.media_url)}
+                    alt={story.user?.username}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                  />
+                ) : (
+                  <video
+                    src={sanitizeUrl(story.media_url)}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    muted
+                  />
+                )}
+              </div>
             </div>
-          </div>
-
-          <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-white text-[10px] whitespace-nowrap max-w-[80px] truncate opacity-70">
-            {story.user?.username}
-          </div>
-        </button>
-      ))}
+            <span className="text-[10px] text-slate-400 group-hover:text-slate-300 transition-colors max-w-[62px] truncate">
+              {story.user?.username}
+            </span>
+          </button>
+        ))
+      )}
     </div>
   );
 };

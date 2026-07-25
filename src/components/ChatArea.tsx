@@ -27,12 +27,15 @@ import {
 import { cn } from "../lib/utils";
 import { sanitizeUrl } from "../utils/security";
 import { GroupSettingsModal } from "./GroupSettingsModal";
+import StoryCircles from "./StoryCircles";
 
 interface ChatAreaProps {
-  onBack: () => void; // Mobile back button
+  onBack: () => void;
+  onStoryClick: (index: number) => void;
+  onStoryUploadClick: () => void;
 }
 
-export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
+export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStoryUploadClick }) => {
   const {
     user,
     activeConversationId,
@@ -331,14 +334,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
   // Chat Metadata
   if (!activeChat) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-slate-950/60 p-6 text-center select-none">
-        <div className="w-20 h-20 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-3xl flex items-center justify-center shadow-lg shadow-violet-500/10 mb-6 animate-pulse">
-          <MessageSquare className="w-10 h-10 text-white" />
+      <div className="flex-1 flex flex-col bg-slate-950/60 select-none">
+        <StoryCircles onStoryClick={onStoryClick} onUploadClick={onStoryUploadClick} />
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-20 h-20 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-3xl flex items-center justify-center shadow-lg shadow-violet-500/10 mb-6 animate-pulse">
+            <MessageSquare className="w-10 h-10 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-200 mb-2 font-sans">কথাবার্তা চ্যাট রুম</h3>
+          <p className="max-w-xs text-xs text-slate-500 leading-relaxed font-sans">
+            Select a chat room from the sidebar or add friends to open a secure direct channel.
+          </p>
         </div>
-        <h3 className="text-xl font-bold text-slate-200 mb-2 font-sans">কথাবার্তা চ্যাট রুম</h3>
-        <p className="max-w-xs text-xs text-slate-500 leading-relaxed font-sans">
-          Select a chat room from the sidebar or add friends to open a secure direct channel.
-        </p>
       </div>
     );
   }
@@ -516,6 +522,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
           onClose={() => setShowGroupSettings(false)}
         />
       )}
+
+      {/* Story Circles */}
+      <StoryCircles onStoryClick={onStoryClick} onUploadClick={onStoryUploadClick} />
 
       {/* Message Feed */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
