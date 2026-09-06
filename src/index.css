@@ -217,10 +217,21 @@
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
-  body {
+  html, body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    overscroll-behavior-y: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    user-select: none;
+    height: 100%;
+    width: 100%;
+  }
+
+  input, textarea, [contenteditable="true"] {
+    user-select: text;
   }
 }
 

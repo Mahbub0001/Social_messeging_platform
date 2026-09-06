@@ -922,14 +922,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
       )}
 
       {amIBlockingPartner ? (
-        <div className="px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-center">
+        <div className="px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-900 border-t border-slate-800 flex items-center justify-center">
           <p className="text-slate-500 text-sm font-sans flex items-center gap-2">
             <Ban className="w-4 h-4" /> You blocked this user. You can't send messages or call them.
           </p>
         </div>
       ) : (
       /* Input Action Controls */
-      <form onSubmit={handleSend} className="px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center gap-3">
+      <form onSubmit={handleSend} className="px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-900 border-t border-slate-800 flex items-center gap-3">
         {/* Hidden File input */}
         <input
           type="file"

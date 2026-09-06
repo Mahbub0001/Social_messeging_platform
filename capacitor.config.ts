@@ -12,6 +12,12 @@ const config: CapacitorConfig = {
     // Allow mixed content for WebView compatibility
     allowMixedContent: true,
   },
+  plugins: {
+    Keyboard: {
+      resize: 'body',
+      resizeOnFullScreen: true,
+    },
+  },
 };
 
 export default config;
