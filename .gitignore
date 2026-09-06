@@ -24,3 +24,18 @@ dist-ssr
 *.sw?
 
 .env
+
+# Android signing
+*.keystore
+*.jks
+*.p12
+*.pfx
+
+# Environment files
+.env.*
+!.env.example
+
+# Capacitor Android build outputs
+android/app/build/
+android/.gradle/
+android/build/

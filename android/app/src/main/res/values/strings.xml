@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">kotha-barta</string>
+    <string name="title_activity_main">kotha-barta</string>
+    <string name="package_name">com.nibir.kothabarta</string>
+    <string name="custom_url_scheme">com.nibir.kothabarta</string>
+</resources>

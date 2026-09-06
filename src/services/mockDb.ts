@@ -59,7 +59,7 @@ export interface Block {
   created_at: string;
 }
 
-export interface Story {
+export interface MockStory {
   id: string;
   user_id: string;
   media_url: string;
@@ -69,7 +69,7 @@ export interface Story {
   expires_at: string;
 }
 
-export interface StoryView {
+export interface MockStoryView {
   id: string;
   story_id: string;
   viewer_id: string;
@@ -248,41 +248,6 @@ class MockDatabase {
 
       // Seed blocks
       this.setStorageItem("blocks", []);
-
-      // Seed stories (from mock users so friends can see them)
-      const now = new Date();
-      const addHours = (h: number) => new Date(now.getTime() + h * 3600000).toISOString();
-      const seedStories: Story[] = [
-        {
-          id: "story-s1",
-          user_id: "sajeeb-id",
-          media_url: "https://images.unsplash.com/photo-1571171637578-41bc2dd41cd2?w=600&h=800&fit=crop",
-          media_type: "image",
-          caption: "Building something cool today!",
-          created_at: addHours(-3),
-          expires_at: addHours(21),
-        },
-        {
-          id: "story-s2",
-          user_id: "anika-id",
-          media_url: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=600&h=800&fit=crop",
-          media_type: "image",
-          caption: "New design mockups ready",
-          created_at: addHours(-5),
-          expires_at: addHours(19),
-        },
-        {
-          id: "story-s3",
-          user_id: "sajeeb-id",
-          media_url: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600&h=800&fit=crop",
-          media_type: "image",
-          caption: "Sunset vibes 🌅",
-          created_at: addHours(-26),
-          expires_at: addHours(-2),
-        },
-      ];
-      this.setStorageItem("stories", seedStories);
-      this.setStorageItem("story_views", []);
     }
   }
 
@@ -343,100 +308,62 @@ class MockDatabase {
     this.setStorageItem("blocks", blocks);
   }
 
-  public getStories(): Story[] {
-    return this.getStorageItem<Story[]>("stories", []);
+  // Story methods
+  public getStories(): MockStory[] {
+    return this.getStorageItem<MockStory[]>("stories", []);
   }
 
-  public saveStories(stories: Story[]): void {
+  public saveStories(stories: MockStory[]): void {
     this.setStorageItem("stories", stories);
   }
 
-  public getStoryViews(): StoryView[] {
-    return this.getStorageItem<StoryView[]>("story_views", []);
+  public getStoryViews(): MockStoryView[] {
+    return this.getStorageItem<MockStoryView[]>("story_views", []);
   }
 
-  public saveStoryViews(views: StoryView[]): void {
+  public saveStoryViews(views: MockStoryView[]): void {
     this.setStorageItem("story_views", views);
   }
 
-  public getActiveStories(userId: string) {
+  public getActiveStories(userId: string): any[] {
+    const now = new Date().toISOString();
+    const stories = this.getStories().filter(s => s.expires_at > now);
     const profiles = this.getProfiles();
-    const stories = this.getStories();
     const views = this.getStoryViews();
-    const requests = this.getFriendRequests();
-    const blocks = this.getBlocks();
-    const now = new Date();
-
-    const friendIds = requests
-      .filter((r) => r.status === "accepted" && (r.sender_id === userId || r.receiver_id === userId))
-      .map((r) => (r.sender_id === userId ? r.receiver_id : r.sender_id));
-
-    const blockedIds = blocks
-      .filter((b) => b.blocker_id === userId)
-      .map((b) => b.blocked_id);
-
-    const active = stories.filter(
-      (s) =>
-        new Date(s.expires_at) > now &&
-        friendIds.includes(s.user_id) &&
-        !blockedIds.includes(s.user_id)
-    );
-
-    return active.map((s) => {
-      const user = profiles.find((p) => p.id === s.user_id);
-      const storyViewers = views.filter((v) => v.story_id === s.id);
-      return {
-        ...s,
-        user,
-        viewCount: storyViewers.length,
-        hasViewed: storyViewers.some((v) => v.viewer_id === userId),
-      };
-    });
+    return stories.map(s => ({
+      ...s,
+      user: profiles.find(p => p.id === s.user_id) || null,
+      hasViewed: views.some(v => v.story_id === s.id && v.viewer_id === userId),
+    }));
   }
 
-  public getUserStories(userId: string) {
+  public getUserStories(userId: string): any[] {
+    const stories = this.getStories().filter(s => s.user_id === userId);
+    const profiles = this.getProfiles();
+    const views = this.getStoryViews();
+    return stories.map(s => ({
+      ...s,
+      user: profiles.find(p => p.id === s.user_id) || null,
+      story_views: views.filter(v => v.story_id === s.id),
+    }));
+  }
+
+  public getAllPreviousStories(): any[] {
     const stories = this.getStories();
     const profiles = this.getProfiles();
     const views = this.getStoryViews();
-
-    const userStories = stories
-      .filter((s) => s.user_id === userId)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    return userStories.map((s) => {
-      const user = profiles.find((p) => p.id === s.user_id);
-      const storyViews = views
-        .filter((v) => v.story_id === s.id)
-        .map((v) => ({
-          viewer_id: v.viewer_id,
-          viewed_at: v.viewed_at,
-          user: profiles.find((p) => p.id === v.viewer_id),
-        }));
-      return { ...s, user, story_views: storyViews, viewCount: storyViews.length };
-    });
+    return stories.map(s => ({
+      ...s,
+      user: profiles.find(p => p.id === s.user_id) || null,
+      story_views: views.filter(v => v.story_id === s.id),
+    }));
   }
 
-  public getAllPreviousStories() {
-    const stories = this.getStories();
-    const profiles = this.getProfiles();
-    const views = this.getStoryViews();
-
-    return stories
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .map((s) => {
-        const user = profiles.find((p) => p.id === s.user_id);
-        const storyViews = views.filter((v) => v.story_id === s.id);
-        return { ...s, user, story_views: storyViews, viewCount: storyViews.length };
-      });
-  }
-
-  public createStory(userId: string, mediaUrl: string, mediaType: "image" | "video", caption?: string) {
-    const stories = this.getStories();
+  public createStory(userId: string, mediaUrl: string, mediaType: "image" | "video", caption?: string): any {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-
-    const newStory: Story = {
-      id: `story-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    const story: MockStory = {
+      id: "story-" + Math.random().toString(36).substr(2, 9),
       user_id: userId,
       media_url: mediaUrl,
       media_type: mediaType,
@@ -444,45 +371,39 @@ class MockDatabase {
       created_at: now.toISOString(),
       expires_at: expiresAt.toISOString(),
     };
-
-    this.saveStories([newStory, ...stories]);
-    return newStory;
-  }
-
-  public recordStoryView(storyId: string, viewerId: string) {
-    const views = this.getStoryViews();
-    const alreadyViewed = views.some((v) => v.story_id === storyId && v.viewer_id === viewerId);
-    if (alreadyViewed) return;
-
-    const newView: StoryView = {
-      id: `sv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      story_id: storyId,
-      viewer_id: viewerId,
-      viewed_at: new Date().toISOString(),
-    };
-
-    this.saveStoryViews([...views, newView]);
-  }
-
-  public getStoryViewers(storyId: string) {
-    const views = this.getStoryViews();
-    const profiles = this.getProfiles();
-
-    return views
-      .filter((v) => v.story_id === storyId)
-      .map((v) => ({
-        viewer_id: v.viewer_id,
-        viewed_at: v.viewed_at,
-        user: profiles.find((p) => p.id === v.viewer_id),
-      }))
-      .sort((a, b) => new Date(b.viewed_at).getTime() - new Date(a.viewed_at).getTime());
-  }
-
-  public deleteStory(storyId: string) {
     const stories = this.getStories();
+    stories.unshift(story);
+    this.saveStories(stories);
+    return story;
+  }
+
+  public recordStoryView(storyId: string, viewerId: string): void {
     const views = this.getStoryViews();
-    this.saveStories(stories.filter((s) => s.id !== storyId));
-    this.saveStoryViews(views.filter((v) => v.story_id !== storyId));
+    if (!views.some(v => v.story_id === storyId && v.viewer_id === viewerId)) {
+      views.push({
+        id: "sv-" + Math.random().toString(36).substr(2, 9),
+        story_id: storyId,
+        viewer_id: viewerId,
+        viewed_at: new Date().toISOString(),
+      });
+      this.saveStoryViews(views);
+    }
+  }
+
+  public getStoryViewers(storyId: string): any[] {
+    const views = this.getStoryViews().filter(v => v.story_id === storyId);
+    const profiles = this.getProfiles();
+    return views.map(v => ({
+      ...v,
+      user: profiles.find(p => p.id === v.viewer_id) || null,
+    }));
+  }
+
+  public deleteStory(storyId: string): void {
+    const stories = this.getStories().filter(s => s.id !== storyId);
+    this.saveStories(stories);
+    const views = this.getStoryViews().filter(v => v.story_id !== storyId);
+    this.saveStoryViews(views);
   }
 }
 
