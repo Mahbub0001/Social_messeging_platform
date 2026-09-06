@@ -12,6 +12,8 @@ import StoryViewer from "../components/StoryViewer";
 import { StoryArchive } from "../components/StoryArchive";
 import type { StoryWithDetails } from "../services/storyService";
 import { AnimatePresence, motion } from "framer-motion";
+import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
 
 export const Dashboard: React.FC = () => {
   const { user, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations, stories } = useStore();
@@ -36,6 +38,68 @@ export const Dashboard: React.FC = () => {
     const unsubscribeConv = chatService.subscribeToNewConversations(user.id, () => fetchConversations());
     return () => unsubscribeConv();
   }, [user?.id, fetchConversations]);
+
+  // Android hardware & gesture back button handling
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let lastBackPress = 0;
+
+    const backListenerPromise = CapApp.addListener("backButton", () => {
+      // 1. Close story viewer if open
+      if (showStoryViewer) {
+        setShowStoryViewer(false);
+        return;
+      }
+      // 2. Close story upload modal if open
+      if (showStoryUpload) {
+        setShowStoryUpload(false);
+        return;
+      }
+      // 3. Close story archive if open
+      if (showStoryArchive) {
+        setShowStoryArchive(false);
+        return;
+      }
+      // 4. Close group creation modal if open
+      if (showGroupModal) {
+        setShowGroupModal(false);
+        return;
+      }
+      // 5. Close settings or friends panel if open
+      if (showSettings || showFriends) {
+        setShowSettings(false);
+        setShowFriends(false);
+        return;
+      }
+      // 6. If inside a conversation on mobile, go back to the chat list
+      if (activeConversationId) {
+        setActiveConversationId(null);
+        return;
+      }
+
+      // 7. On root conversation list: exit app if pressed twice within 2 seconds
+      const now = Date.now();
+      if (now - lastBackPress < 2000) {
+        CapApp.exitApp();
+      } else {
+        lastBackPress = now;
+      }
+    });
+
+    return () => {
+      backListenerPromise.then((handle) => handle.remove());
+    };
+  }, [
+    showStoryViewer,
+    showStoryUpload,
+    showStoryArchive,
+    showGroupModal,
+    showSettings,
+    showFriends,
+    activeConversationId,
+    setActiveConversationId,
+  ]);
 
   const handleToggleSettings = () => {
     setShowSettings((prev) => !prev);
