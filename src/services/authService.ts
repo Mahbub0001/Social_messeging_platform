@@ -1,6 +1,9 @@
 import { supabase, isMockMode } from "../lib/supabase";
 import { mockDb } from "./mockDb";
 import type { Profile } from "./mockDb";
+import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 
 export interface UserSession {
   user: {
@@ -62,6 +65,70 @@ class AuthServiceClass {
         this.isInitialized = true;
         this.notifyListeners();
       });
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      CapApp.addListener("appUrlOpen", (event) => {
+        this.handleAuthCallbackUrl(event.url);
+      });
+      CapApp.getLaunchUrl().then((launchUrl) => {
+        if (launchUrl?.url) {
+          this.handleAuthCallbackUrl(launchUrl.url);
+        }
+      });
+    }
+  }
+
+  private async handleAuthCallbackUrl(url: string) {
+    if (!url || !url.includes("auth-callback")) return;
+
+    try {
+      await Browser.close().catch(() => {});
+    } catch {
+      // ignore
+    }
+
+    if (isMockMode) return;
+
+    try {
+      let params: URLSearchParams | null = null;
+      const hashIndex = url.indexOf("#");
+      const qIndex = url.indexOf("?");
+
+      if (hashIndex !== -1) {
+        params = new URLSearchParams(url.substring(hashIndex + 1));
+      } else if (qIndex !== -1) {
+        params = new URLSearchParams(url.substring(qIndex + 1));
+      }
+
+      if (params) {
+        const code = params.get("code");
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (data?.session) {
+            this.currentSession = { user: data.session.user };
+            this.notifyListeners();
+          } else if (error) {
+            console.error("Error exchanging code for session:", error);
+          }
+        } else if (accessToken && refreshToken) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (data?.session) {
+            this.currentSession = { user: data.session.user };
+            this.notifyListeners();
+          } else if (error) {
+            console.error("Error setting session from callback:", error);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to parse auth callback URL:", err);
     }
   }
 
@@ -223,13 +290,28 @@ class AuthServiceClass {
 
       return { data: this.currentSession, error: null };
     } else {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      });
-      return { data, error };
+      if (Capacitor.isNativePlatform()) {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: "com.nibir.kothabarta://auth-callback",
+            skipBrowserRedirect: true,
+          },
+        });
+        if (error) return { data: null, error };
+        if (data?.url) {
+          await Browser.open({ url: data.url, windowName: "_self" });
+        }
+        return { data: null, error: null };
+      } else {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${window.location.origin}/dashboard`,
+          },
+        });
+        return { data, error };
+      }
     }
   }
 
