@@ -23,9 +23,15 @@ jobs:
         run: npm ci
 
       - name: Create .env file
+        env:
+          SECRET_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SECRET_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
-          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
-          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+          SUPABASE_URL="${SECRET_URL:-https://ngtyysbsfvowtbrqamti.supabase.co}"
+          SUPABASE_KEY="${SECRET_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndHl5c2JzZnZvd3RicnFhbXRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4ODAxMTEsImV4cCI6MjA5NTQ1NjExMX0.NNRgmbOH0YdzemvnfaLV14duA05pqaAu99Wz1JMVFdM}"
+          echo "VITE_SUPABASE_URL=$SUPABASE_URL" > .env
+          echo "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY" >> .env
+          echo "Created .env with Supabase URL: $SUPABASE_URL"
 
       - name: Build web application
         run: npm run build
