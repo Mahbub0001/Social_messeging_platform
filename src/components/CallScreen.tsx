@@ -18,7 +18,9 @@ export const CallScreen: React.FC = () => {
   const bindLocalVideo = (el: HTMLVideoElement | null) => {
     localVideoRef.current = el;
     if (el && localStream) {
-      el.srcObject = localStream;
+      if (el.srcObject !== localStream) {
+        el.srcObject = localStream;
+      }
       el.play().catch((err) => console.warn("[WebRTC] Local video play warning:", err));
     }
   };
@@ -26,7 +28,9 @@ export const CallScreen: React.FC = () => {
   const bindRemoteVideo = (el: HTMLVideoElement | null) => {
     remoteVideoRef.current = el;
     if (el && remoteStream && callType === "video") {
-      el.srcObject = remoteStream;
+      if (el.srcObject !== remoteStream) {
+        el.srcObject = remoteStream;
+      }
       el.play().catch((err) => console.warn("[WebRTC] Remote video play warning:", err));
     }
   };
@@ -34,7 +38,9 @@ export const CallScreen: React.FC = () => {
   const bindRemoteAudio = (el: HTMLAudioElement | null) => {
     remoteAudioRef.current = el;
     if (el && remoteStream && callType === "voice") {
-      el.srcObject = remoteStream;
+      if (el.srcObject !== remoteStream) {
+        el.srcObject = remoteStream;
+      }
       el.play().catch((err) => console.warn("[WebRTC] Remote audio play warning:", err));
     }
   };
@@ -42,7 +48,9 @@ export const CallScreen: React.FC = () => {
   // Bind WebRTC streams to video & audio elements on stream updates
   useEffect(() => {
     if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
+      if (localVideoRef.current.srcObject !== localStream) {
+        localVideoRef.current.srcObject = localStream;
+      }
       localVideoRef.current.play().catch((err) => {
         console.warn("[WebRTC] Local video play warning:", err);
       });
@@ -52,12 +60,16 @@ export const CallScreen: React.FC = () => {
   useEffect(() => {
     if (remoteStream) {
       if (callType === "video" && remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = remoteStream;
+        if (remoteVideoRef.current.srcObject !== remoteStream) {
+          remoteVideoRef.current.srcObject = remoteStream;
+        }
         remoteVideoRef.current.play().catch((err) => {
           console.warn("[WebRTC] Remote video play warning:", err);
         });
       } else if (callType === "voice" && remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = remoteStream;
+        if (remoteAudioRef.current.srcObject !== remoteStream) {
+          remoteAudioRef.current.srcObject = remoteStream;
+        }
         remoteAudioRef.current.play().catch((err) => {
           console.warn("[WebRTC] Remote audio play warning:", err);
         });

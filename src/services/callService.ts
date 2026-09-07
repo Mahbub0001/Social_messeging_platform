@@ -54,6 +54,37 @@ class CallServiceClass {
     this.endCall();
   }
 
+  private async acquireLocalStream(type: "voice" | "video"): Promise<MediaStream> {
+    if (type === "video") {
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+        });
+      } catch (err1) {
+        console.warn("[WebRTC] Preferred video constraints failed, trying basic video constraints:", err1);
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: true,
+          });
+        } catch (err2) {
+          console.warn("[WebRTC] Camera unavailable, falling back to voice only:", err2);
+          useStore.setState({ callType: "voice" });
+          return await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false,
+          });
+        }
+      }
+    } else {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: false,
+      });
+    }
+  }
+
   public async startCall(partner: Profile, type: "voice" | "video", conversationId?: string) {
     const myUser = useStore.getState().user;
     if (!myUser) return;
@@ -76,43 +107,18 @@ class CallServiceClass {
       return;
     }
 
-    // Capture local media early to ensure permissions and availability
-    const constraints: MediaStreamConstraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-      video: type === "video" ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } : false,
-    };
-
     try {
-      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.localStream = await this.acquireLocalStream(type);
       useStore.setState({ localStream: this.localStream });
     } catch (err) {
-      console.warn("Failed to acquire local video media, trying audio only:", err);
-      if (type === "video") {
-        try {
-          this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-          useStore.setState({ localStream: this.localStream });
-          alert("Webcam not found or camera access denied. Continuing with voice call only.");
-          useStore.setState({ callType: "voice" });
-        } catch (audioErr) {
-          console.error("Failed to acquire even audio media stream:", audioErr);
-          this.endCall();
-          alert("Could not start call: Microphone access denied.");
-          return;
-        }
-      } else {
-        console.error("Failed to acquire audio media stream:", err);
-        this.endCall();
-        alert("Could not start call: Microphone access denied.");
-        return;
-      }
+      console.error("[WebRTC] Failed to acquire media stream:", err);
+      this.endCall();
+      alert("Could not start call: Microphone/Camera access denied.");
+      return;
     }
 
-    // Listen on the session signaling channel
-    this.joinSessionChannel(this.callId);
+    // Ensure we are fully subscribed to session channel before sending invitation
+    await this.joinSessionChannel(this.callId);
 
     // Broadcast invitation
     const callerProfile = {
@@ -131,7 +137,7 @@ class CallServiceClass {
             callId: this.callId,
             callerId: myUser.id,
             callerProfile,
-            callType: type,
+            callType: useStore.getState().callType || type,
           },
         });
         setTimeout(() => supabase.removeChannel(channel), 1000);
@@ -177,42 +183,28 @@ class CallServiceClass {
       return;
     }
 
-    const callType = useStore.getState().callType;
-    const constraints: MediaStreamConstraints = {
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-      video: callType === "video" ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } : false,
-    };
+    const callType = useStore.getState().callType || "voice";
 
     try {
-      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      this.localStream = await this.acquireLocalStream(callType);
       useStore.setState({ localStream: this.localStream });
     } catch (err) {
-      console.warn("Failed to acquire stream on accept, trying audio only:", err);
-      if (callType === "video") {
-        try {
-          this.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-          useStore.setState({ localStream: this.localStream });
-          alert("Webcam not found or camera access denied. Connecting as voice call.");
-          useStore.setState({ callType: "voice" });
-        } catch (audioErr) {
-          console.error("Failed to acquire audio on accept:", audioErr);
-          this.rejectCall();
-          alert("Could not answer call: Microphone access denied.");
-          return;
-        }
-      } else {
-        console.error("Failed to acquire audio on accept:", err);
-        this.rejectCall();
-        alert("Could not answer call: Microphone access denied.");
-        return;
-      }
+      console.error("[WebRTC] Failed to acquire stream on accept:", err);
+      this.rejectCall();
+      alert("Could not answer call: Microphone/Camera access denied.");
+      return;
     }
 
-    // Broadcast acceptance
+    // 1. Ensure we are subscribed to the session signaling channel first!
+    await this.joinSessionChannel(this.callId);
+
+    // 2. Setup local peer connection
+    await this.setupPeerConnection();
+
+    // 3. Transition local state
+    useStore.setState({ callState: "active" });
+
+    // 4. ONLY THEN broadcast acceptance so Caller's offer is received reliably
     const channel = supabase.channel(`user-calls:${this.partnerId}`);
     channel.subscribe((status: any) => {
       if (status === "SUBSCRIBED") {
@@ -224,15 +216,6 @@ class CallServiceClass {
         setTimeout(() => supabase.removeChannel(channel), 1000);
       }
     });
-
-    // Listen on session signaling channel
-    this.joinSessionChannel(this.callId);
-
-    // Setup peer connection
-    this.setupPeerConnection();
-
-    // Transition local state
-    useStore.setState({ callState: "active" });
   }
 
   public rejectCall() {
@@ -310,15 +293,26 @@ class CallServiceClass {
     await this.createOffer();
   }
 
-  private joinSessionChannel(callId: string) {
+  private joinSessionChannel(callId: string): Promise<void> {
     if (this.sessionChannel) {
       supabase.removeChannel(this.sessionChannel);
+      this.sessionChannel = null;
     }
 
-    this.sessionChannel = supabase.channel(`call-session:${callId}`);
-    this.sessionChannel
-      .on("broadcast", { event: "signal" }, (payload: any) => this.handleSignalingMessage(payload.payload))
-      .subscribe();
+    return new Promise((resolve) => {
+      this.sessionChannel = supabase.channel(`call-session:${callId}`);
+      this.sessionChannel
+        .on("broadcast", { event: "signal" }, (payload: any) => this.handleSignalingMessage(payload.payload))
+        .subscribe((status: string) => {
+          console.log(`[WebRTC] Session channel ${callId} status: ${status}`);
+          if (status === "SUBSCRIBED") {
+            resolve();
+          }
+        });
+
+      // Safety timeout so call setup never hangs if subscription event is slightly delayed
+      setTimeout(() => resolve(), 2000);
+    });
   }
 
   private sendSignalingMessage(payload: any) {
@@ -353,14 +347,22 @@ class CallServiceClass {
     if (payload.sdp) {
       const desc = new RTCSessionDescription(payload.sdp);
       if (desc.type === "offer") {
+        if (this.peerConnection.signalingState !== "stable") {
+          console.warn("[WebRTC] Received offer in non-stable state:", this.peerConnection.signalingState);
+          if (this.peerConnection.signalingState === "have-remote-offer") {
+            return;
+          }
+        }
         await this.peerConnection.setRemoteDescription(desc);
         const answer = await this.peerConnection.createAnswer();
         await this.peerConnection.setLocalDescription(answer);
         this.sendSignalingMessage({ sdp: answer });
         await this.processPendingCandidates();
       } else if (desc.type === "answer") {
-        await this.peerConnection.setRemoteDescription(desc);
-        await this.processPendingCandidates();
+        if (this.peerConnection.signalingState === "have-local-offer") {
+          await this.peerConnection.setRemoteDescription(desc);
+          await this.processPendingCandidates();
+        }
       }
     } else if (payload.candidate) {
       if (this.peerConnection.remoteDescription && this.peerConnection.remoteDescription.type) {
@@ -414,11 +416,12 @@ class CallServiceClass {
         stream.addTrack(event.track);
       }
       this.remoteStream = stream;
-      useStore.setState({ remoteStream: new MediaStream(stream.getTracks()) });
+      useStore.setState({ remoteStream: stream });
     };
 
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection?.connectionState;
+      console.log("[WebRTC] Connection state changed:", state);
       if (state === "disconnected" || state === "failed" || state === "closed") {
         this.endCall();
       }
@@ -438,6 +441,18 @@ class CallServiceClass {
       const offer = await this.peerConnection.createOffer();
       await this.peerConnection.setLocalDescription(offer);
       this.sendSignalingMessage({ sdp: offer });
+
+      // Offer retry loop: if peer hasn't answered yet, re-send offer up to 4 times
+      let retries = 0;
+      const retryInterval = setInterval(() => {
+        if (!this.peerConnection || this.peerConnection.signalingState !== "have-local-offer" || retries >= 4) {
+          clearInterval(retryInterval);
+          return;
+        }
+        retries++;
+        console.log(`[WebRTC] Re-broadcasting offer attempt ${retries}...`);
+        this.sendSignalingMessage({ sdp: offer });
+      }, 1500);
     } catch (err) {
       console.error("Failed to create offer:", err);
     }

@@ -565,8 +565,9 @@ create index if not exists idx_user_push_tokens_token on public.user_push_tokens
 alter table public.user_push_tokens enable row level security;
 
 drop policy if exists "Users can view own push tokens" on public.user_push_tokens;
-create policy "Users can view own push tokens" on public.user_push_tokens
-  for select using (auth.uid() = user_id);
+drop policy if exists "Users can view push tokens to send notifications" on public.user_push_tokens;
+create policy "Users can view push tokens to send notifications" on public.user_push_tokens
+  for select using (auth.role() = 'authenticated');
 
 drop policy if exists "Users can insert own push tokens" on public.user_push_tokens;
 create policy "Users can insert own push tokens" on public.user_push_tokens
