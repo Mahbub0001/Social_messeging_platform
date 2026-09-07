@@ -132,7 +132,7 @@ class PushNotificationService {
 
       // 3. Request permissions
       let permStatus = await PushNotifications.checkPermissions();
-      if (permStatus.receive === "prompt") {
+      if (permStatus.receive !== "granted") {
         permStatus = await PushNotifications.requestPermissions();
       }
 
@@ -140,7 +140,7 @@ class PushNotificationService {
         await PushNotifications.register();
         this.isInitialized = true;
       } else {
-        console.warn("Push notification permission was denied by user.");
+        console.warn("Push notification permission was not granted:", permStatus.receive);
       }
     } catch (err) {
       console.error("Error initializing push notifications:", err);
@@ -180,6 +180,7 @@ class PushNotificationService {
 
   private async saveTokenToDatabase(userId: string, token: string): Promise<void> {
     try {
+      console.log("[PushNotification] Registering device token in Supabase for user:", userId);
       const { error } = await supabase.from("user_push_tokens").upsert(
         {
           user_id: userId,
@@ -196,10 +197,12 @@ class PushNotificationService {
       );
 
       if (error) {
-        console.warn("Could not save push token to user_push_tokens:", error.message);
+        console.warn("[PushNotification] Could not save push token to user_push_tokens:", error.message);
+      } else {
+        console.log("[PushNotification] Push token successfully registered in database!");
       }
     } catch (err) {
-      console.warn("Error saving push token to database:", err);
+      console.warn("[PushNotification] Error saving push token to database:", err);
     }
   }
 
@@ -268,10 +271,16 @@ class PushNotificationService {
 
         if (activeRecipients.length > 0) {
           // 3. Fetch active device tokens
-          const { data: pushTokens } = await supabase
+          console.log("[PushNotification] Active recipients for push notification:", activeRecipients);
+          const { data: pushTokens, error: tokenErr } = await supabase
             .from("user_push_tokens")
             .select("id, token")
             .in("user_id", activeRecipients);
+
+          if (tokenErr) {
+            console.error("[PushNotification] Error fetching user_push_tokens:", tokenErr.message);
+          }
+          console.log("[PushNotification] Tokens found for recipients:", pushTokens?.length || 0);
 
           if (pushTokens && pushTokens.length > 0) {
             // 4. Get Google OAuth2 Access Token
