@@ -21,12 +21,34 @@ class CallServiceClass {
   private pendingIceCandidates: any[] = [];
 
   private iceServers = [
+    // STUN servers — help discover public IP
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun3.l.google.com:19302" },
-    { urls: "stun:stun4.l.google.com:19302" },
     { urls: "stun:global.stun.twilio.com:3478" },
+
+    // TURN relay servers — required on mobile networks (CGNAT/carrier NAT)
+    // Without TURN, audio & video never flow when both peers are on cellular
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:80?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
   ];
 
   // Initialize listening channel for incoming calls
@@ -419,11 +441,35 @@ class CallServiceClass {
       useStore.setState({ remoteStream: stream });
     };
 
+    this.peerConnection.onicecandidateerror = (event) => {
+      console.warn("[WebRTC] ICE candidate error:", event);
+    };
+
+    this.peerConnection.oniceconnectionstatechange = () => {
+      const iceState = this.peerConnection?.iceConnectionState;
+      console.log("[WebRTC] ICE connection state:", iceState);
+      if (iceState === "failed") {
+        // Attempt ICE restart before giving up
+        console.warn("[WebRTC] ICE failed — attempting ICE restart");
+        this.peerConnection?.restartIce();
+      }
+    };
+
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection?.connectionState;
       console.log("[WebRTC] Connection state changed:", state);
-      if (state === "disconnected" || state === "failed" || state === "closed") {
+      if (state === "failed" || state === "closed") {
         this.endCall();
+      } else if (state === "disconnected") {
+        // Temporary disconnect (e.g. network blip) — wait 5 seconds before ending
+        console.warn("[WebRTC] Connection temporarily disconnected, waiting before ending call...");
+        setTimeout(() => {
+          const currentState = this.peerConnection?.connectionState;
+          if (currentState === "disconnected" || currentState === "failed" || currentState === "closed") {
+            console.warn("[WebRTC] Connection did not recover, ending call");
+            this.endCall();
+          }
+        }, 5000);
       }
     };
 
