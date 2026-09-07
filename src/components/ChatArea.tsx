@@ -153,11 +153,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
 
     if (editingMessage) {
       // Perform Edit
-      await chatService.editMessage(editingMessage.id, textToSend);
+      const { data: updatedMsg } = await chatService.editMessage(editingMessage.id, textToSend);
+      if (updatedMsg) {
+        updateMessageInStore(activeConversationId, updatedMsg as MessageWithSender);
+      }
       setEditingMessage(null);
     } else {
       // Perform Send
-      await chatService.sendMessage(
+      const { data: newMsg } = await chatService.sendMessage(
         activeConversationId,
         user.id,
         textToSend,
@@ -165,6 +168,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
         null,
         replyId
       );
+      if (newMsg) {
+        addMessage(activeConversationId, newMsg);
+      }
     }
   };
 
@@ -401,7 +407,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
       )}
 
       {/* Chat Area Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800">
+      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-slate-900 border-b border-slate-800">
         {showSearchInput ? (
           <div className="flex-1 flex items-center gap-2 bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-800 animate-slideDown">
             <Search className="w-4 h-4 text-slate-500 shrink-0" />

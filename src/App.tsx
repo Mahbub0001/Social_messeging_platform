@@ -73,6 +73,7 @@ export const App: React.FC = () => {
 
     // Configure native status bar to match theme
     if (Capacitor.isNativePlatform()) {
+      StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
       StatusBar.setStyle({ style: theme === "light" ? Style.Light : Style.Dark }).catch(() => {});
       StatusBar.setBackgroundColor({ color: theme === "light" ? "#ffffff" : "#020617" }).catch(() => {});
     }

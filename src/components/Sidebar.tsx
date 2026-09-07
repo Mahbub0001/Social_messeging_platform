@@ -72,7 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className="flex flex-col h-full w-full bg-slate-900 border-r border-slate-800">
       {/* Sidebar Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800">
+      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-slate-900 border-b border-slate-800">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-lg">
             <MessageSquare className="w-4 h-4 text-white" />

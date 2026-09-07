@@ -380,7 +380,7 @@ class ChatServiceClass {
   // ----------------------------------------------------
   public async getMessages(
     conversationId: string,
-    limit: number = 50
+    limit: number = 100
   ): Promise<{ data: MessageWithSender[]; error: any }> {
     if (isMockMode) {
       const messages = mockDb.getMessages();
@@ -431,6 +431,7 @@ class ChatServiceClass {
 
       return { data: messagesWithDetails, error: null };
     } else {
+      // Query the latest messages descending by creation time, then reverse for display
       const { data, error } = await supabase
         .from("messages")
         .select(`
@@ -439,12 +440,15 @@ class ChatServiceClass {
           message_reactions (*)
         `)
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: false })
         .limit(limit);
 
       if (error) return { data: [], error };
 
-      const messagesWithDetails = (data || []).map((msg: any) => {
+      // Reverse so messages are displayed in chronological order (oldest to newest)
+      const chronological = (data || []).reverse();
+
+      const messagesWithDetails = chronological.map((msg: any) => {
         // Map reactions: group emoji count
         const mappedReactions: { [emoji: string]: string[] } = {};
         (msg.message_reactions || []).forEach((r: any) => {

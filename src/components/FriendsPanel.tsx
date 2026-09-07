@@ -150,7 +150,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
       className="absolute top-0 right-0 z-30 w-full sm:w-[360px] h-full bg-slate-900 border-l border-slate-800 flex flex-col shadow-2xl"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800">
+      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-slate-900 border-b border-slate-800">
         <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
           <Users className="w-4.5 h-4.5 text-violet-400" />
           <span>Friends & Requests</span>
