@@ -1,6 +1,89 @@
 import { Capacitor } from "@capacitor/core";
-import { PushNotifications, type Token, type ActionPerformed, type PushNotificationSchema } from "@capacitor/push-notifications";
+import {
+  PushNotifications,
+  type Token,
+  type ActionPerformed,
+  type PushNotificationSchema,
+} from "@capacitor/push-notifications";
 import { supabase, isMockMode } from "../lib/supabase";
+import { fcmConfig } from "../config/fcmConfig";
+
+// Base64URL helper
+function base64url(buffer: ArrayBuffer | Uint8Array): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// Convert PEM PKCS#8 private key string to ArrayBuffer for WebCrypto
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const b64 = pem
+    .replace(/-----BEGIN[ A-Z_-]+-----/g, "")
+    .replace(/-----END[ A-Z_-]+-----/g, "")
+    .replace(/[\r\n\s]/g, "");
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+// Cache Google OAuth2 token for 55 minutes
+let cachedGoogleToken: { token: string; expiresAt: number } | null = null;
+
+async function getGoogleAccessToken(): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (cachedGoogleToken && cachedGoogleToken.expiresAt > now + 60) {
+    return cachedGoogleToken.token;
+  }
+
+  const header = { alg: "RS256", typ: "JWT" };
+  const claims = {
+    iss: fcmConfig.clientEmail,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const encodedHeader = base64url(new TextEncoder().encode(JSON.stringify(header)));
+  const encodedClaims = base64url(new TextEncoder().encode(JSON.stringify(claims)));
+  const dataToSign = new TextEncoder().encode(`${encodedHeader}.${encodedClaims}`);
+
+  const keyBuffer = pemToArrayBuffer(fcmConfig.privateKey);
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    keyBuffer,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, dataToSign);
+  const jwt = `${encodedHeader}.${encodedClaims}.${base64url(signature)}`;
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+
+  const resData = await response.json();
+  if (!response.ok || !resData.access_token) {
+    throw new Error(`Failed to get Google Access Token: ${JSON.stringify(resData)}`);
+  }
+
+  cachedGoogleToken = {
+    token: resData.access_token,
+    expiresAt: now + (resData.expires_in || 3600),
+  };
+
+  return resData.access_token;
+}
 
 class PushNotificationService {
   private isInitialized = false;
@@ -17,13 +100,11 @@ class PushNotificationService {
       this.onConversationClickCallback = onConversationClick;
     }
 
-    // Push notifications are only supported on native mobile platforms (Android/iOS)
     if (!Capacitor.isNativePlatform()) {
       return;
     }
 
     if (this.isInitialized) {
-      // Already initialized, but re-registering for current user
       if (this.currentToken && !isMockMode && supabase) {
         await this.saveTokenToDatabase(userId, this.currentToken);
       }
@@ -67,7 +148,6 @@ class PushNotificationService {
   }
 
   private setupListeners(): void {
-    // Remove existing listeners to avoid duplicates
     PushNotifications.removeAllListeners().catch(() => {});
 
     // Token successfully received from FCM
@@ -78,18 +158,16 @@ class PushNotificationService {
       }
     });
 
-    // Token registration error
     PushNotifications.addListener("registrationError", (error: any) => {
       console.error("Push registration error:", error);
     });
 
-    // Notification received while app is in foreground
+    // Foreground push notification
     PushNotifications.addListener("pushNotificationReceived", (notification: PushNotificationSchema) => {
-      // In foreground, app can show in-app banner or let the system channel display
       console.log("Foreground push notification received:", notification);
     });
 
-    // Notification tapped / action performed by user
+    // User tapped notification -> Deep link to chat
     PushNotifications.addListener("pushNotificationActionPerformed", (action: ActionPerformed) => {
       const data = action.notification.data;
       const conversationId = data?.conversationId || data?.conversation_id;
@@ -118,8 +196,7 @@ class PushNotificationService {
       );
 
       if (error) {
-        // Table might not exist yet if user hasn't run the SQL migration
-        console.warn("Could not save push token to user_push_tokens (table may need migration):", error.message);
+        console.warn("Could not save push token to user_push_tokens:", error.message);
       }
     } catch (err) {
       console.warn("Error saving push token to database:", err);
@@ -159,21 +236,121 @@ class PushNotificationService {
   }): Promise<void> {
     if (isMockMode || !supabase) return;
 
+    const notificationTitle = params.senderName || "Kotha Barta";
+    const notificationBody =
+      params.content && params.content.trim() !== ""
+        ? params.content
+        : params.mediaType
+        ? `Sent a ${params.mediaType}`
+        : "Sent a new message";
+
+    // Path 1: Direct FCM v1 Dispatch
     try {
-      // Trigger Supabase Edge Function to dispatch FCM push
+      // 1. Get recipients in the conversation
+      const { data: members } = await supabase
+        .from("conversation_members")
+        .select("user_id")
+        .eq("conversation_id", params.conversationId)
+        .neq("user_id", params.senderId);
+
+      if (members && members.length > 0) {
+        const recipientUserIds = members.map((m: any) => m.user_id);
+
+        // 2. Filter blocked users
+        const { data: blocks } = await supabase
+          .from("blocks")
+          .select("blocker_id")
+          .in("blocker_id", recipientUserIds)
+          .eq("blocked_id", params.senderId);
+
+        const blockerIds = new Set((blocks || []).map((b: any) => b.blocker_id));
+        const activeRecipients = recipientUserIds.filter((id: string) => !blockerIds.has(id));
+
+        if (activeRecipients.length > 0) {
+          // 3. Fetch active device tokens
+          const { data: pushTokens } = await supabase
+            .from("user_push_tokens")
+            .select("id, token")
+            .in("user_id", activeRecipients);
+
+          if (pushTokens && pushTokens.length > 0) {
+            // 4. Get Google OAuth2 Access Token
+            const accessToken = await getGoogleAccessToken();
+            const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${fcmConfig.projectId}/messages:send`;
+
+            // 5. Send FCM message to each token
+            const staleIds: string[] = [];
+            for (const item of pushTokens) {
+              try {
+                const res = await fetch(fcmEndpoint, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    message: {
+                      token: item.token,
+                      notification: {
+                        title: notificationTitle,
+                        body: notificationBody,
+                      },
+                      data: {
+                        conversationId: String(params.conversationId),
+                        senderId: String(params.senderId),
+                        type: "chat_message",
+                      },
+                      android: {
+                        priority: "high",
+                        notification: {
+                          channel_id: "messages",
+                          sound: "default",
+                          click_action: "FCM_PLUGIN_ACTIVITY",
+                        },
+                      },
+                    },
+                  }),
+                });
+
+                if (res.status === 404 || res.status === 400) {
+                  const errBody = await res.json().catch(() => ({}));
+                  if (
+                    res.status === 404 ||
+                    errBody.error?.message?.includes("UNREGISTERED") ||
+                    errBody.error?.details?.some((d: any) => d.errorCode === "UNREGISTERED")
+                  ) {
+                    staleIds.push(item.id);
+                  }
+                }
+              } catch (e) {
+                console.warn("FCM send error for token:", e);
+              }
+            }
+
+            // Cleanup stale tokens
+            if (staleIds.length > 0) {
+              await supabase.from("user_push_tokens").delete().in("id", staleIds);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Direct FCM dispatch error:", err);
+    }
+
+    // Path 2: Also trigger Edge Function if available
+    try {
       await supabase.functions.invoke("send-push-notification", {
         body: {
           conversationId: params.conversationId,
           senderId: params.senderId,
           senderName: params.senderName,
-          content:
-            params.content ||
-            (params.mediaType ? `Sent a ${params.mediaType}` : "Sent a message"),
+          content: notificationBody,
           mediaType: params.mediaType || null,
         },
       });
-    } catch (err) {
-      console.warn("Push notification dispatch failed or Edge Function not deployed:", err);
+    } catch {
+      // Ignored since direct FCM handled it
     }
   }
 }

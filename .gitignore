@@ -39,6 +39,9 @@ dist-ssr
 *service-account*.json
 *firebase-adminsdk*.json
 
+# Supabase CLI temp
+supabase/.temp/
+
 # Capacitor Android build outputs
 android/app/build/
 android/.gradle/
