@@ -4,6 +4,7 @@ import type { Profile } from "./mockDb";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
+import { pushNotificationService } from "./pushNotificationService";
 
 export interface UserSession {
   user: {
@@ -316,6 +317,11 @@ class AuthServiceClass {
   }
 
   public async signOut(): Promise<{ error: any }> {
+    const userId = this.currentSession?.user?.id;
+    if (userId) {
+      await pushNotificationService.unregister(userId).catch(() => {});
+    }
+
     if (isMockMode) {
       const savedUser = localStorage.getItem("kb_mock_user");
       if (savedUser) {

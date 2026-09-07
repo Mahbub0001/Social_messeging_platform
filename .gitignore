@@ -35,6 +35,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Firebase Service Account private keys
+*service-account*.json
+*firebase-adminsdk*.json
+
 # Capacitor Android build outputs
 android/app/build/
 android/.gradle/

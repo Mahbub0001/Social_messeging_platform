@@ -6,6 +6,7 @@ import AuthLayout from "./layouts/AuthLayout";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
+import { pushNotificationService } from "./services/pushNotificationService";
 
 // Lazy-loaded or directly imported pages
 import Landing from "./pages/Landing";
@@ -54,6 +55,8 @@ const MobileNavigationHandler: React.FC = () => {
 export const App: React.FC = () => {
   const initializeAuth = useStore((state) => state.initializeAuth);
   const theme = useStore((state) => state.theme);
+  const user = useStore((state) => state.user);
+  const setActiveConversationId = useStore((state) => state.setActiveConversationId);
 
   useEffect(() => {
     // Start session state observer
@@ -62,6 +65,17 @@ export const App: React.FC = () => {
       unsubscribe();
     };
   }, [initializeAuth]);
+
+  // Initialize WhatsApp/Messenger-style Push Notifications
+  useEffect(() => {
+    if (user?.id) {
+      pushNotificationService.init(user.id, (conversationId) => {
+        if (conversationId) {
+          setActiveConversationId(conversationId);
+        }
+      });
+    }
+  }, [user?.id, setActiveConversationId]);
 
   useEffect(() => {
     const root = window.document.documentElement;

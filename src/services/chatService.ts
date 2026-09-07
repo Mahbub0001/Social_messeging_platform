@@ -1,6 +1,7 @@
 import { supabase, isMockMode } from "../lib/supabase";
 import { mockDb } from "./mockDb";
 import type { Conversation, Message, MessageReaction, Profile } from "./mockDb";
+import { pushNotificationService } from "./pushNotificationService";
 
 export type { Conversation, Message, MessageReaction };
 
@@ -576,6 +577,17 @@ class ChatServiceClass {
         .single();
 
       if (error) return { data: null, error };
+
+      // Dispatch push notification to recipients asynchronously
+      const senderName = data?.sender?.username || "Someone";
+      pushNotificationService.sendPushNotification({
+        conversationId,
+        senderId,
+        senderName,
+        content,
+        mediaType,
+      }).catch(() => {});
+
       return { data: { ...data, reactions: {} }, error: null };
     }
   }
