@@ -286,8 +286,9 @@ drop policy if exists "Senders can edit their own messages" on public.messages;
 create policy "Senders can edit their own messages" on public.messages
   for update using (auth.uid() = sender_id);
 
-drop policy if exists "Restrict messages from blocked users" on public.messages
-  AS RESTRICTIVE for select using (
+drop policy if exists "Restrict messages from blocked users" on public.messages;
+create policy "Restrict messages from blocked users" on public.messages
+  as restrictive for select using (
     not exists (
       select 1 from public.blocks
       where blocker_id = auth.uid() and blocked_id = sender_id
