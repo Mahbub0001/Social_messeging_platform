@@ -13,19 +13,57 @@ export const CallScreen: React.FC = () => {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
-  // Bind WebRTC streams to video elements
+  const bindLocalVideo = (el: HTMLVideoElement | null) => {
+    localVideoRef.current = el;
+    if (el && localStream) {
+      el.srcObject = localStream;
+      el.play().catch((err) => console.warn("[WebRTC] Local video play warning:", err));
+    }
+  };
+
+  const bindRemoteVideo = (el: HTMLVideoElement | null) => {
+    remoteVideoRef.current = el;
+    if (el && remoteStream && callType === "video") {
+      el.srcObject = remoteStream;
+      el.play().catch((err) => console.warn("[WebRTC] Remote video play warning:", err));
+    }
+  };
+
+  const bindRemoteAudio = (el: HTMLAudioElement | null) => {
+    remoteAudioRef.current = el;
+    if (el && remoteStream && callType === "voice") {
+      el.srcObject = remoteStream;
+      el.play().catch((err) => console.warn("[WebRTC] Remote audio play warning:", err));
+    }
+  };
+
+  // Bind WebRTC streams to video & audio elements on stream updates
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch((err) => {
+        console.warn("[WebRTC] Local video play warning:", err);
+      });
     }
   }, [localStream, camMuted]);
 
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
+    if (remoteStream) {
+      if (callType === "video" && remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+        remoteVideoRef.current.play().catch((err) => {
+          console.warn("[WebRTC] Remote video play warning:", err);
+        });
+      } else if (callType === "voice" && remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.play().catch((err) => {
+          console.warn("[WebRTC] Remote audio play warning:", err);
+        });
+      }
     }
-  }, [remoteStream]);
+  }, [remoteStream, callType, callState]);
 
   // 1. Audio and Call Transitions Handler
   useEffect(() => {
@@ -52,6 +90,7 @@ export const CallScreen: React.FC = () => {
         audioSynthesizer.stopRingtone();
       };
     } else if (callState === "active") {
+      audioSynthesizer.stopRingtone();
       // Start call timer
       setSeconds(0);
       timerRef.current = window.setInterval(() => {
@@ -164,7 +203,7 @@ export const CallScreen: React.FC = () => {
           {/* Remote Video / Audio Feed */}
           {callType === "video" ? (
             <video
-              ref={remoteVideoRef}
+              ref={bindRemoteVideo}
               autoPlay
               playsInline
               className="w-full h-full object-cover"
@@ -178,9 +217,14 @@ export const CallScreen: React.FC = () => {
             </div>
           )}
 
-          {/* Hidden Remote Audio Stream Player for Voice Calls */}
+          {/* Remote Audio Stream Player for Voice Calls */}
           {callType === "voice" && (
-            <video ref={remoteVideoRef} autoPlay playsInline className="hidden w-0 h-0" />
+            <audio
+              ref={bindRemoteAudio}
+              autoPlay
+              playsInline
+              className="absolute opacity-0 pointer-events-none w-px h-px -z-10"
+            />
           )}
 
           {/* Local PIP Video overlay */}
@@ -193,7 +237,7 @@ export const CallScreen: React.FC = () => {
                 </div>
               ) : (
                 <video
-                  ref={localVideoRef}
+                  ref={bindLocalVideo}
                   autoPlay
                   playsInline
                   muted

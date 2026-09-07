@@ -35,6 +35,56 @@ interface ChatAreaProps {
   onStoryUploadClick: () => void;
 }
 
+const isSameDay = (d1: Date, d2: Date) => {
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
+};
+
+const formatMessageDateDivider = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+
+  if (isSameDay(date, now)) {
+    return `Today, ${date.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+  } else if (isSameDay(date, yesterday)) {
+    return `Yesterday, ${date.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+  } else if (date.getFullYear() === now.getFullYear()) {
+    return date.toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  } else {
+    return date.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+};
+
+const formatMessageTimestamp = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  if (isSameDay(date, now)) {
+    return time;
+  }
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameDay(date, yesterday)) {
+    return `Yesterday, ${time}`;
+  }
+  const datePart = date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return `${datePart}, ${time}`;
+};
+
 export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStoryUploadClick }) => {
   const {
     user,
@@ -545,15 +595,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
             <p>{messageSearchQuery ? "No matching messages found." : "Say hello to start the conversation!"}</p>
           </div>
         ) : (
-          filteredMessages.map((msg) => {
+          filteredMessages.map((msg, idx) => {
             const isSelf = msg.sender_id === user?.id;
             const isDeleted = msg.content === "This message was deleted";
             const reactions = msg.reactions || {};
 
+            const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
+            const showDateDivider =
+              !prevMsg || !isSameDay(new Date(msg.created_at), new Date(prevMsg.created_at));
+
             return (
-              <div
-                key={msg.id}
-                onMouseEnter={() => setHoveredMessageId(msg.id)}
+              <React.Fragment key={msg.id}>
+                {showDateDivider && (
+                  <div className="flex items-center justify-center my-3 select-none">
+                    <span className="px-3.5 py-1 bg-slate-900/90 border border-slate-800 text-slate-400 rounded-full text-[11px] font-medium shadow-sm backdrop-blur-sm">
+                      {formatMessageDateDivider(msg.created_at)}
+                    </span>
+                  </div>
+                )}
+                <div
+                  onMouseEnter={() => setHoveredMessageId(msg.id)}
                 onMouseLeave={() => setHoveredMessageId(null)}
                 className={cn("flex flex-col max-w-[75%] relative group/msg", isSelf ? "ml-auto items-end" : "mr-auto items-start")}
               >
@@ -761,13 +822,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
                       })()}
 
                       {/* Footer time stamp */}
-                      <div className="flex items-center justify-end gap-1.5 text-[9px] text-slate-500/80 mt-0.5 select-none font-mono">
-                        <span>
-                          {new Date(msg.created_at).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
+                      <div
+                        title={new Date(msg.created_at).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}
+                        className="flex items-center justify-end gap-1.5 text-[9px] text-slate-500/80 mt-0.5 select-none font-mono"
+                      >
+                        <span>{formatMessageTimestamp(msg.created_at)}</span>
                         {isSelf && (
                           <CheckCheck className="w-3.5 h-3.5 text-violet-500/50" />
                         )}
@@ -829,14 +888,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
                       )}
 
                       {/* Footer stats: Edit tag + time + check receipts */}
-                      <div className="flex items-center justify-end gap-1.5 mt-1 select-none text-[9px] text-slate-400/80">
-                        {msg.is_edited && !isDeleted && <span>edited</span>}
-                        <span>
-                          {new Date(msg.created_at).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
+                      <div
+                        title={new Date(msg.created_at).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}
+                        className="flex items-center justify-end gap-1.5 mt-1 select-none text-[9px] text-slate-400/80 font-mono"
+                      >
+                        {msg.is_edited && !isDeleted && <span className="italic text-[8px]">edited</span>}
+                        <span>{formatMessageTimestamp(msg.created_at)}</span>
                         {isSelf && (
                           <CheckCheck className="w-3.5 h-3.5 text-violet-300" />
                         )}
@@ -868,6 +925,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
                   </div>
                 )}
               </div>
+            </React.Fragment>
             );
           })
         )}

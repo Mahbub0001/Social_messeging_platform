@@ -18,10 +18,15 @@ class CallServiceClass {
   private callConnectedTime: number | null = null;
   private hasLoggedCurrentCall = false;
 
+  private pendingIceCandidates: any[] = [];
+
   private iceServers = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
+    { urls: "stun:global.stun.twilio.com:3478" },
   ];
 
   // Initialize listening channel for incoming calls
@@ -72,9 +77,13 @@ class CallServiceClass {
     }
 
     // Capture local media early to ensure permissions and availability
-    const constraints = {
-      audio: true,
-      video: type === "video" ? { width: 640, height: 480, facingMode: "user" } : false
+    const constraints: MediaStreamConstraints = {
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: type === "video" ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } : false,
     };
 
     try {
@@ -169,9 +178,13 @@ class CallServiceClass {
     }
 
     const callType = useStore.getState().callType;
-    const constraints = {
-      audio: true,
-      video: callType === "video" ? { width: 640, height: 480, facingMode: "user" } : false
+    const constraints: MediaStreamConstraints = {
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: callType === "video" ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } : false,
     };
 
     try {
@@ -344,14 +357,34 @@ class CallServiceClass {
         const answer = await this.peerConnection.createAnswer();
         await this.peerConnection.setLocalDescription(answer);
         this.sendSignalingMessage({ sdp: answer });
+        await this.processPendingCandidates();
       } else if (desc.type === "answer") {
         await this.peerConnection.setRemoteDescription(desc);
+        await this.processPendingCandidates();
       }
     } else if (payload.candidate) {
-      try {
-        await this.peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
-      } catch (err) {
-        console.error("Error adding ice candidate:", err);
+      if (this.peerConnection.remoteDescription && this.peerConnection.remoteDescription.type) {
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        } catch (err) {
+          console.error("[WebRTC] Error adding ice candidate:", err);
+        }
+      } else {
+        this.pendingIceCandidates.push(payload.candidate);
+      }
+    }
+  }
+
+  private async processPendingCandidates() {
+    if (!this.peerConnection || !this.peerConnection.remoteDescription) return;
+    while (this.pendingIceCandidates.length > 0) {
+      const candidate = this.pendingIceCandidates.shift();
+      if (candidate) {
+        try {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.warn("[WebRTC] Error applying buffered ice candidate:", err);
+        }
       }
     }
   }
@@ -370,10 +403,18 @@ class CallServiceClass {
     };
 
     this.peerConnection.ontrack = (event) => {
+      console.log("[WebRTC] ontrack received:", event.track.kind, event.streams);
+      let stream = this.remoteStream;
       if (event.streams && event.streams[0]) {
-        this.remoteStream = event.streams[0];
-        useStore.setState({ remoteStream: this.remoteStream });
+        stream = event.streams[0];
+      } else {
+        if (!stream) {
+          stream = new MediaStream();
+        }
+        stream.addTrack(event.track);
       }
+      this.remoteStream = stream;
+      useStore.setState({ remoteStream: new MediaStream(stream.getTracks()) });
     };
 
     this.peerConnection.onconnectionstatechange = () => {
@@ -488,6 +529,7 @@ class CallServiceClass {
     }
 
     this.remoteStream = null;
+    this.pendingIceCandidates = [];
 
     if (this.peerConnection) {
       this.peerConnection.close();
