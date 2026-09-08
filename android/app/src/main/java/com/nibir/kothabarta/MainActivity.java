@@ -25,6 +25,10 @@ public class MainActivity extends BridgeActivity {
         // Pre-request permissions at launch so calls connect seamlessly
         requestRequiredPermissions();
 
+        // Allow WebRTC audio/video to autoplay without user gesture
+        android.webkit.WebSettings webSettings = getBridge().getWebView().getSettings();
+        webSettings.setMediaPlaybackRequiresUserGesture(false);
+
         // Fix WebRTC permissions in WebView by overriding onPermissionRequest
         getBridge().getWebView().setWebChromeClient(new BridgeWebChromeClient(getBridge()) {
             @Override

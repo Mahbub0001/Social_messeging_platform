@@ -15,6 +15,22 @@ export const CallScreen: React.FC = () => {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
+  const safePlay = async (el: HTMLMediaElement | null) => {
+    if (!el) return;
+    try {
+      await el.play();
+    } catch (err: any) {
+      console.warn("[WebRTC] Autoplay restriction encountered, attempting fallback:", err);
+      try {
+        el.muted = true;
+        await el.play();
+        el.muted = false;
+      } catch (e) {
+        console.error("[WebRTC] Safe play fallback failed:", e);
+      }
+    }
+  };
+
   const bindLocalVideo = (el: HTMLVideoElement | null) => {
     localVideoRef.current = el;
     if (el && localStream) {
@@ -31,18 +47,17 @@ export const CallScreen: React.FC = () => {
       if (el.srcObject !== remoteStream) {
         el.srcObject = remoteStream;
       }
-      el.play().catch((err) => console.warn("[WebRTC] Remote video play warning:", err));
+      safePlay(el);
     }
   };
 
   const bindRemoteAudio = (el: HTMLAudioElement | null) => {
     remoteAudioRef.current = el;
-    // Always bind audio — audio tracks flow for both voice & video calls
-    if (el && remoteStream) {
+    if (el && remoteStream && callType === "voice") {
       if (el.srcObject !== remoteStream) {
         el.srcObject = remoteStream;
       }
-      el.play().catch((err) => console.warn("[WebRTC] Remote audio play warning:", err));
+      safePlay(el);
     }
   };
 
@@ -60,23 +75,16 @@ export const CallScreen: React.FC = () => {
 
   useEffect(() => {
     if (remoteStream) {
-      // Bind audio for BOTH voice and video calls (audio track always present)
-      if (remoteAudioRef.current) {
-        if (remoteAudioRef.current.srcObject !== remoteStream) {
-          remoteAudioRef.current.srcObject = remoteStream;
-        }
-        remoteAudioRef.current.play().catch((err) => {
-          console.warn("[WebRTC] Remote audio play warning:", err);
-        });
-      }
-      // Bind video only for video calls
       if (callType === "video" && remoteVideoRef.current) {
         if (remoteVideoRef.current.srcObject !== remoteStream) {
           remoteVideoRef.current.srcObject = remoteStream;
         }
-        remoteVideoRef.current.play().catch((err) => {
-          console.warn("[WebRTC] Remote video play warning:", err);
-        });
+        safePlay(remoteVideoRef.current);
+      } else if (callType === "voice" && remoteAudioRef.current) {
+        if (remoteAudioRef.current.srcObject !== remoteStream) {
+          remoteAudioRef.current.srcObject = remoteStream;
+        }
+        safePlay(remoteAudioRef.current);
       }
     }
   }, [remoteStream, callType, callState]);
@@ -233,13 +241,15 @@ export const CallScreen: React.FC = () => {
             </div>
           )}
 
-          {/* Remote Audio Stream Player — always present to handle audio tracks for both voice and video calls */}
-          <audio
-            ref={bindRemoteAudio}
-            autoPlay
-            playsInline
-            className="absolute opacity-0 pointer-events-none w-px h-px -z-10"
-          />
+          {/* Remote Audio Stream Player for Voice Calls */}
+          {callType === "voice" && (
+            <audio
+              ref={bindRemoteAudio}
+              autoPlay
+              playsInline
+              className="absolute opacity-0 pointer-events-none w-px h-px -z-10"
+            />
+          )}
 
           {/* Local PIP Video overlay */}
           {callType === "video" && (

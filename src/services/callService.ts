@@ -21,34 +21,14 @@ class CallServiceClass {
   private pendingIceCandidates: any[] = [];
 
   private iceServers = [
-    // STUN servers — help discover public IP
+    // Fast & highly reliable public STUN servers
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
     { urls: "stun:global.stun.twilio.com:3478" },
-
-    // TURN relay servers — required on mobile networks (CGNAT/carrier NAT)
-    // Without TURN, audio & video never flow when both peers are on cellular
-    {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:80?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
   ];
 
   // Initialize listening channel for incoming calls
@@ -338,19 +318,31 @@ class CallServiceClass {
   }
 
   private sendSignalingMessage(payload: any) {
-    if (!this.sessionChannel) return;
+    if (!this.sessionChannel) {
+      console.warn("[WebRTC] Cannot send signaling message: sessionChannel is null");
+      return;
+    }
 
     const myUser = useStore.getState().user;
     if (!myUser) return;
 
-    this.sessionChannel.send({
-      type: "broadcast",
-      event: "signal",
-      payload: {
-        senderId: myUser.id,
-        ...payload,
-      },
-    });
+    this.sessionChannel
+      .send({
+        type: "broadcast",
+        event: "signal",
+        payload: {
+          senderId: myUser.id,
+          ...payload,
+        },
+      })
+      .then((res: any) => {
+        if (res !== "ok") {
+          console.warn("[WebRTC] Signaling broadcast non-ok status:", res);
+        }
+      })
+      .catch((err: any) => {
+        console.error("[WebRTC] Failed to broadcast signal:", err);
+      });
   }
 
   private async handleSignalingMessage(payload: { senderId: string; sdp?: any; candidate?: any; end?: boolean }) {
@@ -358,6 +350,7 @@ class CallServiceClass {
     if (!myUser || payload.senderId === myUser.id) return;
 
     if (payload.end) {
+      console.log("[WebRTC] Call ended by remote peer");
       audioSynthesizer.playDisconnectChime();
       this.createCallLog("completed");
       this.resetCallState();
@@ -367,6 +360,7 @@ class CallServiceClass {
     if (!this.peerConnection) return;
 
     if (payload.sdp) {
+      console.log(`[WebRTC] Received SDP ${payload.sdp.type}`);
       const desc = new RTCSessionDescription(payload.sdp);
       if (desc.type === "offer") {
         if (this.peerConnection.signalingState !== "stable") {
@@ -389,7 +383,7 @@ class CallServiceClass {
     } else if (payload.candidate) {
       if (this.peerConnection.remoteDescription && this.peerConnection.remoteDescription.type) {
         try {
-          await this.peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          await this.peerConnection.addIceCandidate(payload.candidate);
         } catch (err) {
           console.error("[WebRTC] Error adding ice candidate:", err);
         }
@@ -405,13 +399,27 @@ class CallServiceClass {
       const candidate = this.pendingIceCandidates.shift();
       if (candidate) {
         try {
-          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          await this.peerConnection.addIceCandidate(candidate);
         } catch (err) {
           console.warn("[WebRTC] Error applying buffered ice candidate:", err);
         }
       }
     }
   }
+
+  private async restartIceConnection() {
+    if (!this.peerConnection || this.peerConnection.signalingState !== "stable") return;
+    try {
+      console.log("[WebRTC] Creating ICE restart offer...");
+      const offer = await this.peerConnection.createOffer({ iceRestart: true });
+      await this.peerConnection.setLocalDescription(offer);
+      this.sendSignalingMessage({ sdp: offer });
+    } catch (err) {
+      console.warn("[WebRTC] Failed to restart ICE:", err);
+    }
+  }
+
+  private disconnectTimer: any = null;
 
   private async setupPeerConnection() {
     if (this.peerConnection) return;
@@ -422,22 +430,36 @@ class CallServiceClass {
 
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        this.sendSignalingMessage({ candidate: event.candidate });
+        const candidateData = event.candidate.toJSON ? event.candidate.toJSON() : {
+          candidate: event.candidate.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex,
+          usernameFragment: event.candidate.usernameFragment,
+        };
+        this.sendSignalingMessage({ candidate: candidateData });
       }
     };
 
     this.peerConnection.ontrack = (event) => {
       console.log("[WebRTC] ontrack received:", event.track.kind, event.streams);
-      let stream = this.remoteStream;
-      if (event.streams && event.streams[0]) {
-        stream = event.streams[0];
+
+      // Collect all active receiver tracks into a unified MediaStream instance
+      const receivers = this.peerConnection?.getReceivers() || [];
+      const liveTracks = receivers
+        .map((r) => r.track)
+        .filter((t): t is MediaStreamTrack => t !== null && t.readyState === "live");
+
+      let stream: MediaStream;
+      if (liveTracks.length > 0) {
+        stream = new MediaStream(liveTracks);
+      } else if (event.streams && event.streams[0]) {
+        stream = new MediaStream(event.streams[0].getTracks());
       } else {
-        if (!stream) {
-          stream = new MediaStream();
-        }
-        stream.addTrack(event.track);
+        stream = new MediaStream([event.track]);
       }
+
       this.remoteStream = stream;
+      // Fresh MediaStream instance ensures Zustand triggers React component re-render
       useStore.setState({ remoteStream: stream });
     };
 
@@ -449,27 +471,48 @@ class CallServiceClass {
       const iceState = this.peerConnection?.iceConnectionState;
       console.log("[WebRTC] ICE connection state:", iceState);
       if (iceState === "failed") {
-        // Attempt ICE restart before giving up
         console.warn("[WebRTC] ICE failed — attempting ICE restart");
-        this.peerConnection?.restartIce();
+        this.restartIceConnection();
       }
     };
 
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection?.connectionState;
       console.log("[WebRTC] Connection state changed:", state);
-      if (state === "failed" || state === "closed") {
-        this.endCall();
+
+      if (state === "connected") {
+        console.log("[WebRTC] Direct peer connection active and established!");
+        if (this.disconnectTimer) {
+          clearTimeout(this.disconnectTimer);
+          this.disconnectTimer = null;
+        }
+      } else if (state === "failed") {
+        console.warn("[WebRTC] Connection failed, attempting ICE restart...");
+        this.restartIceConnection();
+        // Do not immediately close the call at 15s. Give 35 seconds to recover or let the user hang up
+        if (!this.disconnectTimer) {
+          this.disconnectTimer = setTimeout(() => {
+            const curState = this.peerConnection?.connectionState;
+            if (curState === "failed" || curState === "closed") {
+              console.warn("[WebRTC] Call disconnected after timeout");
+              this.endCall();
+            }
+          }, 35000);
+        }
       } else if (state === "disconnected") {
-        // Temporary disconnect (e.g. network blip) — wait 5 seconds before ending
-        console.warn("[WebRTC] Connection temporarily disconnected, waiting before ending call...");
-        setTimeout(() => {
-          const currentState = this.peerConnection?.connectionState;
-          if (currentState === "disconnected" || currentState === "failed" || currentState === "closed") {
-            console.warn("[WebRTC] Connection did not recover, ending call");
-            this.endCall();
-          }
-        }, 5000);
+        console.warn("[WebRTC] Connection temporarily disconnected, waiting before ending...");
+        if (!this.disconnectTimer) {
+          this.disconnectTimer = setTimeout(() => {
+            const curState = this.peerConnection?.connectionState;
+            if (curState === "disconnected" || curState === "failed" || curState === "closed") {
+              console.warn("[WebRTC] Connection lost, ending call");
+              this.endCall();
+            }
+          }, 25000);
+        }
+      } else if (state === "closed") {
+        if (this.disconnectTimer) clearTimeout(this.disconnectTimer);
+        this.endCall();
       }
     };
 
@@ -632,6 +675,14 @@ class CallServiceClass {
         track.enabled = !muted;
       });
     }
+  }
+
+  public getLocalStream(): MediaStream | null {
+    return this.localStream;
+  }
+
+  public getRemoteStream(): MediaStream | null {
+    return this.remoteStream;
   }
 }
 
