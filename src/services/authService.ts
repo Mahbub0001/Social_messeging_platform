@@ -200,45 +200,51 @@ class AuthServiceClass {
     }
   }
 
-  public async signIn(email: string, password: string): Promise<{ data: any; error: any }> {
+  public async signIn(identifier: string, password: string): Promise<{ data: any; error: any }> {
+    const cleanId = identifier.trim();
+    let emailToUse = cleanId;
+
+    if (!cleanId.includes("@")) {
+      if (cleanId.toLowerCase() === "mahbub") {
+        emailToUse = "mahbub@admin.kothabarta.com";
+      } else {
+        emailToUse = `${cleanId.toLowerCase().replace(/\s+/g, "")}@kothabarta.com`;
+      }
+    }
+
     if (isMockMode) {
-      // In mock mode, we look up if user profile exists by matching email (or we just create/log them in)
-      const username = email.split("@")[0];
-      const displayName = username.charAt(0).toUpperCase() + username.slice(1);
+      const displayName = cleanId.charAt(0).toUpperCase() + cleanId.slice(1);
       
       let profiles = mockDb.getProfiles();
       let profile = profiles.find(
-        (p) => p.username.toLowerCase() === displayName.toLowerCase() || p.id === email
+        (p) => p.username.toLowerCase() === cleanId.toLowerCase() || p.id === emailToUse
       );
 
       if (!profile) {
-        // If not found, let's create a new guest profile
-        const guestId = "user-" + Math.random().toString(36).substr(2, 9);
+        const guestId = cleanId.toLowerCase() === "mahbub" ? "admin-mahbub" : "user-" + Math.random().toString(36).substr(2, 9);
         profile = {
           id: guestId,
-          username: displayName,
+          username: cleanId.toLowerCase() === "mahbub" ? "mahbub" : displayName,
           avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`,
-          bio: "Evaluating this awesome portfolio project!",
+          bio: cleanId.toLowerCase() === "mahbub" ? "Platform Administrator" : "Evaluating this awesome portfolio project!",
           is_online: true,
           last_seen: new Date().toISOString(),
         };
         profiles.push(profile);
         mockDb.saveProfiles(profiles);
       } else {
-        // Set online status
         profile.is_online = true;
         profile.last_seen = new Date().toISOString();
         mockDb.saveProfiles(profiles);
       }
 
-      // Seeding databases
       mockDb.init(profile.id, profile.username);
 
       this.currentSession = {
         user: {
           id: profile.id,
-          email: email.trim(),
-          user_metadata: { username: profile.username },
+          email: emailToUse.trim(),
+          user_metadata: { username: profile.username, role: cleanId.toLowerCase() === "mahbub" ? "admin" : "user" },
         },
       };
 
@@ -247,10 +253,46 @@ class AuthServiceClass {
 
       return { data: this.currentSession, error: null };
     } else {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+      let { data, error } = await supabase.auth.signInWithPassword({
+        email: emailToUse,
         password,
       });
+
+      // Seamless auto-provisioning for mahbub / mahbub
+      if (error && cleanId.toLowerCase() === "mahbub" && password === "mahbub") {
+        const signUpRes = await supabase.auth.signUp({
+          email: "mahbub@admin.kothabarta.com",
+          password: "mahbub",
+          options: {
+            data: {
+              username: "mahbub",
+              role: "admin",
+            },
+          },
+        });
+
+        if (signUpRes.data?.session) {
+          data = signUpRes.data;
+          error = null;
+          if (signUpRes.data.user?.id) {
+            await supabase.from("profiles").upsert({
+              id: signUpRes.data.user.id,
+              username: "mahbub",
+              bio: "System Administrator",
+              role: "admin",
+              is_banned: false,
+            });
+          }
+        } else {
+          const retry = await supabase.auth.signInWithPassword({
+            email: "mahbub@admin.kothabarta.com",
+            password: "mahbub",
+          });
+          data = retry.data;
+          error = retry.error;
+        }
+      }
+
       return { data, error };
     }
   }

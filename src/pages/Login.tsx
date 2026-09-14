@@ -6,11 +6,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock, AlertCircle, Sparkles, Loader2 } from "lucide-react";
 import { authService } from "../services/authService";
+import { adminService } from "../services/adminService";
 import { useStore } from "../hooks/useStore";
 
 const loginSchema = zod.object({
-  email: zod.string().email("Please enter a valid email address"),
-  password: zod.string().min(6, "Password must be at least 6 characters long"),
+  identifier: zod.string().min(3, "Please enter your email or username"),
+  password: zod.string().min(5, "Password must be at least 5 characters long"),
 });
 
 type LoginFormInputs = zod.infer<typeof loginSchema>;
@@ -24,7 +25,17 @@ export const Login: React.FC = () => {
 
   React.useEffect(() => {
     if (user) {
-      navigate("/dashboard");
+      adminService.getUserProfile(user.id).then((profile) => {
+        const isAdmin =
+          profile?.role === "admin" ||
+          user.email?.toLowerCase().includes("admin") ||
+          user.user_metadata?.username?.toLowerCase() === "mahbub";
+        if (isAdmin) {
+          navigate("/admin");
+        } else {
+          navigate("/dashboard");
+        }
+      });
     }
   }, [user, navigate]);
 
@@ -41,14 +52,24 @@ export const Login: React.FC = () => {
     setError(null);
     try {
       const { data: session, error: loginError } = await authService.signIn(
-        data.email,
+        data.identifier,
         data.password
       );
       if (loginError) {
         setError(loginError.message);
-      } else {
+      } else if (session?.user) {
         setSession(session);
-        navigate("/dashboard");
+        const profile = await adminService.getUserProfile(session.user.id);
+        const isAdmin =
+          profile?.role === "admin" ||
+          session.user.email?.toLowerCase().includes("admin") ||
+          session.user.user_metadata?.username?.toLowerCase() === "mahbub" ||
+          data.identifier.toLowerCase() === "mahbub";
+        if (isAdmin) {
+          navigate("/admin");
+        } else {
+          navigate("/dashboard");
+        }
       }
     } catch (err: any) {
       setError("An unexpected error occurred. Please try again.");
@@ -120,24 +141,24 @@ export const Login: React.FC = () => {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 font-sans">
-        {/* Email Field */}
+        {/* Email or Username Field */}
         <div>
           <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-            Email Address
+            Email or Username
           </label>
           <div className="relative">
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
-              type="email"
-              placeholder="you@example.com"
-              {...register("email")}
+              type="text"
+              placeholder="you@example.com or username"
+              {...register("identifier")}
               className={`w-full pl-11 pr-4 py-2.5 bg-slate-950/60 border rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 transition-all ${
-                errors.email ? "border-red-500/80" : "border-slate-800"
+                errors.identifier ? "border-red-500/80" : "border-slate-800"
               }`}
             />
           </div>
-          {errors.email && (
-            <p className="mt-1 text-2xs text-red-400">{errors.email.message}</p>
+          {errors.identifier && (
+            <p className="mt-1 text-2xs text-red-400">{errors.identifier.message}</p>
           )}
         </div>
 
