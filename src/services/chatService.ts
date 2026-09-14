@@ -563,6 +563,20 @@ class ChatServiceClass {
 
       return { data: detailedMsg, error: null };
     } else {
+      // Server-side pre-check for ban status
+      const { data: senderProfile } = await supabase
+        .from("profiles")
+        .select("is_banned")
+        .eq("id", senderId)
+        .maybeSingle();
+
+      if (senderProfile?.is_banned) {
+        return {
+          data: null,
+          error: { message: "আপনার অ্যাকাউন্ট স্থগিত (Suspended) থাকায় বার্তা পাঠানো সম্ভব নয়।" },
+        };
+      }
+
       const { data, error } = await supabase
         .from("messages")
         .insert({

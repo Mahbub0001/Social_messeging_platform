@@ -51,11 +51,14 @@ export const Dashboard: React.FC = () => {
 
     // Check ban status
     adminService.getUserProfile(user.id).then((profile) => {
-      if (profile?.is_banned) {
-        setBannedInfo({ is_banned: true, reason: profile.banned_reason });
+      const isBanned = Boolean(profile?.is_banned);
+      const reason = profile?.banned_reason || null;
+      if (isBanned) {
+        setBannedInfo({ is_banned: true, reason });
       } else {
         setBannedInfo(null);
       }
+      useStore.getState().setBannedStatus(isBanned, reason);
     });
 
     // Check unread user notifications
@@ -73,9 +76,9 @@ export const Dashboard: React.FC = () => {
           }
         });
 
-      // Realtime subscription for instant notification popup on ban/unban
+      // Realtime subscription for instant notification popup on ban/unban and profile status change
       const channel = supabase
-        .channel(`user-notifs-${user.id}`)
+        .channel(`user-status-${user.id}`)
         .on(
           "postgres_changes",
           {
@@ -89,9 +92,28 @@ export const Dashboard: React.FC = () => {
               setUserNotification(payload.new);
               if (payload.new.type === "ban") {
                 setBannedInfo({ is_banned: true, reason: payload.new.content });
+                useStore.getState().setBannedStatus(true, payload.new.content);
               } else if (payload.new.type === "unban") {
                 setBannedInfo(null);
+                useStore.getState().setBannedStatus(false, null);
               }
+            }
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "profiles",
+            filter: `id=eq.${user.id}`,
+          },
+          (payload: any) => {
+            if (payload?.new) {
+              const isBanned = Boolean(payload.new.is_banned);
+              const reason = payload.new.banned_reason || null;
+              setBannedInfo(isBanned ? { is_banned: true, reason } : null);
+              useStore.getState().setBannedStatus(isBanned, reason);
             }
           }
         )

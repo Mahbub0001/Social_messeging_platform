@@ -754,5 +754,42 @@ $$ language plpgsql security definer;
 
 grant execute on function public.delete_user_by_admin(uuid) to authenticated;
 
+-- ========================================================
+-- 11. HARD BAN ENFORCEMENT TRIGGER & POLICIES
+-- ========================================================
+
+-- Trigger to strictly prevent banned users from inserting messages
+create or replace function public.check_user_not_banned()
+returns trigger as $$
+begin
+  if exists (select 1 from public.profiles where id = NEW.sender_id and is_banned = true) then
+    raise exception 'User account is suspended and cannot send messages';
+  end if;
+  return NEW;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists tr_check_user_not_banned on public.messages;
+create trigger tr_check_user_not_banned
+  before insert on public.messages
+  for each row
+  execute function public.check_user_not_banned();
+
+drop policy if exists "Banned users cannot send messages" on public.messages;
+create policy "Banned users cannot send messages"
+  on public.messages as restrictive for insert
+  to authenticated
+  with check (
+    not exists (select 1 from public.profiles where id = auth.uid() and is_banned = true)
+  );
+
+drop policy if exists "Banned users cannot post stories" on public.stories;
+create policy "Banned users cannot post stories"
+  on public.stories as restrictive for insert
+  to authenticated
+  with check (
+    not exists (select 1 from public.profiles where id = auth.uid() and is_banned = true)
+  );
+
 
 

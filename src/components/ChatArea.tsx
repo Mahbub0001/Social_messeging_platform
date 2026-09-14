@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   Settings,
   Ban,
+  AlertOctagon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { sanitizeUrl } from "../utils/security";
@@ -98,6 +99,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
     blockedUsers,
     blockUser,
     unblockUser,
+    isBanned,
+    bannedReason,
   } = useStore();
 
   const [showSearchInput, setShowSearchInput] = useState(false);
@@ -183,6 +186,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
   // 4. Send Message
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isBanned) {
+      alert("আপনার অ্যাকাউন্ট সাময়িক স্থগিত (Suspended) থাকায় বার্তা পাঠানো সম্ভব নয়।");
+      return;
+    }
     if ((!inputText.trim() && !replyingTo) || !activeConversationId || !user) return;
 
     // Clear typing timeout immediately
@@ -223,6 +230,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
 
   // 5. Upload File (D&D / Attachment Icon)
   const handleFileUpload = async (file: File) => {
+    if (isBanned) {
+      alert("আপনার অ্যাকাউন্ট সাময়িক স্থগিত (Suspended) থাকায় ফাইল পাঠানো সম্ভব নয়।");
+      return;
+    }
     if (!activeConversationId || !user) return;
     setUploading(true);
 
@@ -272,6 +283,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
 
   // 6. Voice Recording System
   const startRecording = async () => {
+    if (isBanned) {
+      alert("আপনার অ্যাকাউন্ট সাময়িক স্থগিত (Suspended) থাকায় ভয়েস রেকর্ড পাঠানো সম্ভব নয়।");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
@@ -533,7 +548,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
               <button
                 onClick={() => startCall(otherMember, "voice", activeChat.id)}
                 title="Voice Call"
-                disabled={amIBlockingPartner}
+                disabled={amIBlockingPartner || isBanned}
                 className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Phone className="w-4.5 h-4.5" />
@@ -541,7 +556,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
               <button
                 onClick={() => startCall(otherMember, "video", activeChat.id)}
                 title="Video Call"
-                disabled={amIBlockingPartner}
+                disabled={amIBlockingPartner || isBanned}
                 className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Video className="w-4.5 h-4.5" />
@@ -982,6 +997,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
         <div className="px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-900 border-t border-slate-800 flex items-center justify-center">
           <p className="text-slate-500 text-sm font-sans flex items-center gap-2">
             <Ban className="w-4 h-4" /> You blocked this user. You can't send messages or call them.
+          </p>
+        </div>
+      ) : isBanned ? (
+        <div className="px-4 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] bg-red-950/40 border-t border-red-900/60 flex items-center justify-center shadow-inner">
+          <p className="text-red-300 text-xs font-medium flex items-center gap-2 text-center">
+            <AlertOctagon className="w-4 h-4 text-red-500 shrink-0" />
+            <span>
+              আপনার অ্যাকাউন্ট সাময়িক স্থগিত (Suspended) থাকায় বার্তা পাঠানো বন্ধ রয়েছে।{bannedReason ? ` কারণ: ${bannedReason}।` : ""} অ্যাডমিন আনব্যান করলে পুনরায় বার্তা পাঠানো যাবে।
+            </span>
           </p>
         </div>
       ) : (

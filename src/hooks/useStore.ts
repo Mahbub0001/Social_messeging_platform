@@ -70,6 +70,11 @@ interface AppState {
   // Theme state
   theme: "light" | "dark";
   toggleTheme: () => void;
+
+  // Ban status state
+  isBanned: boolean;
+  bannedReason: string | null;
+  setBannedStatus: (isBanned: boolean, reason?: string | null) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -77,6 +82,12 @@ export const useStore = create<AppState>((set, get) => ({
   user: null,
   session: null,
   authLoading: true,
+
+  // Ban status initial state
+  isBanned: false,
+  bannedReason: null,
+  setBannedStatus: (isBanned, reason = null) =>
+    set({ isBanned, bannedReason: isBanned ? reason : null }),
   
   // Stories initial state
   stories: [],
@@ -132,11 +143,28 @@ export const useStore = create<AppState>((set, get) => ({
         get().fetchBlockedUsers(session.user.id);
         get().fetchActiveStories();
 
+        // Check user ban status
+        const { isMockMode, supabase } = await import("../lib/supabase");
+        if (!isMockMode && supabase) {
+          supabase
+            .from("profiles")
+            .select("is_banned, banned_reason")
+            .eq("id", session.user.id)
+            .maybeSingle()
+            .then(({ data }: any) => {
+              if (data) {
+                set({
+                  isBanned: Boolean(data.is_banned),
+                  bannedReason: data.banned_reason || null,
+                });
+              }
+            });
+        }
+
         // Subscribe to real-time stories
         get().subscribeToStories();
 
         // Initialize WebRTC signaling listener
-        const { isMockMode } = await import("../lib/supabase");
         if (!isMockMode) {
           const { callService } = await import("../services/callService");
           callService.init(session.user.id);
