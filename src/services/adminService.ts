@@ -224,7 +224,7 @@ class AdminService {
   }
 
   /**
-   * Ban or unban a user
+   * Ban or unban a user, dispatching direct push notification and creating in-app notification
    */
   public async updateUserBan(
     userId: string,
@@ -234,11 +234,12 @@ class AdminService {
     if (isMockMode) return true;
 
     try {
+      const defaultBanReason = reason || "কমিউনিটি নীতিমালা লঙ্ঘনের কারণে অ্যাকাউন্ট স্থগিত করা হয়েছে।";
       const { error } = await supabase
         .from("profiles")
         .update({
           is_banned: isBanned,
-          banned_reason: isBanned ? (reason || "Account suspended by Administrator") : null,
+          banned_reason: isBanned ? defaultBanReason : null,
           banned_at: isBanned ? new Date().toISOString() : null,
         })
         .eq("id", userId);
@@ -247,9 +248,76 @@ class AdminService {
         console.error("Failed to update user ban:", error);
         return false;
       }
+
+      const notifTitle = isBanned
+        ? "অ্যাকাউন্ট সাময়িক স্থগিত (Account Suspended)"
+        : "অ্যাকাউন্ট পুনঃসক্রিয় করা হয়েছে (Account Reactivated)";
+
+      const notifBody = isBanned
+        ? `আপনার অ্যাকাউন্ট স্থগিত করা হয়েছে। কারণ: ${defaultBanReason}`
+        : "আপনার অ্যাকাউন্ট সফলভাবে পুনঃসক্রিয় করা হয়েছে। আপনি এখন পুনরায় স্বাভাবিকভাবে চ্যাট করতে পারবেন।";
+
+      // 1. In-app user notification
+      try {
+        await supabase.from("user_notifications").insert({
+          user_id: userId,
+          title: notifTitle,
+          content: notifBody,
+          type: isBanned ? "ban" : "unban",
+          is_read: false,
+        });
+      } catch (notifErr) {
+        console.warn("Could not insert in-app user notification:", notifErr);
+      }
+
+      // 2. Direct FCM Push notification to user's phone
+      pushNotificationService
+        .sendDirectUserPush(userId, notifTitle, notifBody, {
+          type: isBanned ? "account_suspended" : "account_reactivated",
+        })
+        .catch((pushErr) => {
+          console.warn("Direct ban/unban push error:", pushErr);
+        });
+
       return true;
     } catch (err) {
       console.error("AdminService.updateUserBan error:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Permanently delete a user account from the database
+   */
+  public async deleteUser(userId: string): Promise<boolean> {
+    if (isMockMode) return true;
+
+    try {
+      // 1. Try secure RPC delete
+      const { error: rpcError } = await supabase.rpc("delete_user_by_admin", {
+        target_user_id: userId,
+      });
+
+      if (!rpcError) {
+        return true;
+      }
+
+      console.warn("delete_user_by_admin RPC fallback to direct delete:", rpcError);
+
+      // 2. Direct delete from profiles (foreign keys will cascade)
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", userId);
+
+      if (profileError) {
+        console.error("Failed to delete profile directly:", profileError);
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error("AdminService.deleteUser error:", err);
       return false;
     }
   }

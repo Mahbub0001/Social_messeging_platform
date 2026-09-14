@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useStore } from "../hooks/useStore";
 import { chatService } from "../services/chatService";
 import { adminService, type AnnouncementItem } from "../services/adminService";
-import { Megaphone, X } from "lucide-react";
+import { supabase } from "../lib/supabase";
+import { Megaphone, X, AlertOctagon, Bell } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import ChatArea from "../components/ChatArea";
 import ProfilePanel from "../components/ProfilePanel";
@@ -29,6 +30,8 @@ export const Dashboard: React.FC = () => {
   const [viewerStories, setViewerStories] = useState<StoryWithDetails[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [announcement, setAnnouncement] = useState<AnnouncementItem | null>(null);
+  const [bannedInfo, setBannedInfo] = useState<{ is_banned: boolean; reason: string | null } | null>(null);
+  const [userNotification, setUserNotification] = useState<{ id: string; title: string; content: string; type: string } | null>(null);
 
   useEffect(() => {
     adminService.getAnnouncements().then((list) => {
@@ -41,6 +44,64 @@ export const Dashboard: React.FC = () => {
       }
     });
   }, []);
+
+  // Check ban status and in-app user notifications
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Check ban status
+    adminService.getUserProfile(user.id).then((profile) => {
+      if (profile?.is_banned) {
+        setBannedInfo({ is_banned: true, reason: profile.banned_reason });
+      } else {
+        setBannedInfo(null);
+      }
+    });
+
+    // Check unread user notifications
+    if (supabase) {
+      supabase
+        .from("user_notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_read", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .then(({ data }: any) => {
+          if (data && data[0]) {
+            setUserNotification(data[0]);
+          }
+        });
+
+      // Realtime subscription for instant notification popup on ban/unban
+      const channel = supabase
+        .channel(`user-notifs-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "user_notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload: any) => {
+            if (payload?.new) {
+              setUserNotification(payload.new);
+              if (payload.new.type === "ban") {
+                setBannedInfo({ is_banned: true, reason: payload.new.content });
+              } else if (payload.new.type === "unban") {
+                setBannedInfo(null);
+              }
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -143,6 +204,48 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden relative">
+      {/* Persistent Account Ban Alert Banner */}
+      {bannedInfo?.is_banned && (
+        <div className="bg-red-950/95 border-b border-red-600/50 px-4 py-2.5 flex items-center justify-between text-xs z-30 shadow-xl text-red-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1 rounded-md bg-red-500/20 text-red-400 shrink-0">
+              <AlertOctagon className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="font-bold text-red-300">অ্যাকাউন্ট স্থগিত (Account Suspended):</span>{" "}
+              <span className="text-red-100">{bannedInfo.reason || "কমিউনিটি নীতিমালা লঙ্ঘনের কারণে আপনার অ্যাকাউন্ট সাময়িকভাবে স্থগিত করা হয়েছে।"}</span>{" "}
+              <span className="text-3xs text-red-400 hidden sm:inline">(আপনি নতুন কোনো বার্তা পাঠাতে বা স্টোরি আপলোড করতে পারবেন না)</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User In-App Notification Banner (e.g. Unban) */}
+      {userNotification && (
+        <div className="bg-emerald-950/95 border-b border-emerald-500/40 px-4 py-2 flex items-center justify-between text-xs z-30 text-emerald-200 shadow-lg animate-fade-in">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1 rounded-md bg-emerald-500/20 text-emerald-400 shrink-0">
+              <Bell className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="font-bold text-emerald-300 shrink-0">{userNotification.title}:</span>
+              <span className="text-emerald-100 truncate">{userNotification.content}</span>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              if (supabase) {
+                await supabase.from("user_notifications").update({ is_read: true }).eq("id", userNotification.id);
+              }
+              setUserNotification(null);
+            }}
+            className="p-1 text-emerald-400 hover:text-white hover:bg-emerald-900/60 rounded-lg shrink-0 ml-2 transition-colors"
+            title="নোটিফিকেশন বন্ধ করুন"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       {/* Platform Announcement Banner */}
       {announcement && (
         <div className="bg-gradient-to-r from-violet-950 via-slate-900 to-indigo-950 border-b border-violet-500/30 px-4 py-2 flex items-center justify-between text-xs z-30 shadow-md">

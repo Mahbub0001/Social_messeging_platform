@@ -121,3 +121,55 @@ CREATE POLICY "Admins can update user roles and ban status"
 UPDATE public.profiles
 SET role = 'admin'
 WHERE lower(username) = 'mahbub';
+
+-- 6. User In-App Notifications Table
+CREATE TABLE IF NOT EXISTS public.user_notifications (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  title text NOT NULL,
+  content text NOT NULL,
+  type text DEFAULT 'info' NOT NULL,
+  is_read boolean DEFAULT false NOT NULL,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_notifications_user_id ON public.user_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_unread ON public.user_notifications(user_id) WHERE is_read = false;
+
+ALTER TABLE public.user_notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own notifications" ON public.user_notifications;
+CREATE POLICY "Users can view own notifications" ON public.user_notifications
+  FOR SELECT TO authenticated
+  USING (auth.uid() = user_id OR public.is_admin());
+
+DROP POLICY IF EXISTS "Admins or system can insert user notifications" ON public.user_notifications;
+CREATE POLICY "Admins or system can insert user notifications" ON public.user_notifications
+  FOR INSERT TO authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Users can update own notifications" ON public.user_notifications;
+CREATE POLICY "Users can update own notifications" ON public.user_notifications
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id);
+
+-- 7. Admin Delete User Function (Purges profile & auth)
+CREATE OR REPLACE FUNCTION public.delete_user_by_admin(target_user_id uuid)
+RETURNS boolean AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Only administrators can delete user accounts.';
+  END IF;
+
+  -- Delete from public.profiles (cascades to all user data)
+  DELETE FROM public.profiles WHERE id = target_user_id;
+
+  -- Delete from auth.users
+  DELETE FROM auth.users WHERE id = target_user_id;
+
+  RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.delete_user_by_admin(uuid) TO authenticated;
+

@@ -431,6 +431,82 @@ class PushNotificationService {
       console.warn("sendBroadcastPush error:", err);
     }
   }
+
+  public async sendDirectUserPush(
+    userId: string,
+    title: string,
+    body: string,
+    dataPayload?: Record<string, string>
+  ): Promise<void> {
+    if (isMockMode || !supabase) return;
+
+    try {
+      const { data: tokens, error } = await supabase
+        .from("user_push_tokens")
+        .select("id, token")
+        .eq("user_id", userId);
+
+      if (error || !tokens || tokens.length === 0) return;
+
+      const googleToken = await getGoogleAccessToken();
+      const staleIds: string[] = [];
+
+      for (const item of tokens) {
+        try {
+          const res = await fetch(
+            `https://fcm.googleapis.com/v1/projects/${fcmConfig.projectId}/messages:send`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${googleToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                message: {
+                  token: item.token,
+                  notification: {
+                    title: title,
+                    body: body,
+                  },
+                  data: {
+                    type: dataPayload?.type || "account_status",
+                    ...dataPayload,
+                  },
+                  android: {
+                    priority: "high",
+                    notification: {
+                      channel_id: "messages",
+                      sound: "default",
+                      click_action: "FCM_PLUGIN_ACTIVITY",
+                    },
+                  },
+                },
+              }),
+            }
+          );
+
+          if (res.status === 404 || res.status === 400) {
+            const errBody = await res.json().catch(() => ({}));
+            if (
+              res.status === 404 ||
+              errBody.error?.message?.includes("UNREGISTERED") ||
+              errBody.error?.details?.some((d: any) => d.errorCode === "UNREGISTERED")
+            ) {
+              staleIds.push(item.id);
+            }
+          }
+        } catch (e) {
+          console.warn("FCM direct user push error for token:", e);
+        }
+      }
+
+      if (staleIds.length > 0) {
+        await supabase.from("user_push_tokens").delete().in("id", staleIds);
+      }
+    } catch (err) {
+      console.warn("sendDirectUserPush error:", err);
+    }
+  }
 }
 
 export const pushNotificationService = new PushNotificationService();
