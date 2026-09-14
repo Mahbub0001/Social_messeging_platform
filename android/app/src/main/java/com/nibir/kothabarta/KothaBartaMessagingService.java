@@ -15,9 +15,9 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.RemoteInput;
-import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Random;
 
@@ -39,7 +39,13 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
         Log.d(TAG, "New FCM Token received: " + token);
-        PushNotificationsPlugin.onNewToken(token);
+        try {
+            Class<?> pluginClass = Class.forName("com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin");
+            Method method = pluginClass.getMethod("onNewToken", String.class);
+            method.invoke(null, token);
+        } catch (Exception e) {
+            Log.w(TAG, "Could not forward token to Capacitor PushNotificationsPlugin: " + e.getMessage());
+        }
     }
 
     @Override
@@ -49,9 +55,11 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
 
         // Always forward to Capacitor PushNotifications plugin so JS foreground listeners trigger
         try {
-            PushNotificationsPlugin.sendRemoteMessage(remoteMessage);
+            Class<?> pluginClass = Class.forName("com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin");
+            Method method = pluginClass.getMethod("sendRemoteMessage", RemoteMessage.class);
+            method.invoke(null, remoteMessage);
         } catch (Exception e) {
-            Log.w(TAG, "Could not forward remote message to Capacitor: " + e.getMessage());
+            Log.w(TAG, "Could not forward remote message to Capacitor PushNotificationsPlugin: " + e.getMessage());
         }
 
         Map<String, String> data = remoteMessage.getData();
