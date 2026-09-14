@@ -1,5 +1,7 @@
 package com.nibir.kothabarta;
 
+import android.annotation.SuppressLint;
+import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -9,7 +11,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.RemoteInput;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -27,6 +28,7 @@ public class DirectReplyReceiver extends BroadcastReceiver {
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ndHl5c2JzZnZvd3RicnFhbXRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4ODAxMTEsImV4cCI6MjA5NTQ1NjExMX0.NNRgmbOH0YdzemvnfaLV14duA05pqaAu99Wz1JMVFdM";
 
     @Override
+    @SuppressLint("MissingPermission")
     public void onReceive(Context context, Intent intent) {
         if (intent == null) return;
 
@@ -49,28 +51,30 @@ public class DirectReplyReceiver extends BroadcastReceiver {
         // 1. Immediately update the notification to show "✓ উত্তর পাঠানো হয়েছে" (Reply sent)
         // This dismisses the indefinite spinner in Android notification shade
         try {
-            NotificationManagerCompat notifManager = NotificationManagerCompat.from(context);
-            int iconRes = android.R.drawable.stat_notify_chat;
-            try {
-                int res = context.getResources().getIdentifier("ic_stat_notify", "drawable", context.getPackageName());
-                if (res != 0) {
-                    iconRes = res;
+            NotificationManager notifManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notifManager != null) {
+                int iconRes = android.R.drawable.stat_notify_chat;
+                try {
+                    int res = context.getResources().getIdentifier("ic_stat_notify", "drawable", context.getPackageName());
+                    if (res != 0) {
+                        iconRes = res;
+                    }
+                } catch (Exception ignored) {}
+
+                NotificationCompat.Builder repliedNotif = new NotificationCompat.Builder(context, KothaBartaMessagingService.CHANNEL_ID)
+                    .setSmallIcon(iconRes)
+                    .setContentTitle(senderName != null ? senderName : "কথা বার্তা (Kotha Barta)")
+                    .setContentText("✓ উত্তর পাঠানো হয়েছে: " + replyText)
+                    .setColor(Color.parseColor("#10B981")) // Green tick
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .setAutoCancel(true);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    repliedNotif.setTimeoutAfter(3500); // Auto-dismiss after 3.5s
                 }
-            } catch (Exception ignored) {}
 
-            NotificationCompat.Builder repliedNotif = new NotificationCompat.Builder(context, KothaBartaMessagingService.CHANNEL_ID)
-                .setSmallIcon(iconRes)
-                .setContentTitle(senderName != null ? senderName : "কথা বার্তা (Kotha Barta)")
-                .setContentText("✓ উত্তর পাঠানো হয়েছে: " + replyText)
-                .setColor(Color.parseColor("#10B981")) // Green tick
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setAutoCancel(true);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                repliedNotif.setTimeoutAfter(3500); // Auto-dismiss after 3.5s
+                notifManager.notify(notificationId, repliedNotif.build());
             }
-
-            notifManager.notify(notificationId, repliedNotif.build());
         } catch (Exception e) {
             Log.e(TAG, "Error updating reply notification: " + e.getMessage());
         }

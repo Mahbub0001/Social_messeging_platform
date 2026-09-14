@@ -1,5 +1,6 @@
 package com.nibir.kothabarta;
 
+import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -92,6 +93,7 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
         showNotification(conversationId, senderId, senderName, title, body, type);
     }
 
+    @SuppressLint("MissingPermission")
     private void showNotification(
         String conversationId,
         String senderId,
