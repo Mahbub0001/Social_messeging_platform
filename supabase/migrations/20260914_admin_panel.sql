@@ -46,7 +46,7 @@ RETURNS boolean AS $$
 BEGIN
   RETURN EXISTS (
     SELECT 1 FROM public.profiles
-    WHERE id = auth.uid() AND role = 'admin'
+    WHERE id = auth.uid() AND (role = 'admin' OR lower(username) IN ('mahbub', 'mahbub0001'))
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -120,7 +120,7 @@ CREATE POLICY "Admins can update user roles and ban status"
 -- Ensure mahbub user is promoted to admin if exists
 UPDATE public.profiles
 SET role = 'admin'
-WHERE lower(username) = 'mahbub';
+WHERE lower(username) IN ('mahbub', 'mahbub0001');
 
 -- 6. User In-App Notifications Table
 CREATE TABLE IF NOT EXISTS public.user_notifications (

@@ -294,6 +294,23 @@ class AuthServiceClass {
         }
       }
 
+      // Ensure mahbub always has admin role in profiles table
+      if (
+        data?.session?.user &&
+        (cleanId.toLowerCase() === "mahbub" ||
+          cleanId.toLowerCase() === "mahbub0001" ||
+          data.session.user.email?.toLowerCase().includes("mahbub"))
+      ) {
+        try {
+          await supabase
+            .from("profiles")
+            .update({ role: "admin" })
+            .eq("id", data.session.user.id);
+        } catch (e) {
+          console.warn("Failed to set admin role in authService:", e);
+        }
+      }
+
       return { data, error };
     }
   }

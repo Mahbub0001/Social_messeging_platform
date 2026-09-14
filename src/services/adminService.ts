@@ -205,12 +205,24 @@ class AdminService {
 
       const isMahbub = data.username?.toLowerCase() === "mahbub" || data.username?.toLowerCase() === "mahbub0001";
 
+      if (isMahbub && data.role !== "admin") {
+        try {
+          await supabase
+            .from("profiles")
+            .update({ role: "admin" })
+            .eq("id", userId);
+          data.role = "admin";
+        } catch (healErr) {
+          console.warn("Auto-healing admin role error in getUserProfile:", healErr);
+        }
+      }
+
       return {
         id: data.id,
         username: data.username || "User",
         avatar_url: data.avatar_url || null,
         bio: data.bio || null,
-        role: data.role || (isMahbub ? "admin" : "user"),
+        role: isMahbub ? "admin" : (data.role || "user"),
         is_banned: Boolean(data.is_banned),
         banned_reason: data.banned_reason || null,
         banned_at: data.banned_at || null,
@@ -464,10 +476,34 @@ class AdminService {
     content: string;
     type: "info" | "warning" | "critical" | "update";
     send_push: boolean;
-  }): Promise<boolean> {
-    if (isMockMode) return true;
+  }): Promise<{ success: boolean; error?: string }> {
+    if (isMockMode) return { success: true };
 
     try {
+      // Ensure admin profile has role: 'admin' in database before insert
+      if (data.adminId) {
+        try {
+          const { data: profileCheck } = await supabase
+            .from("profiles")
+            .select("username, role")
+            .eq("id", data.adminId)
+            .maybeSingle();
+
+          const isMahbub =
+            profileCheck?.username?.toLowerCase() === "mahbub" ||
+            profileCheck?.username?.toLowerCase() === "mahbub0001";
+
+          if (isMahbub && profileCheck?.role !== "admin") {
+            await supabase
+              .from("profiles")
+              .update({ role: "admin" })
+              .eq("id", data.adminId);
+          }
+        } catch (healErr) {
+          console.warn("Auto-promote admin error before announcement insert:", healErr);
+        }
+      }
+
       const { error } = await supabase.from("system_announcements").insert({
         admin_id: data.adminId || null,
         title: data.title,
@@ -479,7 +515,7 @@ class AdminService {
 
       if (error) {
         console.error("Failed to insert announcement:", error);
-        return false;
+        return { success: false, error: error.message };
       }
 
       // If push enabled, dispatch via pushNotificationService
@@ -489,10 +525,10 @@ class AdminService {
         });
       }
 
-      return true;
-    } catch (err) {
+      return { success: true };
+    } catch (err: any) {
       console.error("AdminService.createAnnouncement error:", err);
-      return false;
+      return { success: false, error: err?.message || "অপ্রত্যাশিত ত্রুটি ঘটেছে।" };
     }
   }
 

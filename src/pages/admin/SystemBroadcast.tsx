@@ -27,6 +27,7 @@ export const SystemBroadcast: React.FC = () => {
   const [type, setType] = useState<"info" | "warning" | "critical" | "update">("info");
   const [sendPush, setSendPush] = useState(true);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const loadAnnouncements = async () => {
     setLoading(true);
@@ -50,9 +51,10 @@ export const SystemBroadcast: React.FC = () => {
 
     setSubmitting(true);
     setSuccessMsg(null);
+    setErrorMsg(null);
 
     try {
-      const success = await adminService.createAnnouncement({
+      const res = await adminService.createAnnouncement({
         adminId: user?.id,
         title: title.trim(),
         content: content.trim(),
@@ -60,17 +62,18 @@ export const SystemBroadcast: React.FC = () => {
         send_push: sendPush,
       });
 
-      if (success) {
+      if (res.success) {
         setSuccessMsg("ঘোষণা সফলভাবে প্ল্যাটফর্মে ব্রডকাস্ট করা হয়েছে!");
         setTitle("");
         setContent("");
         loadAnnouncements();
         setTimeout(() => setSuccessMsg(null), 4000);
       } else {
-        alert("ঘোষণা প্রকাশ করতে সমস্যা হয়েছে।");
+        setErrorMsg(res.error || "ঘোষণা প্রকাশ করতে সমস্যা হয়েছে। আপনার অ্যাকাউন্ট অ্যাডমিন কি না তা নিশ্চিত করুন।");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Broadcast submit error:", err);
+      setErrorMsg(err?.message || "ঘোষণা প্রকাশ করতে সমস্যা হয়েছে।");
     } finally {
       setSubmitting(false);
     }
@@ -107,6 +110,22 @@ export const SystemBroadcast: React.FC = () => {
           প্ল্যাটফর্মের সকল ব্যবহারকারীর কাছে একযোগে নোটিশ ব্যানার এবং মোবাইল পুশ নোটিফিকেশন পাঠান।
         </p>
       </div>
+
+      {errorMsg && (
+        <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/30 flex items-center justify-between gap-3 text-xs text-red-300 animate-fade-in shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-red-400" />
+            <span>{errorMsg}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMsg(null)}
+            className="text-red-400 hover:text-red-200 transition-colors p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {successMsg && (
         <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 flex items-center gap-3 text-xs text-emerald-300 animate-fade-in shadow-lg">

@@ -628,7 +628,7 @@ returns boolean as $$
 begin
   return exists (
     select 1 from public.profiles
-    where id = auth.uid() and role = 'admin'
+    where id = auth.uid() and (role = 'admin' or lower(username) in ('mahbub', 'mahbub0001'))
   );
 end;
 $$ language plpgsql security definer;
