@@ -3,7 +3,17 @@ import { useStore } from "../hooks/useStore";
 import { chatService } from "../services/chatService";
 import { adminService, type AnnouncementItem } from "../services/adminService";
 import { supabase } from "../lib/supabase";
-import { Megaphone, X, AlertOctagon, Bell } from "lucide-react";
+import {
+  Megaphone,
+  X,
+  AlertOctagon,
+  Bell,
+  MessageSquare,
+  Sparkles,
+  Users,
+  UserCircle,
+} from "lucide-react";
+import { cn } from "../lib/utils";
 import Sidebar from "../components/Sidebar";
 import ChatArea from "../components/ChatArea";
 import ProfilePanel from "../components/ProfilePanel";
@@ -13,6 +23,7 @@ import CallScreen from "../components/CallScreen";
 import StoryUploadModal from "../components/StoryUploadModal";
 import StoryViewer from "../components/StoryViewer";
 import { StoryArchive } from "../components/StoryArchive";
+import FeedView from "../components/feed/FeedView";
 import type { StoryWithDetails } from "../services/storyService";
 import { AnimatePresence, motion } from "framer-motion";
 import { Capacitor } from "@capacitor/core";
@@ -32,6 +43,12 @@ export const Dashboard: React.FC = () => {
   const [announcement, setAnnouncement] = useState<AnnouncementItem | null>(null);
   const [bannedInfo, setBannedInfo] = useState<{ is_banned: boolean; reason: string | null } | null>(null);
   const [userNotification, setUserNotification] = useState<{ id: string; title: string; content: string; type: string } | null>(null);
+  const [activeView, setActiveView] = useState<"chat" | "feed">("chat");
+
+  // Derive isAdmin (same logic as Sidebar)
+  const isAdmin =
+    user?.user_metadata?.username?.toLowerCase() === "mahbub" ||
+    Boolean(user?.email?.toLowerCase().includes("admin"));
 
   useEffect(() => {
     adminService.getAnnouncements().then((list) => {
@@ -268,6 +285,7 @@ export const Dashboard: React.FC = () => {
           </button>
         </div>
       )}
+
       {/* Platform Announcement Banner */}
       {announcement && (
         <div className="bg-gradient-to-r from-violet-950 via-slate-900 to-indigo-950 border-b border-violet-500/30 px-4 py-2 flex items-center justify-between text-xs z-30 shadow-md">
@@ -294,9 +312,10 @@ export const Dashboard: React.FC = () => {
       )}
 
       <div className="flex flex-1 h-full w-full relative overflow-hidden">
+        {/* Sidebar — hidden on mobile when in feed view or inside a conversation */}
         <div
-          className={`h-full w-full md:w-[320px] shrink-0 transition-transform duration-300 md:translate-x-0 absolute md:relative z-10 bg-slate-900 ${
-            activeConversationId ? "-translate-x-full md:translate-x-0" : "translate-x-0"
+          className={`h-full w-full md:w-[360px] lg:w-[380px] shrink-0 transition-transform duration-300 md:translate-x-0 absolute md:relative z-10 bg-slate-900 ${
+            activeConversationId || activeView === "feed" ? "-translate-x-full md:translate-x-0" : "translate-x-0"
           }`}
         >
           <Sidebar
@@ -306,18 +325,66 @@ export const Dashboard: React.FC = () => {
             onStoryArchiveClick={() => setShowStoryArchive(true)}
             onStoryClick={handleStoryClick}
             onStoryUploadClick={() => setShowStoryUpload(true)}
+            activeView={activeView}
+            onViewChange={setActiveView}
           />
         </div>
 
+        {/* Main content area — FeedView or ChatArea */}
         <div
           className={`h-full w-full md:w-auto flex-1 transition-transform duration-300 md:translate-x-0 absolute md:relative z-0 bg-slate-950 ${
-            !activeConversationId ? "translate-x-full md:translate-x-0" : "translate-x-0"
+            !activeConversationId || activeView === "feed" ? "translate-x-0" : "translate-x-full md:translate-x-0"
           }`}
         >
-          <ChatArea
-            onBack={() => setActiveConversationId(null)}
-          />
+          {activeView === "feed" ? (
+            <FeedView
+              currentUserId={user?.id ?? ""}
+              currentUsername={user?.user_metadata?.username ?? "User"}
+              currentUserAvatar={(user?.user_metadata as any)?.avatar_url ?? null}
+              isAdmin={isAdmin}
+            />
+          ) : (
+            <ChatArea onBack={() => setActiveConversationId(null)} />
+          )}
         </div>
+      </div>
+
+      {/* Mobile bottom navigation bar */}
+      <div className="md:hidden flex items-center justify-around bg-slate-900 border-t border-slate-800 py-2 px-4 pb-[max(0.5rem,calc(0.5rem+env(safe-area-inset-bottom,0px)))] shrink-0">
+        <button
+          onClick={() => { setActiveView("chat"); setActiveConversationId(null); }}
+          className={cn(
+            "flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-all",
+            activeView === "chat" ? "text-violet-400" : "text-slate-500"
+          )}
+        >
+          <MessageSquare className="w-5 h-5" />
+          <span className="text-[10px] font-medium">চ্যাট</span>
+        </button>
+        <button
+          onClick={() => setActiveView("feed")}
+          className={cn(
+            "flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-all",
+            activeView === "feed" ? "text-indigo-400" : "text-slate-500"
+          )}
+        >
+          <Sparkles className="w-5 h-5" />
+          <span className="text-[10px] font-medium">ফিড</span>
+        </button>
+        <button
+          onClick={handleToggleFriends}
+          className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl text-slate-500 hover:text-slate-300 transition-all"
+        >
+          <Users className="w-5 h-5" />
+          <span className="text-[10px] font-medium">ফ্রেন্ডস</span>
+        </button>
+        <button
+          onClick={handleToggleSettings}
+          className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl text-slate-500 hover:text-slate-300 transition-all"
+        >
+          <UserCircle className="w-5 h-5" />
+          <span className="text-[10px] font-medium">প্রোফাইল</span>
+        </button>
       </div>
 
       <AnimatePresence>
