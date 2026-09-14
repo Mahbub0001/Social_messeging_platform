@@ -1,0 +1,284 @@
+﻿import React, { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
+import { RefreshCw } from "lucide-react";
+import { cn } from "../../lib/utils";
+import { feedService } from "../../services/feedService";
+import type { FeedPost } from "../../services/feedService";
+import type { ReactionType } from "./ReactionPicker";
+import { PostCard } from "./PostCard";
+import { CreatePostCard } from "./CreatePostCard";
+import { ShareModal } from "./ShareModal";
+import { PostCommentsModal } from "./PostCommentsModal";
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+export interface FeedViewProps {
+  currentUserId: string;
+  currentUsername: string;
+  currentUserAvatar?: string | null;
+  isAdmin?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Filter type
+// ---------------------------------------------------------------------------
+type FeedFilter = "all" | "my" | "media";
+
+interface FilterTab {
+  key: FeedFilter;
+  label: string;
+}
+
+const FILTER_TABS: FilterTab[] = [
+  { key: "all", label: "🌐 সকল পোস্ট" },
+  { key: "my", label: "👤 আমার পোস্ট" },
+  { key: "media", label: "🎬 মিডিয়া" },
+];
+
+// ---------------------------------------------------------------------------
+// Skeleton loader card
+// ---------------------------------------------------------------------------
+function SkeletonCard() {
+  return (
+    <div className="w-full bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700/60 shadow-sm p-4 animate-pulse">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-2/5" />
+          <div className="h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full w-1/4" />
+        </div>
+      </div>
+      <div className="mt-4 space-y-2">
+        <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full w-full" />
+        <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full w-5/6" />
+        <div className="h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full w-3/4" />
+      </div>
+      <div className="mt-4 h-36 bg-gray-100 dark:bg-gray-800 rounded-xl" />
+      <div className="mt-4 flex gap-3">
+        <div className="h-7 w-20 bg-gray-100 dark:bg-gray-800 rounded-full" />
+        <div className="h-7 w-20 bg-gray-100 dark:bg-gray-800 rounded-full" />
+        <div className="h-7 w-20 bg-gray-100 dark:bg-gray-800 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FeedView
+// ---------------------------------------------------------------------------
+export const FeedView: React.FC<FeedViewProps> = ({
+  currentUserId,
+  currentUsername,
+  currentUserAvatar,
+}) => {
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [filter, setFilter] = useState<FeedFilter>("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedPostForShare, setSelectedPostForShare] = useState<FeedPost | null>(null);
+  const [selectedPostForComments, setSelectedPostForComments] = useState<FeedPost | null>(null);
+
+  // ── Data loading ────────────────────────────────────────────────────────
+  const loadPosts = useCallback(
+    async (showSkeleton = false) => {
+      if (showSkeleton) setIsLoading(true);
+      const { data } = await feedService.getPosts(filter, currentUserId);
+      setPosts(data ?? []);
+      setIsLoading(false);
+      setIsRefreshing(false);
+    },
+    [filter, currentUserId]
+  );
+
+  useEffect(() => {
+    setIsLoading(true);
+    loadPosts(false);
+  }, [loadPosts]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    loadPosts(false);
+  };
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const handleReaction = useCallback(
+    async (postId: string, reactionType: ReactionType) => {
+      // Optimistic update
+      setPosts((prev) =>
+        prev.map((p) => {
+          if (p.id !== postId) return p;
+          const reactions = { ...p.reactions };
+          const previousType = p.userReaction;
+
+          // Remove old reaction
+          if (previousType && reactions[previousType]) {
+            reactions[previousType] = reactions[previousType].filter(
+              (r) => r.userId !== currentUserId
+            );
+          }
+
+          if (previousType === reactionType) {
+            // Toggle off
+            return { ...p, reactions, userReaction: null };
+          }
+
+          // Add new reaction
+          if (!reactions[reactionType]) reactions[reactionType] = [];
+          reactions[reactionType] = [
+            ...reactions[reactionType],
+            {
+              userId: currentUserId,
+              username: currentUsername,
+              reactionType,
+              createdAt: new Date().toISOString(),
+            },
+          ];
+          return { ...p, reactions, userReaction: reactionType };
+        })
+      );
+
+      // Background sync
+      await feedService.toggleReaction(postId, currentUserId, reactionType);
+    },
+    [currentUserId, currentUsername]
+  );
+
+  const handleDeletePost = useCallback(
+    async (postId: string) => {
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      await feedService.deletePost(postId, currentUserId);
+    },
+    [currentUserId]
+  );
+
+  const handlePostCreated = useCallback((newPost: FeedPost) => {
+    setPosts((prev) => [newPost, ...prev]);
+  }, []);
+
+  const handleReposted = useCallback(() => {
+    loadPosts(false);
+  }, [loadPosts]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* ── Sticky glassmorphic header ── */}
+      <div className="sticky top-0 z-10 backdrop-blur-md bg-white/80 dark:bg-gray-950/80 border-b border-gray-100 dark:border-gray-800/60">
+        <div className="flex items-center justify-between px-4 py-3">
+          <h1 className="font-semibold text-gray-900 dark:text-gray-100 text-base">
+            ✨ কমিউনিটি ফিড
+          </h1>
+          <motion.button
+            type="button"
+            onClick={handleRefresh}
+            animate={{ rotate: isRefreshing ? 360 : 0 }}
+            transition={
+              isRefreshing
+                ? { duration: 0.6, repeat: Infinity, ease: "linear" }
+                : { duration: 0.3 }
+            }
+            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+            aria-label="রিফ্রেশ"
+          >
+            <RefreshCw className="w-4.5 h-4.5" />
+          </motion.button>
+        </div>
+
+        {/* ── Filter tabs ── */}
+        <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto scrollbar-none">
+          {FILTER_TABS.map((tab) => {
+            const active = filter === tab.key;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setFilter(tab.key)}
+                className={cn(
+                  "flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap",
+                  active
+                    ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-semibold"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60"
+                )}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Scrollable feed body ── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-3 sm:px-4 py-4 space-y-4">
+          {/* CreatePostCard always at top */}
+          <CreatePostCard
+            currentUserId={currentUserId}
+            currentUsername={currentUsername}
+            currentUserAvatar={currentUserAvatar}
+            onPostCreated={handlePostCreated}
+          />
+
+          {/* Loading skeleton */}
+          {isLoading ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : posts.length === 0 ? (
+            /* Empty state */
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <span className="text-6xl mb-4 select-none">📭</span>
+              <p className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                এখানে কোনো পোস্ট নেই
+              </p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                {filter === "my"
+                  ? "আপনি এখনো কোনো পোস্ট করেননি।"
+                  : filter === "media"
+                  ? "কোনো মিডিয়া পোস্ট পাওয়া যায়নি।"
+                  : "প্রথম পোস্টটি করুন!"}
+              </p>
+            </div>
+          ) : (
+            /* Post list */
+            posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                currentUserId={currentUserId}
+                onReaction={handleReaction}
+                onShare={setSelectedPostForShare}
+                onOpenComments={setSelectedPostForComments}
+                onDeletePost={handleDeletePost}
+              />
+            ))
+          )}
+
+          {/* Bottom padding for mobile nav */}
+          <div className="h-4" />
+        </div>
+      </div>
+
+      {/* ── Modals ── */}
+      <ShareModal
+        post={selectedPostForShare}
+        isOpen={selectedPostForShare !== null}
+        onClose={() => setSelectedPostForShare(null)}
+        currentUserId={currentUserId}
+        onReposted={handleReposted}
+      />
+      <PostCommentsModal
+        post={selectedPostForComments}
+        isOpen={selectedPostForComments !== null}
+        onClose={() => setSelectedPostForComments(null)}
+        currentUserId={currentUserId}
+        currentUsername={currentUsername}
+        currentUserAvatar={currentUserAvatar}
+      />
+    </div>
+  );
+};
+
+export default FeedView;
