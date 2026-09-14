@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -37,6 +38,11 @@
             </intent-filter>
 
         </activity>
+
+        <!-- Remove default Capacitor PushNotifications MessagingService so KothaBartaMessagingService handles FCM cleanly -->
+        <service
+            android:name="com.capacitorjs.plugins.pushnotifications.MessagingService"
+            tools:node="remove" />
 
         <!-- Custom Firebase Messaging Service with Direct Reply Support -->
         <service
