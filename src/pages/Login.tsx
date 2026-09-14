@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Mail, Lock, AlertCircle, Sparkles, Loader2 } from "lucide-react";
+import { Mail, Lock, AlertCircle, Loader2 } from "lucide-react";
 import { authService } from "../services/authService";
 import { adminService } from "../services/adminService";
 import { useStore } from "../hooks/useStore";
@@ -20,7 +20,6 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
   const { user, setSession } = useStore();
 
   React.useEffect(() => {
@@ -95,28 +94,6 @@ export const Login: React.FC = () => {
       setError(`Failed to sign in with ${provider}.`);
     } finally {
       setSocialLoading(null);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setDemoLoading(true);
-    setError(null);
-    try {
-      // In mock mode, signing in with "recruiter@kothabarta.com" triggers guest setup
-      const { data: session, error: loginError } = await authService.signIn(
-        "recruiter@kothabarta.com",
-        "demo123"
-      );
-      if (loginError) {
-        setError(loginError.message);
-      } else {
-        setSession(session);
-        navigate("/dashboard");
-      }
-    } catch (err: any) {
-      setError("Failed to initialize guest demo.");
-    } finally {
-      setDemoLoading(false);
     }
   };
 
@@ -196,7 +173,7 @@ export const Login: React.FC = () => {
         {/* Action Button */}
         <button
           type="submit"
-          disabled={loading || demoLoading}
+          disabled={loading}
           className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-violet-500/10 hover:shadow-violet-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
           {loading ? (
@@ -220,11 +197,11 @@ export const Login: React.FC = () => {
       </div>
 
       {/* Social login buttons */}
-      <div className="mb-3">
+      <div className="mb-6">
         <button
           type="button"
           onClick={() => handleSocialLogin("google")}
-          disabled={loading || demoLoading || socialLoading !== null}
+          disabled={loading || socialLoading !== null}
           className="w-full flex items-center justify-center gap-2.5 py-2.5 bg-slate-950 border border-slate-800 hover:bg-slate-900 text-slate-200 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
           {socialLoading === "google" ? (
@@ -252,21 +229,6 @@ export const Login: React.FC = () => {
           <span>Continue with Google</span>
         </button>
       </div>
-
-      {/* Demo Button */}
-      <button
-        type="button"
-        onClick={handleDemoLogin}
-        disabled={loading || demoLoading || socialLoading !== null}
-        className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-950 border border-slate-800 hover:bg-slate-900 text-slate-200 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none mb-6"
-      >
-        {demoLoading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Sparkles className="w-4 h-4 text-violet-400 animate-pulse" />
-        )}
-        <span>Quick Demo (Mock Mode)</span>
-      </button>
 
       <p className="text-center text-xs text-slate-400 font-sans">
         Don't have an account?{" "}
