@@ -75,7 +75,11 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease --stacktrace --info || {
+            echo "❌ GRADLE BUILD FAILED! Dumping details:"
+            find . -name "*.log" -exec cat {} + 2>/dev/null || true
+            exit 1
+          }
 
       - name: Find and verify release APK
         run: |
