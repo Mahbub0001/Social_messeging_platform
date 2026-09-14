@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../hooks/useStore";
 import { chatService } from "../services/chatService";
+import { adminService, AnnouncementItem } from "../services/adminService";
+import { Megaphone, X } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import ChatArea from "../components/ChatArea";
 import ProfilePanel from "../components/ProfilePanel";
@@ -26,6 +28,19 @@ export const Dashboard: React.FC = () => {
   const [showStoryArchive, setShowStoryArchive] = useState(false);
   const [viewerStories, setViewerStories] = useState<StoryWithDetails[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const [announcement, setAnnouncement] = useState<AnnouncementItem | null>(null);
+
+  useEffect(() => {
+    adminService.getAnnouncements().then((list) => {
+      if (list && list.length > 0) {
+        const latest = list[0];
+        const dismissed = sessionStorage.getItem(`kb_dismissed_${latest.id}`);
+        if (!dismissed) {
+          setAnnouncement(latest);
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -127,8 +142,33 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-950 text-white overflow-hidden relative">
-      <div className="flex h-full w-full relative overflow-hidden">
+    <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden relative">
+      {/* Platform Announcement Banner */}
+      {announcement && (
+        <div className="bg-gradient-to-r from-violet-950 via-slate-900 to-indigo-950 border-b border-violet-500/30 px-4 py-2 flex items-center justify-between text-xs z-30 shadow-md">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1 rounded-md bg-amber-500/20 text-amber-400 shrink-0">
+              <Megaphone className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="font-bold text-violet-300 shrink-0">{announcement.title}:</span>
+              <span className="text-slate-300 truncate">{announcement.content}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              sessionStorage.setItem(`kb_dismissed_${announcement.id}`, "true");
+              setAnnouncement(null);
+            }}
+            className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg shrink-0 ml-2 transition-colors"
+            title="নোটিশ বন্ধ করুন"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-1 h-full w-full relative overflow-hidden">
         <div
           className={`h-full w-full md:w-[320px] shrink-0 transition-transform duration-300 md:translate-x-0 absolute md:relative z-10 bg-slate-900 ${
             activeConversationId ? "-translate-x-full md:translate-x-0" : "translate-x-0"
