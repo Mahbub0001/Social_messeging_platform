@@ -106,8 +106,19 @@ jobs:
           fi
 
       - name: Upload release APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: android-release-apk
           path: ${{ env.APK_FILE_PATH }}
           if-no-files-found: error
+
+      - name: Upload Build Failure Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-failure-reports
+          path: |
+            android/app/build/reports/
+            android/build/reports/
+          if-no-files-found: ignore
