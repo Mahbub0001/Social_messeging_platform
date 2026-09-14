@@ -4,6 +4,11 @@ const config: CapacitorConfig = {
   appId: 'com.nibir.kothabarta',
   appName: 'kotha-barta',
   webDir: 'dist',
+  server: {
+    url: 'https://mahbub-social-messeging-platform.vercel.app',
+    cleartext: true,
+    androidScheme: 'https',
+  },
   android: {
     // Allow mixed content for WebView compatibility
     allowMixedContent: true,
