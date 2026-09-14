@@ -253,3 +253,12 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.4);
 }
+
+/* Hide scrollbar for smooth carousel scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

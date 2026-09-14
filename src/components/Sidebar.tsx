@@ -15,12 +15,15 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { sanitizeUrl } from "../utils/security";
+import StoryCircles from "./StoryCircles";
 
 interface SidebarProps {
   onToggleSettings: () => void;
   onToggleFriends: () => void;
   onCreateGroup: () => void;
   onStoryArchiveClick: () => void;
+  onStoryClick: (userId: string) => void;
+  onStoryUploadClick: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +31,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleFriends,
   onCreateGroup,
   onStoryArchiveClick,
+  onStoryClick,
+  onStoryUploadClick,
 }) => {
   const {
     user,
@@ -132,6 +137,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-full pl-9 pr-4 py-2 bg-slate-950/50 border border-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500 rounded-xl text-xs text-slate-200 placeholder-slate-500 transition-all"
           />
         </div>
+      </div>
+
+      {/* Stories Carousel */}
+      <div className="border-b border-slate-800/60 pb-2 mb-2">
+        <StoryCircles
+          onStoryClick={onStoryClick}
+          onUploadClick={onStoryUploadClick}
+        />
       </div>
 
       {/* Category Tabs & Create Button */}

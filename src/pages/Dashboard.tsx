@@ -39,6 +39,10 @@ export const Dashboard: React.FC = () => {
     return () => unsubscribeConv();
   }, [user?.id, fetchConversations]);
 
+  useEffect(() => {
+    useStore.getState().fetchActiveStories();
+  }, []);
+
   // Android hardware & gesture back button handling
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -135,6 +139,8 @@ export const Dashboard: React.FC = () => {
             onToggleFriends={handleToggleFriends}
             onCreateGroup={() => setShowGroupModal(true)}
             onStoryArchiveClick={() => setShowStoryArchive(true)}
+            onStoryClick={handleStoryClick}
+            onStoryUploadClick={() => setShowStoryUpload(true)}
           />
         </div>
 
@@ -145,8 +151,6 @@ export const Dashboard: React.FC = () => {
         >
           <ChatArea
             onBack={() => setActiveConversationId(null)}
-            onStoryClick={handleStoryClick}
-            onStoryUploadClick={() => setShowStoryUpload(true)}
           />
         </div>
       </div>

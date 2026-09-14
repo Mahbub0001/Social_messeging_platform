@@ -27,12 +27,9 @@ import {
 import { cn } from "../lib/utils";
 import { sanitizeUrl } from "../utils/security";
 import { GroupSettingsModal } from "./GroupSettingsModal";
-import StoryCircles from "./StoryCircles";
 
 interface ChatAreaProps {
   onBack: () => void;
-  onStoryClick: (userId: string) => void;
-  onStoryUploadClick: () => void;
 }
 
 const isSameDay = (d1: Date, d2: Date) => {
@@ -85,7 +82,7 @@ const formatMessageTimestamp = (dateStr: string) => {
   return `${datePart}, ${time}`;
 };
 
-export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStoryUploadClick }) => {
+export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
   const {
     user,
     activeConversationId,
@@ -391,7 +388,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
   if (!activeChat) {
     return (
       <div className="flex-1 flex flex-col bg-slate-950/60 select-none">
-        <StoryCircles onStoryClick={onStoryClick} onUploadClick={onStoryUploadClick} />
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
           <div className="w-20 h-20 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-3xl flex items-center justify-center shadow-lg shadow-violet-500/10 mb-6 animate-pulse">
             <MessageSquare className="w-10 h-10 text-white" />
@@ -578,9 +574,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onStoryClick, onStor
           onClose={() => setShowGroupSettings(false)}
         />
       )}
-
-      {/* Story Circles */}
-      <StoryCircles onStoryClick={onStoryClick} onUploadClick={onStoryUploadClick} />
 
       {/* Message Feed */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
