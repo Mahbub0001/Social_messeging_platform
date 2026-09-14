@@ -14,6 +14,14 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
+import AdminRoute from "./routes/AdminRoute";
+
+// Lazy-loaded Admin pages to preserve mobile bundle size
+const AdminLayout = React.lazy(() => import("./layouts/AdminLayout"));
+const AdminOverview = React.lazy(() => import("./pages/admin/AdminOverview"));
+const UserManagement = React.lazy(() => import("./pages/admin/UserManagement"));
+const ContentModeration = React.lazy(() => import("./pages/admin/ContentModeration"));
+const SystemBroadcast = React.lazy(() => import("./pages/admin/SystemBroadcast"));
 
 const MobileNavigationHandler: React.FC = () => {
   const location = useLocation();
@@ -130,6 +138,16 @@ export const App: React.FC = () => {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
           {/* Settings and other layouts are loaded as tab modules in Dashboard page for clean SPA layout */}
+        </Route>
+
+        {/* Protected Admin Portal Routes */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminOverview />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="moderation" element={<ContentModeration />} />
+            <Route path="broadcast" element={<SystemBroadcast />} />
+          </Route>
         </Route>
 
         {/* Fallback redirect */}
