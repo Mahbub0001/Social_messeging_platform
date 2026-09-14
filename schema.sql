@@ -581,3 +581,122 @@ drop policy if exists "Users can delete own push tokens" on public.user_push_tok
 create policy "Users can delete own push tokens" on public.user_push_tokens
   for delete using (auth.uid() = user_id);
 
+-- ========================================================
+-- 9. ADMIN PANEL SCHEMA & RLS POLICIES
+-- ========================================================
+
+-- Extend profiles table with role and moderation fields
+alter table public.profiles 
+  add column if not exists role text default 'user' check (role in ('admin', 'moderator', 'user')),
+  add column if not exists is_banned boolean default false not null,
+  add column if not exists banned_reason text,
+  add column if not exists banned_at timestamp with time zone;
+
+create index if not exists idx_profiles_role on public.profiles(role);
+create index if not exists idx_profiles_is_banned on public.profiles(is_banned);
+
+-- System Announcements Table
+create table if not exists public.system_announcements (
+  id uuid default gen_random_uuid() primary key,
+  admin_id uuid references public.profiles(id) on delete set null,
+  title text not null,
+  content text not null,
+  type text check (type in ('info', 'warning', 'critical', 'update')) default 'info' not null,
+  send_push boolean default false not null,
+  is_active boolean default true not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_announcements_created_at on public.system_announcements(created_at desc);
+
+-- Content Reports Table
+create table if not exists public.content_reports (
+  id uuid default gen_random_uuid() primary key,
+  reporter_id uuid references public.profiles(id) on delete cascade not null,
+  target_type text check (target_type in ('story', 'message', 'user')) not null,
+  target_id uuid not null,
+  reason text not null,
+  status text check (status in ('pending', 'resolved', 'dismissed')) default 'pending' not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_content_reports_status on public.content_reports(status);
+
+-- Admin Verification Helper Function
+create or replace function public.is_admin()
+returns boolean as $$
+begin
+  return exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'admin'
+  );
+end;
+$$ language plpgsql security definer;
+
+-- Enable RLS
+alter table public.system_announcements enable row level security;
+alter table public.content_reports enable row level security;
+
+-- Announcements RLS
+drop policy if exists "Anyone authenticated can view active announcements" on public.system_announcements;
+create policy "Anyone authenticated can view active announcements" 
+  on public.system_announcements for select 
+  to authenticated 
+  using (is_active = true or public.is_admin());
+
+drop policy if exists "Admins can insert announcements" on public.system_announcements;
+create policy "Admins can insert announcements" 
+  on public.system_announcements for insert 
+  to authenticated 
+  with check (public.is_admin());
+
+drop policy if exists "Admins can update announcements" on public.system_announcements;
+create policy "Admins can update announcements" 
+  on public.system_announcements for update 
+  to authenticated 
+  using (public.is_admin());
+
+drop policy if exists "Admins can delete announcements" on public.system_announcements;
+create policy "Admins can delete announcements" 
+  on public.system_announcements for delete 
+  to authenticated 
+  using (public.is_admin());
+
+-- Reports RLS
+drop policy if exists "Users can create content reports" on public.content_reports;
+create policy "Users can create content reports"
+  on public.content_reports for insert
+  to authenticated
+  with check (auth.uid() = reporter_id);
+
+drop policy if exists "Admins can view and manage reports" on public.content_reports;
+create policy "Admins can view and manage reports"
+  on public.content_reports for all
+  to authenticated
+  using (public.is_admin());
+
+-- Stories RLS: Admins can delete any story
+drop policy if exists "Admins can delete any story" on public.stories;
+create policy "Admins can delete any story" 
+  on public.stories for delete 
+  to authenticated 
+  using (public.is_admin() or auth.uid() = user_id);
+
+-- Messages RLS: Prevent banned users from sending messages
+drop policy if exists "Active users can insert messages" on public.messages;
+create policy "Active users can insert messages" 
+  on public.messages for insert 
+  to authenticated 
+  with check (
+    auth.uid() = sender_id and 
+    not exists (select 1 from public.profiles where id = auth.uid() and is_banned = true)
+  );
+
+-- Profiles RLS: Admins can update roles and ban status
+drop policy if exists "Admins can update user roles and ban status" on public.profiles;
+create policy "Admins can update user roles and ban status" 
+  on public.profiles for update 
+  to authenticated 
+  using (public.is_admin() or auth.uid() = id);
+
+
