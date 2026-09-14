@@ -100,8 +100,53 @@ class PushNotificationService {
       this.onConversationClickCallback = onConversationClick;
     }
 
+    // Global listener for deep links triggered from MainActivity
+    (window as any).handleNotificationDeepLink = (convId: string) => {
+      if (convId && this.onConversationClickCallback) {
+        this.onConversationClickCallback(convId);
+      }
+    };
+
+    // Global listener for direct replies triggered from Android notification shade
+    (window as any).handleDirectReply = async (payload: { conversationId: string; content: string } | string, contentText?: string) => {
+      try {
+        let conversationId = "";
+        let content = "";
+        if (typeof payload === "object" && payload !== null) {
+          conversationId = payload.conversationId;
+          content = payload.content;
+        } else if (typeof payload === "string") {
+          conversationId = payload;
+          content = contentText || "";
+        }
+        if (!conversationId || !content) return;
+
+        console.log("[PushNotification] Handling direct reply for:", conversationId, content);
+        const { chatService } = await import("./chatService");
+        const { useStore } = await import("../hooks/useStore");
+        const currentUser = useStore.getState().user;
+        if (currentUser?.id) {
+          await chatService.sendMessage(conversationId, currentUser.id, content);
+          useStore.getState().fetchConversations();
+        }
+      } catch (err) {
+        console.error("[PushNotification] Error handling direct reply in webview:", err);
+      }
+    };
+
     if (!Capacitor.isNativePlatform()) {
       return;
+    }
+
+    // Sync session to native Android SharedPreferences
+    this.syncAuthWithNative(userId);
+
+    // Check if there was a pending notification click on cold start
+    if (typeof (window as any).KBNativeBridge?.getPendingConversationId === "function") {
+      const pendingConvId = (window as any).KBNativeBridge.getPendingConversationId();
+      if (pendingConvId && this.onConversationClickCallback) {
+        this.onConversationClickCallback(pendingConvId);
+      }
     }
 
     if (this.isInitialized) {
@@ -144,6 +189,21 @@ class PushNotificationService {
       }
     } catch (err) {
       console.error("Error initializing push notifications:", err);
+    }
+  }
+
+  public async syncAuthWithNative(userId: string): Promise<void> {
+    if (!Capacitor.isNativePlatform() || !supabase) return;
+    try {
+      if (typeof (window as any).KBNativeBridge?.syncUserAuth === "function") {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token || "";
+        const { data: profile } = await supabase.from("profiles").select("username, full_name").eq("id", userId).maybeSingle();
+        const userName = profile?.username || profile?.full_name || "User";
+        (window as any).KBNativeBridge.syncUserAuth(userId, userName, token);
+      }
+    } catch (e) {
+      console.warn("Error syncing auth with native:", e);
     }
   }
 
@@ -300,22 +360,16 @@ class PushNotificationService {
                   body: JSON.stringify({
                     message: {
                       token: item.token,
-                      notification: {
-                        title: notificationTitle,
-                        body: notificationBody,
-                      },
                       data: {
                         conversationId: String(params.conversationId),
                         senderId: String(params.senderId),
+                        senderName: String(params.senderName || "Someone"),
+                        title: String(notificationTitle),
+                        body: String(notificationBody),
                         type: "chat_message",
                       },
                       android: {
                         priority: "high",
-                        notification: {
-                          channel_id: "messages",
-                          sound: "default",
-                          click_action: "FCM_PLUGIN_ACTIVITY",
-                        },
                       },
                     },
                   }),
@@ -401,7 +455,6 @@ class PushNotificationService {
                     notification: {
                       channel_id: "messages",
                       sound: "default",
-                      click_action: "FCM_PLUGIN_ACTIVITY",
                     },
                   },
                 },
@@ -477,7 +530,6 @@ class PushNotificationService {
                     notification: {
                       channel_id: "messages",
                       sound: "default",
-                      click_action: "FCM_PLUGIN_ACTIVITY",
                     },
                   },
                 },

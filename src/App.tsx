@@ -60,6 +60,67 @@ const MobileNavigationHandler: React.FC = () => {
   return null;
 };
 
+const NotificationDeepLinkHandler: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const setActiveConversationId = useStore((state) => state.setActiveConversationId);
+  const activeConversationId = useStore((state) => state.activeConversationId);
+  const user = useStore((state) => state.user);
+
+  // Sync active conversation with Android native layer to suppress alerts for active chat
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      if (typeof (window as any).KBNativeBridge?.setActiveConversation === "function") {
+        (window as any).KBNativeBridge.setActiveConversation(activeConversationId || "");
+      }
+    } catch (e) {
+      console.warn("Failed to set native active conversation:", e);
+    }
+  }, [activeConversationId]);
+
+  // Handle deep links from native push notification clicks
+  useEffect(() => {
+    const handleDeepLink = (convId: string) => {
+      if (!convId) return;
+      console.log("[NotificationDeepLink] Navigating to conversation:", convId);
+      setActiveConversationId(convId);
+      if (location.pathname !== "/dashboard") {
+        navigate("/dashboard");
+      }
+    };
+
+    // 1. Hook into window for MainActivity.dispatchConversationToWebView
+    (window as any).handleNotificationDeepLink = handleDeepLink;
+
+    // 2. Register callback on pushNotificationService
+    pushNotificationService.setConversationClickCallback(handleDeepLink);
+
+    // 3. Cold-start check: read pending conversation ID from native bridge
+    if (Capacitor.isNativePlatform() && typeof (window as any).KBNativeBridge?.getPendingConversationId === "function") {
+      const pendingConv = (window as any).KBNativeBridge.getPendingConversationId();
+      if (pendingConv) {
+        handleDeepLink(pendingConv);
+      }
+    }
+
+    return () => {
+      if ((window as any).handleNotificationDeepLink === handleDeepLink) {
+        delete (window as any).handleNotificationDeepLink;
+      }
+    };
+  }, [location.pathname, navigate, setActiveConversationId]);
+
+  // Sync auth credentials to Android native SharedPreferences
+  useEffect(() => {
+    if (user?.id) {
+      pushNotificationService.syncAuthWithNative(user.id);
+    }
+  }, [user?.id]);
+
+  return null;
+};
+
 export const App: React.FC = () => {
   const initializeAuth = useStore((state) => state.initializeAuth);
   const theme = useStore((state) => state.theme);
@@ -104,6 +165,7 @@ export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <MobileNavigationHandler />
+      <NotificationDeepLinkHandler />
       <Routes>
         {/* Public Marketing Route */}
         <Route path="/" element={<Landing />} />

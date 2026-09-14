@@ -30,7 +30,31 @@
                 <data android:scheme="com.nibir.kothabarta" />
             </intent-filter>
 
+            <!-- Fix notification click: allows FCM_PLUGIN_ACTIVITY to launch MainActivity -->
+            <intent-filter>
+                <action android:name="FCM_PLUGIN_ACTIVITY" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
         </activity>
+
+        <!-- Custom Firebase Messaging Service with Direct Reply Support -->
+        <service
+            android:name=".KothaBartaMessagingService"
+            android:exported="false">
+            <intent-filter android:priority="100">
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- Broadcast Receiver for Notification Inline Direct Reply -->
+        <receiver
+            android:name=".DirectReplyReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.nibir.kothabarta.ACTION_DIRECT_REPLY" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

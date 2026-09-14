@@ -191,22 +191,16 @@ Deno.serve(async (req: Request) => {
       const payload = {
         message: {
           token: item.token,
-          notification: {
-            title: notificationTitle,
-            body: notificationBody,
-          },
           data: {
             conversationId: String(conversationId),
             senderId: String(senderId),
+            senderName: String(senderName || "Someone"),
+            title: String(notificationTitle),
+            body: String(notificationBody),
             type: "chat_message",
           },
           android: {
             priority: "high",
-            notification: {
-              channel_id: "messages",
-              sound: "default",
-              click_action: "FCM_PLUGIN_ACTIVITY",
-            },
           },
         },
       };
