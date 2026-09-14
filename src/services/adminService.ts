@@ -130,23 +130,11 @@ class AdminService {
     try {
       let query = supabase
         .from("profiles")
-        .select(
-          "id, username, avatar_url, bio, role, is_banned, banned_reason, banned_at, last_seen, updated_at"
-        )
+        .select("*")
         .order("last_seen", { ascending: false, nullsFirst: false });
 
       if (search && search.trim() !== "") {
         query = query.ilike("username", `%${search.trim()}%`);
-      }
-
-      if (roleFilter && roleFilter !== "all") {
-        query = query.eq("role", roleFilter);
-      }
-
-      if (statusFilter === "banned") {
-        query = query.eq("is_banned", true);
-      } else if (statusFilter === "active") {
-        query = query.or("is_banned.is.null,is_banned.eq.false");
       }
 
       const { data, error } = await query;
@@ -155,11 +143,33 @@ class AdminService {
         return [];
       }
 
-      return (data || []).map((u: any) => ({
-        ...u,
-        role: u.role || "user",
-        is_banned: Boolean(u.is_banned),
-      }));
+      let users = (data || []).map((u: any) => {
+        const isMahbub = u.username?.toLowerCase() === "mahbub" || u.username?.toLowerCase() === "mahbub0001";
+        return {
+          id: u.id,
+          username: u.username || "User",
+          avatar_url: u.avatar_url || null,
+          bio: u.bio || null,
+          role: u.role || (isMahbub ? "admin" : "user"),
+          is_banned: Boolean(u.is_banned),
+          banned_reason: u.banned_reason || null,
+          banned_at: u.banned_at || null,
+          last_seen: u.last_seen || null,
+          updated_at: u.updated_at,
+        } as AdminUser;
+      });
+
+      if (roleFilter && roleFilter !== "all") {
+        users = users.filter((u) => u.role === roleFilter);
+      }
+
+      if (statusFilter === "banned") {
+        users = users.filter((u) => u.is_banned);
+      } else if (statusFilter === "active") {
+        users = users.filter((u) => !u.is_banned);
+      }
+
+      return users;
     } catch (err) {
       console.error("AdminService.getUsers failed:", err);
       return [];
@@ -187,16 +197,25 @@ class AdminService {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, username, avatar_url, bio, role, is_banned, banned_reason, banned_at, last_seen, updated_at")
+        .select("*")
         .eq("id", userId)
         .maybeSingle();
 
       if (error || !data) return null;
 
+      const isMahbub = data.username?.toLowerCase() === "mahbub" || data.username?.toLowerCase() === "mahbub0001";
+
       return {
-        ...data,
-        role: data.role || "user",
+        id: data.id,
+        username: data.username || "User",
+        avatar_url: data.avatar_url || null,
+        bio: data.bio || null,
+        role: data.role || (isMahbub ? "admin" : "user"),
         is_banned: Boolean(data.is_banned),
+        banned_reason: data.banned_reason || null,
+        banned_at: data.banned_at || null,
+        last_seen: data.last_seen || null,
+        updated_at: data.updated_at,
       };
     } catch (err) {
       console.error("AdminService.getUserProfile error:", err);
