@@ -14,9 +14,11 @@ import {
 } from "lucide-react";
 import { adminService, type AnnouncementItem } from "../../services/adminService";
 import { useStore } from "../../hooks/useStore";
+import { useAdminLanguage } from "../../context/AdminLanguageContext";
 
 export const SystemBroadcast: React.FC = () => {
   const { user } = useStore();
+  const { t, language } = useAdminLanguage();
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -63,24 +65,37 @@ export const SystemBroadcast: React.FC = () => {
       });
 
       if (res.success) {
-        setSuccessMsg("ঘোষণা সফলভাবে প্ল্যাটফর্মে ব্রডকাস্ট করা হয়েছে!");
+        setSuccessMsg(
+          language === "bn"
+            ? "ঘোষণা সফলভাবে প্ল্যাটফর্মে ব্রডকাস্ট করা হয়েছে!"
+            : "Announcement successfully broadcast to platform!"
+        );
         setTitle("");
         setContent("");
         loadAnnouncements();
         setTimeout(() => setSuccessMsg(null), 4000);
       } else {
-        setErrorMsg(res.error || "ঘোষণা প্রকাশ করতে সমস্যা হয়েছে। আপনার অ্যাকাউন্ট অ্যাডমিন কি না তা নিশ্চিত করুন।");
+        setErrorMsg(
+          res.error ||
+            (language === "bn"
+              ? "ঘোষণা প্রকাশ করতে সমস্যা হয়েছে।"
+              : "Failed to publish announcement.")
+        );
       }
     } catch (err: any) {
       console.error("Broadcast submit error:", err);
-      setErrorMsg(err?.message || "ঘোষণা প্রকাশ করতে সমস্যা হয়েছে।");
+      setErrorMsg(err?.message || (language === "bn" ? "ঘোষণা প্রকাশ করতে সমস্যা হয়েছে।" : "Failed to publish announcement."));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("আপনি কি নিশ্চিতভাবে এই ঘোষণাটি মুছে ফেলতে চান?")) return;
+    const confirmPrompt =
+      language === "bn"
+        ? "আপনি কি নিশ্চিতভাবে এই ঘোষণাটি মুছে ফেলতে চান?"
+        : "Are you sure you want to delete this announcement?";
+    if (!window.confirm(confirmPrompt)) return;
     try {
       const success = await adminService.deleteAnnouncement(id);
       if (success) {
@@ -92,10 +107,10 @@ export const SystemBroadcast: React.FC = () => {
   };
 
   const typeConfig = {
-    info: { label: "তথ্যমূলক (Info)", icon: Info, color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
-    warning: { label: "সতর্কবার্তা (Warning)", icon: AlertTriangle, color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-    critical: { label: "জরুরি নোটিশ (Critical)", icon: AlertOctagon, color: "text-red-400 bg-red-500/10 border-red-500/20" },
-    update: { label: "আপডেট (Update)", icon: CheckCircle2, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+    info: { label: t("broadcast.info"), icon: Info, color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
+    warning: { label: t("broadcast.warning"), icon: AlertTriangle, color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+    critical: { label: t("broadcast.critical"), icon: AlertOctagon, color: "text-red-400 bg-red-500/10 border-red-500/20" },
+    update: { label: t("broadcast.update"), icon: CheckCircle2, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
   };
 
   return (
@@ -104,10 +119,10 @@ export const SystemBroadcast: React.FC = () => {
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
           <Megaphone className="w-6 h-6 text-emerald-400" />
-          <span>সিস্টেম ব্রডকাস্ট ও পুশ নোটিফিকেশন</span>
+          <span>{t("broadcast.title")}</span>
         </h1>
         <p className="text-xs text-slate-400 mt-1">
-          প্ল্যাটফর্মের সকল ব্যবহারকারীর কাছে একযোগে নোটিশ ব্যানার এবং মোবাইল পুশ নোটিফিকেশন পাঠান।
+          {t("broadcast.subtitle")}
         </p>
       </div>
 
@@ -138,20 +153,20 @@ export const SystemBroadcast: React.FC = () => {
       <div className="p-5 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-xl space-y-4">
         <h2 className="text-sm font-bold text-slate-200 flex items-center gap-2">
           <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-          <span>নতুন গ্লোবাল ঘোষণা তৈরি করুন</span>
+          <span>{t("broadcast.create")}</span>
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
           <div>
             <label className="block text-3xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              ঘোষণার শিরোনাম (Title)
+              {t("broadcast.formTitle")}
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="যেমন: সার্ভার মেইনটেন্যান্স বা নতুন ফিচার আপডেট..."
+              placeholder={t("broadcast.titlePlaceholder")}
               required
               className="w-full px-4 py-2.5 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
             />
@@ -160,7 +175,7 @@ export const SystemBroadcast: React.FC = () => {
           {/* Type Picker */}
           <div>
             <label className="block text-3xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              ক্যাটাগরি / গুরুত্ব স্তর
+              {t("broadcast.category")}
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {(Object.keys(typeConfig) as Array<keyof typeof typeConfig>).map((k) => {
@@ -189,13 +204,13 @@ export const SystemBroadcast: React.FC = () => {
           {/* Content */}
           <div>
             <label className="block text-3xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              ঘোষণার মূল বার্তা (Announcement Details)
+              {t("broadcast.content")}
             </label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={4}
-              placeholder="ব্যবহারকারীদের জন্য বিস্তারিত মেসেজ লিখুন..."
+              placeholder={t("broadcast.contentPlaceholder")}
               required
               className="w-full p-4 bg-slate-950/60 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
             />
@@ -209,10 +224,10 @@ export const SystemBroadcast: React.FC = () => {
               </div>
               <div>
                 <p className="text-xs font-semibold text-slate-200">
-                  সবার ফোনে সরাসরি পুশ নোটিফিকেশন পাঠান
+                  {t("broadcast.pushToggle")}
                 </p>
                 <p className="text-3xs text-slate-400">
-                  FCM সার্ভিসের মাধ্যমে মোবাইল ব্যবহারকারীদের কাছে রিয়েল-টাইমে পৌঁছাবে।
+                  {t("broadcast.pushSub")}
                 </p>
               </div>
             </div>
@@ -239,22 +254,22 @@ export const SystemBroadcast: React.FC = () => {
             ) : (
               <Send className="w-4 h-4" />
             )}
-            <span>ঘোষণা প্রকাশ ও ব্রডকাস্ট করুন</span>
+            <span>{submitting ? t("broadcast.publishing") : t("broadcast.submit")}</span>
           </button>
         </form>
       </div>
 
       {/* Broadcast History */}
       <div className="p-5 rounded-2xl bg-slate-900/70 border border-slate-800/80 shadow-lg space-y-4">
-        <h3 className="text-sm font-bold text-slate-200">পূর্ববর্তী ঘোষণা ইতিহাস</h3>
+        <h3 className="text-sm font-bold text-slate-200">{t("broadcast.history")}</h3>
 
         {loading ? (
           <div className="py-8 text-center text-slate-500">
             <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-emerald-500" />
-            <span className="text-xs">ইতিহাস লোড হচ্ছে...</span>
+            <span className="text-xs">{language === "bn" ? "ইতিহাস লোড হচ্ছে..." : "Loading history..."}</span>
           </div>
         ) : announcements.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-6">কোনো পূর্ববর্তী ঘোষণা পাওয়া যায়নি।</p>
+          <p className="text-xs text-slate-500 text-center py-6">{t("broadcast.noHistory")}</p>
         ) : (
           <div className="divide-y divide-slate-800/60">
             {announcements.map((a) => {
@@ -271,12 +286,12 @@ export const SystemBroadcast: React.FC = () => {
                       {a.send_push && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-semibold bg-violet-500/10 text-violet-300 border border-violet-500/20">
                           <Bell className="w-2.5 h-2.5" />
-                          <span>পুশ পাঠানো হয়েছে</span>
+                          <span>{language === "bn" ? "পুশ পাঠানো হয়েছে" : "Push Dispatched"}</span>
                         </span>
                       )}
                       <span className="text-3xs text-slate-500 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        <span>{new Date(a.created_at).toLocaleString("bn-BD")}</span>
+                        <span>{new Date(a.created_at).toLocaleString(language === "bn" ? "bn-BD" : "en-US")}</span>
                       </span>
                     </div>
 
@@ -287,7 +302,7 @@ export const SystemBroadcast: React.FC = () => {
                   <button
                     onClick={() => handleDelete(a.id)}
                     className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
-                    title="মুছে ফেলুন"
+                    title={language === "bn" ? "মুছে ফেলুন" : "Delete"}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

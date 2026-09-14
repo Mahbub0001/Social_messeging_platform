@@ -13,13 +13,16 @@ import {
   Shield,
   Loader2,
   LogOut,
+  Globe,
 } from "lucide-react";
 import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
+import { AdminLanguageProvider, useAdminLanguage } from "../context/AdminLanguageContext";
 
-export const AdminLayout: React.FC = () => {
+const AdminLayoutContent: React.FC = () => {
   const navigate = useNavigate();
   const { user, theme, toggleTheme } = useStore();
+  const { language, toggleLanguage, t } = useAdminLanguage();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -29,25 +32,25 @@ export const AdminLayout: React.FC = () => {
 
   const navItems = [
     {
-      name: "ড্যাশবোর্ড (Overview)",
+      name: t("nav.overview"),
       path: "/admin",
       end: true,
       icon: LayoutDashboard,
     },
     {
-      name: "ইউজার ম্যানেজমেন্ট",
+      name: t("nav.users"),
       path: "/admin/users",
       end: false,
       icon: Users,
     },
     {
-      name: "স্টোরি ও কন্টেন্ট মডারেশন",
+      name: t("nav.moderation"),
       path: "/admin/moderation",
       end: false,
       icon: ShieldCheck,
     },
     {
-      name: "সিস্টেম ব্রডকাস্ট ও নোটিফিকেশন",
+      name: t("nav.broadcast"),
       path: "/admin/broadcast",
       end: false,
       icon: Megaphone,
@@ -78,28 +81,40 @@ export const AdminLayout: React.FC = () => {
                   Admin
                 </span>
               </div>
-              <p className="text-3xs text-slate-400 hidden sm:block">সিস্টেম কন্ট্রোল সেন্টার</p>
+              <p className="text-3xs text-slate-400 hidden sm:block">{t("nav.adminControl")}</p>
             </div>
           </Link>
         </div>
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Language Switcher Toggle */}
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700/90 text-violet-300 hover:text-white rounded-xl text-xs font-semibold border border-slate-700/70 transition-all shadow-sm active:scale-95"
+            title={language === "bn" ? "Switch to English" : "বাংলায় পরিবর্তন করুন"}
+          >
+            <Globe className="w-3.5 h-3.5 text-violet-400" />
+            <span className="font-semibold tracking-wide">
+              {language === "bn" ? "English" : "বাংলা"}
+            </span>
+          </button>
+
           {/* Back to Chat button */}
           <Link
             to="/dashboard"
             className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700/80 text-slate-200 rounded-xl text-xs font-semibold border border-slate-700/60 transition-all shadow-sm active:scale-95"
-            title="চ্যাট মেসেজিং-এ ফিরে যান"
+            title={t("nav.backToChat")}
           >
             <ArrowLeft className="w-3.5 h-3.5 text-violet-400" />
-            <span className="hidden sm:inline">চ্যাটে ফিরে যান</span>
+            <span className="hidden sm:inline">{t("nav.backToChat")}</span>
           </Link>
 
           {/* Theme Switcher */}
           <button
             onClick={toggleTheme}
             className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 rounded-xl transition-colors"
-            title="Toggle theme"
+            title={t("nav.themeToggle")}
           >
             {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
@@ -113,7 +128,7 @@ export const AdminLayout: React.FC = () => {
               <p className="font-semibold text-slate-200 leading-tight">
                 {user?.user_metadata?.username || "Admin"}
               </p>
-              <p className="text-3xs text-emerald-400 font-medium">সিস্টেম এডমিন</p>
+              <p className="text-3xs text-emerald-400 font-medium">{t("nav.adminRole")}</p>
             </div>
           </div>
 
@@ -121,7 +136,7 @@ export const AdminLayout: React.FC = () => {
           <button
             onClick={handleLogout}
             className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
-            title="লগআউট"
+            title={t("nav.logout")}
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -138,7 +153,7 @@ export const AdminLayout: React.FC = () => {
         >
           <div className="space-y-1">
             <p className="px-3 py-2 text-3xs font-bold text-slate-500 uppercase tracking-wider">
-              ন্যাভিগেশন মেনু
+              {language === "bn" ? "ন্যাভিগেশন মেনু" : "Navigation Menu"}
             </p>
             {navItems.map((item) => (
               <NavLink
@@ -173,7 +188,7 @@ export const AdminLayout: React.FC = () => {
             fallback={
               <div className="h-64 flex flex-col items-center justify-center text-slate-400">
                 <Loader2 className="w-7 h-7 animate-spin text-violet-500 mb-2" />
-                <p className="text-xs">লোড হচ্ছে...</p>
+                <p className="text-xs">{language === "bn" ? "লোড হচ্ছে..." : "Loading..."}</p>
               </div>
             }
           >
@@ -182,6 +197,14 @@ export const AdminLayout: React.FC = () => {
         </main>
       </div>
     </div>
+  );
+};
+
+export const AdminLayout: React.FC = () => {
+  return (
+    <AdminLanguageProvider>
+      <AdminLayoutContent />
+    </AdminLanguageProvider>
   );
 };
 

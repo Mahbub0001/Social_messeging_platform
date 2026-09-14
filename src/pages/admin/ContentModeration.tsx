@@ -16,8 +16,10 @@ import {
   type LiveStoryItem,
   type ContentReportItem,
 } from "../../services/adminService";
+import { useAdminLanguage } from "../../context/AdminLanguageContext";
 
 export const ContentModeration: React.FC = () => {
+  const { t, language } = useAdminLanguage();
   const [activeTab, setActiveTab] = useState<"stories" | "reports">("stories");
   const [stories, setStories] = useState<LiveStoryItem[]>([]);
   const [reports, setReports] = useState<ContentReportItem[]>([]);
@@ -46,8 +48,11 @@ export const ContentModeration: React.FC = () => {
   }, []);
 
   const handleDeleteStory = async (story: LiveStoryItem) => {
-    const author = story.profiles?.username || "ইউজার";
-    if (!window.confirm(`আপনি কি নিশ্চিতভাবে ${author}-এর এই স্টোরিটি স্থায়ীভাবে ডিলিট করতে চান?`)) {
+    const author = story.profiles?.username || (language === "bn" ? "ইউজার" : "User");
+    const confirmPrompt = language === "bn"
+      ? `আপনি কি নিশ্চিতভাবে ${author}-এর এই স্টোরিটি স্থায়ীভাবে ডিলিট করতে চান?`
+      : `Are you sure you want to permanently delete this story by ${author}?`;
+    if (!window.confirm(confirmPrompt)) {
       return;
     }
 
@@ -57,7 +62,7 @@ export const ContentModeration: React.FC = () => {
       if (success) {
         setStories((prev) => prev.filter((s) => s.id !== story.id));
       } else {
-        alert("স্টোরি ডিলিট করতে সমস্যা হয়েছে।");
+        alert(language === "bn" ? "স্টোরি ডিলিট করতে সমস্যা হয়েছে।" : "Failed to delete story.");
       }
     } catch (err) {
       console.error("Delete story error:", err);
@@ -84,10 +89,10 @@ export const ContentModeration: React.FC = () => {
 
   const formatRemainingTime = (expiresAt: string) => {
     const remainingMs = new Date(expiresAt).getTime() - Date.now();
-    if (remainingMs <= 0) return "মেয়াদ শেষ";
+    if (remainingMs <= 0) return language === "bn" ? "মেয়াদ শেষ" : "Expired";
     const hours = Math.floor(remainingMs / (1000 * 60 * 60));
     const mins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-    return `${hours} ঘণ্টা ${mins} মি. বাকি`;
+    return language === "bn" ? `${hours} ঘণ্টা ${mins} মি. বাকি` : `${hours}h ${mins}m left`;
   };
 
   return (
@@ -97,10 +102,10 @@ export const ContentModeration: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
             <ShieldAlert className="w-6 h-6 text-amber-400" />
-            <span>কন্টেন্ট ও স্টোরি মডারেশন</span>
+            <span>{t("mod.title")}</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            আপত্তিকর বা অনুপযুক্ত স্টোরি পর্যবেক্ষণ করুন এবং ১-ক্লিকে স্থায়ীভাবে মুছে ফেলুন।
+            {t("mod.subtitle")}
           </p>
         </div>
 
@@ -110,7 +115,7 @@ export const ContentModeration: React.FC = () => {
           className="self-start sm:self-auto flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700/60 text-xs font-semibold text-slate-200 transition-all active:scale-95 disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-amber-400" : ""}`} />
-          <span>রিফ্রেশ করুন</span>
+          <span>{t("overview.refresh")}</span>
         </button>
       </div>
 
@@ -125,7 +130,7 @@ export const ContentModeration: React.FC = () => {
           }`}
         >
           <Film className="w-4 h-4" />
-          <span>লাইভ স্টোরিস</span>
+          <span>{t("mod.liveStories")}</span>
           <span className="px-1.5 py-0.2 rounded-full text-3xs font-bold bg-slate-800 text-slate-300">
             {stories.length}
           </span>
@@ -140,7 +145,7 @@ export const ContentModeration: React.FC = () => {
           }`}
         >
           <AlertCircle className="w-4 h-4" />
-          <span>ইউজার রিপোর্ট কিউ</span>
+          <span>{t("mod.reports")}</span>
           <span className="px-1.5 py-0.2 rounded-full text-3xs font-bold bg-slate-800 text-slate-300">
             {reports.filter((r) => r.status === "pending").length}
           </span>
@@ -153,15 +158,19 @@ export const ContentModeration: React.FC = () => {
           {loading ? (
             <div className="py-16 text-center text-slate-500">
               <Loader2 className="w-7 h-7 animate-spin mx-auto mb-3 text-amber-400" />
-              <p className="text-xs">লাইভ স্টোরি লোড হচ্ছে...</p>
+              <p className="text-xs">{language === "bn" ? "লাইভ স্টোরি লোড হচ্ছে..." : "Loading live stories..."}</p>
             </div>
           ) : stories.length === 0 ? (
             <div className="py-16 text-center rounded-2xl bg-slate-900/40 border border-slate-800/80 p-8">
               <div className="w-12 h-12 rounded-2xl bg-slate-800/80 flex items-center justify-center mx-auto mb-3 text-slate-400">
                 <Film className="w-6 h-6" />
               </div>
-              <h3 className="text-sm font-bold text-slate-200 mb-1">কোনো সক্রিয় স্টোরি নেই</h3>
-              <p className="text-xs text-slate-400">এই মুহূর্তে প্ল্যাটফর্মে কোনো লাইভ ২৪ ঘণ্টার স্টোরি পাওয়া যায়নি।</p>
+              <h3 className="text-sm font-bold text-slate-200 mb-1">{t("mod.noStories")}</h3>
+              <p className="text-xs text-slate-400">
+                {language === "bn"
+                  ? "এই মুহূর্তে প্ল্যাটফর্মে কোনো লাইভ ২৪ ঘণ্টার স্টোরি পাওয়া যায়নি।"
+                  : "No live ephemeral 24-hour stories found on the platform right now."}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -185,7 +194,7 @@ export const ContentModeration: React.FC = () => {
                         )}
                       </div>
                       <span className="text-xs font-semibold text-slate-200 truncate">
-                        {story.profiles?.username || "ইউজার"}
+                        {story.profiles?.username || (language === "bn" ? "ইউজার" : "User")}
                       </span>
                     </div>
 
@@ -217,7 +226,7 @@ export const ContentModeration: React.FC = () => {
                     <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover/media:opacity-100 transition-opacity flex items-center justify-center text-white">
                       <div className="p-2 rounded-xl bg-slate-900/80 backdrop-blur-sm flex items-center gap-1.5 text-xs font-semibold">
                         <Eye className="w-4 h-4" />
-                        <span>বড় করে দেখুন</span>
+                        <span>{language === "bn" ? "বড় করে দেখুন" : "View media"}</span>
                       </div>
                     </div>
                   </div>
@@ -229,7 +238,9 @@ export const ContentModeration: React.FC = () => {
                         "{story.caption}"
                       </p>
                     ) : (
-                      <p className="text-3xs text-slate-500 italic">কোনো ক্যাপশন নেই</p>
+                      <p className="text-3xs text-slate-500 italic">
+                        {language === "bn" ? "কোনো ক্যাপশন নেই" : "No caption"}
+                      </p>
                     )}
 
                     <button
@@ -242,7 +253,7 @@ export const ContentModeration: React.FC = () => {
                       ) : (
                         <Trash2 className="w-3.5 h-3.5" />
                       )}
-                      <span>স্টোরি ডিলিট করুন</span>
+                      <span>{t("mod.deleteStory")}</span>
                     </button>
                   </div>
                 </div>
@@ -259,12 +270,12 @@ export const ContentModeration: React.FC = () => {
             <table className="w-full text-left text-xs text-slate-300">
               <thead className="bg-slate-950/60 text-3xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800/80">
                 <tr>
-                  <th className="px-5 py-3.5">রিপোর্টার</th>
-                  <th className="px-5 py-3.5">কন্টেন্ট টাইপ</th>
-                  <th className="px-5 py-3.5">অভিযোগের কারণ</th>
-                  <th className="px-5 py-3.5">তারিখ</th>
-                  <th className="px-5 py-3.5">অবস্থা</th>
-                  <th className="px-5 py-3.5 text-right">পদক্ষেপ</th>
+                  <th className="px-5 py-3.5">{language === "bn" ? "রিপোর্টার" : "Reporter"}</th>
+                  <th className="px-5 py-3.5">{language === "bn" ? "কন্টেন্ট টাইপ" : "Content Type"}</th>
+                  <th className="px-5 py-3.5">{language === "bn" ? "অভিযোগের কারণ" : "Report Reason"}</th>
+                  <th className="px-5 py-3.5">{language === "bn" ? "তারিখ" : "Date"}</th>
+                  <th className="px-5 py-3.5">{language === "bn" ? "অবস্থা" : "Status"}</th>
+                  <th className="px-5 py-3.5 text-right">{language === "bn" ? "পদক্ষেপ" : "Actions"}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -272,13 +283,13 @@ export const ContentModeration: React.FC = () => {
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-slate-500">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-red-500" />
-                      <span>রিপোর্ট তথ্য লোড হচ্ছে...</span>
+                      <span>{language === "bn" ? "রিপোর্ট তথ্য লোড হচ্ছে..." : "Loading reports..."}</span>
                     </td>
                   </tr>
                 ) : reports.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-12 text-center text-slate-500">
-                      কোনো ইউজার রিপোর্ট নেই।
+                      {t("mod.noReports")}
                     </td>
                   </tr>
                 ) : (
@@ -287,7 +298,7 @@ export const ContentModeration: React.FC = () => {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-slate-200">
-                            {report.reporter?.username || "ইউজার"}
+                            {report.reporter?.username || (language === "bn" ? "ইউজার" : "User")}
                           </span>
                         </div>
                       </td>
@@ -303,7 +314,7 @@ export const ContentModeration: React.FC = () => {
                       </td>
 
                       <td className="px-5 py-3.5 text-3xs text-slate-400">
-                        {new Date(report.created_at).toLocaleDateString("bn-BD")}
+                        {new Date(report.created_at).toLocaleDateString(language === "bn" ? "bn-BD" : "en-US")}
                       </td>
 
                       <td className="px-5 py-3.5">
@@ -326,20 +337,22 @@ export const ContentModeration: React.FC = () => {
                             <button
                               onClick={() => handleUpdateReportStatus(report.id, "resolved")}
                               className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-3xs font-semibold border border-emerald-500/30"
-                              title="সমাধান হিসেবে চিহ্নিত করুন"
+                              title={language === "bn" ? "সমাধান হিসেবে চিহ্নিত করুন" : "Mark as resolved"}
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleUpdateReportStatus(report.id, "dismissed")}
                               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 text-3xs font-semibold border border-slate-700/60"
-                              title="খারিজ করুন"
+                              title={language === "bn" ? "খারিজ করুন" : "Dismiss"}
                             >
                               <XCircle className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ) : (
-                          <span className="text-3xs text-slate-500">সম্পন্ন</span>
+                          <span className="text-3xs text-slate-500">
+                            {language === "bn" ? "সম্পন্ন" : "Resolved"}
+                          </span>
                         )}
                       </td>
                     </tr>
