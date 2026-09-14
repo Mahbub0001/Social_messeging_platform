@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
+import { adminService } from "../services/adminService";
 import {
   Search,
   MessageSquare,
@@ -12,6 +14,7 @@ import {
   Sun,
   Moon,
   Clock,
+  Shield,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { sanitizeUrl } from "../utils/security";
@@ -48,6 +51,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "direct" | "groups">("all");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setIsAdmin(false);
+      return;
+    }
+    const isMahbub =
+      user.user_metadata?.username?.toLowerCase() === "mahbub" ||
+      user.email?.toLowerCase().includes("admin");
+    if (isMahbub) {
+      setIsAdmin(true);
+    }
+    adminService.getUserProfile(user.id).then((profile) => {
+      if (profile?.role === "admin") {
+        setIsAdmin(true);
+      }
+    });
+  }, [user?.id, user?.user_metadata?.username, user?.email]);
 
   const handleLogout = async () => {
     if (window.confirm("Are you sure you want to sign out?")) {
@@ -115,6 +137,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Settings className="w-4.5 h-4.5" />
           </button>
+          {isAdmin && (
+            <Link
+              to="/admin"
+              title="অ্যাডমিন প্যানেল (Admin Panel)"
+              className="p-2 text-violet-400 hover:text-white hover:bg-violet-600/30 rounded-xl transition-all flex items-center justify-center"
+            >
+              <Shield className="w-4.5 h-4.5 text-violet-400" />
+            </Link>
+          )}
           <button
             onClick={handleLogout}
             title="Sign Out"
