@@ -405,6 +405,15 @@ class MockDatabase {
     const views = this.getStoryViews().filter(v => v.story_id !== storyId);
     this.saveStoryViews(views);
   }
+
+  // Feed methods
+  public getFeedPosts<T = any>(): T[] {
+    return this.getStorageItem<T[]>("feed_posts_v1", []);
+  }
+
+  public saveFeedPosts<T = any>(posts: T[]): void {
+    this.setStorageItem("feed_posts_v1", posts);
+  }
 }
 
 export const mockDb = new MockDatabase();
