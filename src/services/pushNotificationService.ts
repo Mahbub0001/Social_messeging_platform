@@ -360,6 +360,10 @@ class PushNotificationService {
                   body: JSON.stringify({
                     message: {
                       token: item.token,
+                      notification: {
+                        title: String(notificationTitle),
+                        body: String(notificationBody),
+                      },
                       data: {
                         conversationId: String(params.conversationId),
                         senderId: String(params.senderId),
@@ -370,6 +374,12 @@ class PushNotificationService {
                       },
                       android: {
                         priority: "high",
+                        notification: {
+                          channel_id: "messages",
+                          sound: "default",
+                          click_action: "FCM_PLUGIN_ACTIVITY",
+                          icon: "ic_stat_notify",
+                        },
                       },
                     },
                   }),

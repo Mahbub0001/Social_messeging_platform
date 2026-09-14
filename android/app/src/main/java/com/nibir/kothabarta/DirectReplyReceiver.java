@@ -48,9 +48,14 @@ public class DirectReplyReceiver extends BroadcastReceiver {
 
         // 1. Immediately update the notification to show "✓ উত্তর পাঠানো হয়েছে" (Reply sent)
         // This dismisses the indefinite spinner in Android notification shade
-        try {
             NotificationManagerCompat notifManager = NotificationManagerCompat.from(context);
-            int iconRes = context.getApplicationInfo().icon != 0 ? context.getApplicationInfo().icon : android.R.drawable.stat_notify_chat;
+            int iconRes = android.R.drawable.stat_notify_chat;
+            try {
+                int res = context.getResources().getIdentifier("ic_stat_notify", "drawable", context.getPackageName());
+                if (res != 0) {
+                    iconRes = res;
+                }
+            } catch (Exception ignored) {}
 
             NotificationCompat.Builder repliedNotif = new NotificationCompat.Builder(context, KothaBartaMessagingService.CHANNEL_ID)
                 .setSmallIcon(iconRes)
