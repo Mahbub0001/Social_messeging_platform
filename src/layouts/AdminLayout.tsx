@@ -19,12 +19,8 @@ import { authService } from "../services/authService";
 
 export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
-  const { user, theme, setTheme } = useStore();
+  const { user, theme, toggleTheme } = useStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
 
   const handleLogout = async () => {
     await authService.signOut();

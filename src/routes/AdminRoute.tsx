@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, Outlet, useNavigate } from "react-router-dom";
 import { useStore } from "../hooks/useStore";
-import { adminService, AdminUser } from "../services/adminService";
+import { adminService, type AdminUser } from "../services/adminService";
 import { ShieldAlert, ArrowLeft, Loader2 } from "lucide-react";
 
 export const AdminRoute: React.FC = () => {
-  const { user, isInitialized } = useStore();
+  const { user, authLoading } = useStore();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,16 +31,16 @@ export const AdminRoute: React.FC = () => {
       }
     };
 
-    if (isInitialized) {
+    if (!authLoading) {
       checkAdmin();
     }
 
     return () => {
       isMounted = false;
     };
-  }, [user?.id, isInitialized]);
+  }, [user?.id, authLoading]);
 
-  if (!isInitialized || loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300">
         <Loader2 className="w-8 h-8 animate-spin text-violet-500 mb-3" />

@@ -1,23 +1,20 @@
 import React, { useEffect, useState } from "react";
 import {
   ShieldAlert,
-  ShieldCheck,
   Trash2,
   AlertCircle,
   Eye,
   Clock,
-  User,
   Loader2,
   CheckCircle2,
   XCircle,
   Film,
-  Image as ImageIcon,
   RefreshCw,
 } from "lucide-react";
 import {
   adminService,
-  LiveStoryItem,
-  ContentReportItem,
+  type LiveStoryItem,
+  type ContentReportItem,
 } from "../../services/adminService";
 
 export const ContentModeration: React.FC = () => {

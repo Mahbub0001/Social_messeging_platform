@@ -160,13 +160,13 @@ class AdminService {
       });
 
       if (roleFilter && roleFilter !== "all") {
-        users = users.filter((u) => u.role === roleFilter);
+        users = users.filter((u: AdminUser) => u.role === roleFilter);
       }
 
       if (statusFilter === "banned") {
-        users = users.filter((u) => u.is_banned);
+        users = users.filter((u: AdminUser) => u.is_banned);
       } else if (statusFilter === "active") {
-        users = users.filter((u) => !u.is_banned);
+        users = users.filter((u: AdminUser) => !u.is_banned);
       }
 
       return users;

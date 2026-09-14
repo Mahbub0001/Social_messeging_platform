@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useStore } from "../hooks/useStore";
 import { chatService } from "../services/chatService";
-import { adminService, AnnouncementItem } from "../services/adminService";
+import { adminService, type AnnouncementItem } from "../services/adminService";
 import { Megaphone, X } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import ChatArea from "../components/ChatArea";

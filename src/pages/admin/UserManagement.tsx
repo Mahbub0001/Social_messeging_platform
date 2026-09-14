@@ -2,19 +2,15 @@ import React, { useEffect, useState } from "react";
 import {
   Users,
   Search,
-  Filter,
   Shield,
-  ShieldAlert,
   ShieldCheck,
   Ban,
   CheckCircle2,
-  AlertTriangle,
   Loader2,
   X,
   UserX,
-  MoreVertical,
 } from "lucide-react";
-import { adminService, AdminUser } from "../../services/adminService";
+import { adminService, type AdminUser } from "../../services/adminService";
 
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);

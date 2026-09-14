@@ -12,6 +12,7 @@ export interface UserSession {
     email: string;
     user_metadata?: {
       username?: string;
+      role?: string;
     };
   } | null;
 }

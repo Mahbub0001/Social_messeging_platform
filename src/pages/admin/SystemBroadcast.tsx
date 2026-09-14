@@ -12,7 +12,7 @@ import {
   Radio,
   Clock,
 } from "lucide-react";
-import { adminService, AnnouncementItem } from "../../services/adminService";
+import { adminService, type AnnouncementItem } from "../../services/adminService";
 import { useStore } from "../../hooks/useStore";
 
 export const SystemBroadcast: React.FC = () => {

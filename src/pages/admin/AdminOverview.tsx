@@ -4,16 +4,13 @@ import {
   Users,
   UserCheck,
   MessageSquare,
-  Sparkles,
   ShieldAlert,
   Megaphone,
   ArrowRight,
   RefreshCw,
   Clock,
-  Activity,
-  ShieldCheck,
 } from "lucide-react";
-import { adminService, AdminStats, AdminUser } from "../../services/adminService";
+import { adminService, type AdminStats, type AdminUser } from "../../services/adminService";
 
 export const AdminOverview: React.FC = () => {
   const [stats, setStats] = useState<AdminStats>({
