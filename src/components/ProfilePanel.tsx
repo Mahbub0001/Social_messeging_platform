@@ -6,8 +6,9 @@ import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
 import { motion } from "framer-motion";
 import { sanitizeUrl } from "../utils/security";
-import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock } from "lucide-react";
+import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock, Globe } from "lucide-react";
 import { storageService } from "../services/storageService";
+import { getTranslation } from "../utils/translations";
 
 interface ProfilePanelProps {
   onClose: () => void;
@@ -26,7 +27,7 @@ const profileSchema = z.object({
 type ProfileFormInputs = z.infer<typeof profileSchema>;
 
 export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStoryArchive }) => {
-  const { user } = useStore();
+  const { user, language, setLanguage } = useStore();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -252,6 +253,43 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
               {errors.avatar_url && (
                 <p className="mt-1 text-[10px] text-red-400">{errors.avatar_url.message}</p>
               )}
+            </div>
+
+            {/* Language Switcher Section */}
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-200 font-semibold">
+                  <Globe className="w-4 h-4 text-indigo-400" />
+                  <span>{getTranslation(language, "language")}</span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  {language === "bn" ? "বাংলা সক্রিয়" : "English Active"}
+                </span>
+              </div>
+              <div className="flex bg-slate-900/80 p-1 rounded-lg border border-slate-700/50">
+                <button
+                  type="button"
+                  onClick={() => setLanguage("bn")}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    language === "bn"
+                      ? "bg-violet-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  🇧🇩 বাংলা
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLanguage("en")}
+                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    language === "en"
+                      ? "bg-violet-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  🇺🇸 English
+                </button>
+              </div>
             </div>
 
             {/* Save Button */}

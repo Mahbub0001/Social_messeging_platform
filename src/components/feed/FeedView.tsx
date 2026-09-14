@@ -1,6 +1,5 @@
-﻿import React, { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
-import { RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Rss, RefreshCw } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { feedService } from "../../services/feedService";
 import type { FeedPost } from "../../services/feedService";
@@ -9,6 +8,8 @@ import { PostCard } from "./PostCard";
 import { CreatePostCard } from "./CreatePostCard";
 import { ShareModal } from "./ShareModal";
 import { PostCommentsModal } from "./PostCommentsModal";
+import { useStore } from "../../hooks/useStore";
+import { getTranslation } from "../../utils/translations";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -23,18 +24,7 @@ export interface FeedViewProps {
 // ---------------------------------------------------------------------------
 // Filter type
 // ---------------------------------------------------------------------------
-type FeedFilter = "all" | "my" | "media";
-
-interface FilterTab {
-  key: FeedFilter;
-  label: string;
-}
-
-const FILTER_TABS: FilterTab[] = [
-  { key: "all", label: "🌐 সকল পোস্ট" },
-  { key: "my", label: "👤 আমার পোস্ট" },
-  { key: "media", label: "🎬 মিডিয়া" },
-];
+type FeedFilter = "all" | "my";
 
 // ---------------------------------------------------------------------------
 // Skeleton loader card
@@ -72,12 +62,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
   currentUsername,
   currentUserAvatar,
 }) => {
+  const { language } = useStore();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [filter, setFilter] = useState<FeedFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPostForShare, setSelectedPostForShare] = useState<FeedPost | null>(null);
   const [selectedPostForComments, setSelectedPostForComments] = useState<FeedPost | null>(null);
+
+  const filterTabs: { key: FeedFilter; label: string }[] = [
+    { key: "all", label: `🌐 ${getTranslation(language, "allPosts")}` },
+    { key: "my", label: `👤 ${getTranslation(language, "myPosts")}` },
+  ];
 
   // ── Data loading ────────────────────────────────────────────────────────
   const loadPosts = useCallback(
@@ -162,32 +158,29 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors">
       {/* ── Sticky glassmorphic header ── */}
-      <div className="sticky top-0 z-10 backdrop-blur-md bg-white/80 dark:bg-gray-950/80 border-b border-gray-100 dark:border-gray-800/60">
+      <div className="sticky top-0 z-10 backdrop-blur-md bg-white/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800/80 transition-colors">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="font-semibold text-gray-900 dark:text-gray-100 text-base">
-            ✨ কমিউনিটি ফিড
+          <h1 className="font-bold text-slate-900 dark:text-slate-100 text-base flex items-center gap-2">
+            <Rss className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <span>{getTranslation(language, "communityFeed")}</span>
           </h1>
-          <motion.button
+          <button
             type="button"
             onClick={handleRefresh}
-            animate={{ rotate: isRefreshing ? 360 : 0 }}
-            transition={
-              isRefreshing
-                ? { duration: 0.6, repeat: Infinity, ease: "linear" }
-                : { duration: 0.3 }
-            }
-            className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-            aria-label="রিফ্রেশ"
+            className={`p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors ${
+              isRefreshing ? "animate-spin" : ""
+            }`}
+            aria-label="Refresh"
           >
             <RefreshCw className="w-4.5 h-4.5" />
-          </motion.button>
+          </button>
         </div>
 
         {/* ── Filter tabs ── */}
         <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto scrollbar-none">
-          {FILTER_TABS.map((tab) => {
+          {filterTabs.map((tab) => {
             const active = filter === tab.key;
             return (
               <button
@@ -195,10 +188,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 type="button"
                 onClick={() => setFilter(tab.key)}
                 className={cn(
-                  "flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-150 whitespace-nowrap",
+                  "flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 whitespace-nowrap",
                   active
-                    ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-semibold"
-                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60"
+                    ? "bg-indigo-600 text-white shadow-sm dark:bg-indigo-500/20 dark:text-indigo-400 dark:border dark:border-indigo-500/30"
+                    : "bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
                 )}
               >
                 {tab.label}
@@ -230,15 +223,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
             /* Empty state */
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <span className="text-6xl mb-4 select-none">📭</span>
-              <p className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                এখানে কোনো পোস্ট নেই
+              <p className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                {getTranslation(language, "noPosts")}
               </p>
-              <p className="text-sm text-gray-400 dark:text-gray-500">
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 {filter === "my"
-                  ? "আপনি এখনো কোনো পোস্ট করেননি।"
-                  : filter === "media"
-                  ? "কোনো মিডিয়া পোস্ট পাওয়া যায়নি।"
-                  : "প্রথম পোস্টটি করুন!"}
+                  ? (language === "bn" ? "আপনি এখনো কোনো পোস্ট করেননি।" : "You haven't posted anything yet.")
+                  : (language === "bn" ? "প্রথম পোস্টটি করুন!" : "Be the first to create a post!")}
               </p>
             </div>
           ) : (

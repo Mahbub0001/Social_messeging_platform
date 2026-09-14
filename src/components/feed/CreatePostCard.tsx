@@ -12,6 +12,9 @@ import { feedService } from "../../services/feedService";
 import type { FeedPost } from "../../services/feedService";
 import { storageService } from "../../services/storageService";
 
+import { useStore } from "../../hooks/useStore";
+import { getTranslation } from "../../utils/translations";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -80,6 +83,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
   currentUsername,
   onPostCreated,
 }) => {
+  const { language } = useStore();
   const [content, setContent] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -314,10 +318,10 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
               ref={textareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={`কী ভাবছেন, ${currentUsername}? কিছু শেয়ার করুন...`}
+              placeholder={getTranslation(language, "createPostPlaceholder", { name: currentUsername })}
               rows={2}
               className={cn(
-                "w-full resize-none bg-transparent outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm leading-relaxed overflow-hidden",
+                "w-full resize-none bg-transparent outline-none text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm leading-relaxed overflow-hidden",
                 isOverLimit && "text-red-500 dark:text-red-400"
               )}
               style={{ minHeight: 56 }}
@@ -542,12 +546,12 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
             {isUploading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>আপলোড হচ্ছে...</span>
+                <span>{getTranslation(language, "posting")}</span>
               </>
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                <span>পোস্ট করুন</span>
+                <span>{getTranslation(language, "post")}</span>
               </>
             )}
           </button>

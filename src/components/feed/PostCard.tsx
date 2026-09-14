@@ -18,6 +18,9 @@ import {
 } from "./ReactionPicker";
 import type { ReactionType } from "./ReactionPicker";
 
+import { useStore } from "../../hooks/useStore";
+import { getTranslation, type Language } from "../../utils/translations";
+
 // ---------------------------------------------------------------------------
 // PostCard Props
 // ---------------------------------------------------------------------------
@@ -34,9 +37,9 @@ export interface PostCardProps {
 }
 
 // ---------------------------------------------------------------------------
-// Relative Bengali timestamp
+// Relative timestamp
 // ---------------------------------------------------------------------------
-function bengaliRelativeTime(isoString: string): string {
+function getRelativeTime(isoString: string, lang: Language): string {
   const now = Date.now();
   const then = new Date(isoString).getTime();
   const diffMs = now - then;
@@ -45,15 +48,11 @@ function bengaliRelativeTime(isoString: string): string {
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
 
-  if (diffSec < 30) return "এইমাত্র";
-  if (diffSec < 60) return `${diffSec} সেকেন্ড আগে`;
-  if (diffMin < 60) return `${diffMin} মিনিট আগে`;
-  if (diffHour < 24) return `${diffHour} ঘন্টা আগে`;
-  if (diffDay === 1) return "গতকাল";
-  if (diffDay < 7) return `${diffDay} দিন আগে`;
-  if (diffDay < 30) return `${Math.floor(diffDay / 7)} সপ্তাহ আগে`;
-  if (diffDay < 365) return `${Math.floor(diffDay / 30)} মাস আগে`;
-  return `${Math.floor(diffDay / 365)} বছর আগে`;
+  if (diffSec < 30) return getTranslation(lang, "justNow");
+  if (diffMin < 60) return getTranslation(lang, "minsAgo", { n: diffMin || 1 });
+  if (diffHour < 24) return getTranslation(lang, "hoursAgo", { n: diffHour });
+  if (diffDay === 1) return getTranslation(lang, "yesterday");
+  return new Date(isoString).toLocaleDateString(lang === "bn" ? "bn-BD" : "en-US", { month: "short", day: "numeric" });
 }
 
 // ---------------------------------------------------------------------------
@@ -403,6 +402,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onOpenComments,
   onDeletePost,
 }) => {
+  const { language } = useStore();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // Compute total reactions count & userReaction
@@ -433,17 +433,17 @@ export const PostCard: React.FC<PostCardProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: "spring", damping: 24, stiffness: 260 }}
-        className="w-full bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700/60 shadow-sm overflow-hidden"
+        className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden transition-colors"
       >
         {/* Repost header */}
         {isRepost && (
-          <div className="flex items-center gap-2 px-4 pt-3 pb-0 text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-2 px-4 pt-3 pb-0 text-xs text-slate-500 dark:text-slate-400">
             <Repeat2 className="w-3.5 h-3.5 flex-shrink-0" />
             <span>
-              <span className="font-medium text-gray-600 dark:text-gray-300">
+              <span className="font-medium text-slate-700 dark:text-slate-300">
                 {post.author.username}
               </span>{" "}
-              রিশেয়ার করেছেন
+              {getTranslation(language, "reposted")}
             </span>
           </div>
         )}
@@ -459,21 +459,21 @@ export const PostCard: React.FC<PostCardProps> = ({
               />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">
+                  <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
                     {displayPost.author.username}
                   </span>
                   {displayPost.author.role === "admin" && (
                     <span
                       className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300"
-                      title="অ্যাডমিন"
+                      title="Admin"
                     >
                       <ShieldCheck className="w-3 h-3" />
                       Admin
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                  {bengaliRelativeTime(displayPost.createdAt)}
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  {getRelativeTime(displayPost.createdAt, language)}
                 </p>
               </div>
             </div>
@@ -488,7 +488,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           {/* Post content */}
           {displayPost.content && (
-            <p className="mt-3 text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words">
+            <p className="mt-3 text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
               <RichText text={displayPost.content} />
             </p>
           )}
@@ -504,7 +504,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           {displayPost.mediaType === "video" &&
             displayPost.mediaUrls.length > 0 && (
-              <div className="mt-3 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700">
+              <div className="mt-3 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
                 <video
                   src={displayPost.mediaUrls[0]}
                   controls
@@ -516,7 +516,7 @@ export const PostCard: React.FC<PostCardProps> = ({
 
           {/* Reaction summary + comment count */}
           {(totalReactions > 0 || post.commentsCount > 0) && (
-            <div className="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
               <ReactionSummaryPill reactions={post.reactions ?? {}} />
               {post.commentsCount > 0 && (
                 <button
@@ -524,14 +524,14 @@ export const PostCard: React.FC<PostCardProps> = ({
                   onClick={() => onOpenComments(post)}
                   className="hover:underline transition-colors"
                 >
-                  {post.commentsCount} টি মন্তব্য
+                  {post.commentsCount} {getTranslation(language, "comments")}
                 </button>
               )}
             </div>
           )}
 
           {/* Divider */}
-          <div className="mt-3 border-t border-gray-100 dark:border-gray-800" />
+          <div className="mt-3 border-t border-slate-100 dark:border-slate-800" />
 
           {/* Action bar */}
           <div className="mt-2 flex items-center justify-between gap-1 flex-wrap">
@@ -547,12 +547,12 @@ export const PostCard: React.FC<PostCardProps> = ({
             <button
               type="button"
               onClick={() => onOpenComments(post)}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 transition-all duration-150 active:scale-95"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all duration-150 active:scale-95"
             >
               <MessageCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">মন্তব্য</span>
+              <span className="hidden sm:inline">{getTranslation(language, "comments")}</span>
               {post.commentsCount > 0 && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   {post.commentsCount}
                 </span>
               )}
@@ -562,12 +562,12 @@ export const PostCard: React.FC<PostCardProps> = ({
             <button
               type="button"
               onClick={() => onShare(post)}
-              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 transition-all duration-150 active:scale-95"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all duration-150 active:scale-95"
             >
               <Repeat2 className="w-4 h-4" />
-              <span className="hidden sm:inline">শেয়ার</span>
+              <span className="hidden sm:inline">{getTranslation(language, "share")}</span>
               {post.sharesCount > 0 && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   {post.sharesCount}
                 </span>
               )}

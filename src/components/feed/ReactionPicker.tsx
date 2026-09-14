@@ -167,6 +167,37 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
     }, 320);
   };
 
+  // Proximity helper for smooth drag-to-select mobile reaction
+  const findReactionFromPoint = (x: number, y: number): ReactionType | null => {
+    const elem = document.elementFromPoint(x, y);
+    const reactionBtn = elem?.closest<HTMLElement>("[data-reaction-type]");
+    if (reactionBtn) {
+      const type = reactionBtn.getAttribute("data-reaction-type") as ReactionType;
+      if (type && REACTIONS_CONFIG[type]) return type;
+    }
+
+    // Fallback: check buttons within container for horizontal proximity
+    if (containerRef.current) {
+      const buttons = containerRef.current.querySelectorAll<HTMLElement>("[data-reaction-type]");
+      let closestType: ReactionType | null = null;
+      let minDistance = 70; // 70px proximity radius
+
+      buttons.forEach((btn) => {
+        const rect = btn.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const dist = Math.hypot(x - centerX, y - centerY);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestType = btn.getAttribute("data-reaction-type") as ReactionType;
+        }
+      });
+      return closestType;
+    }
+
+    return null;
+  };
+
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStartPosRef.current) return;
     const touch = e.touches[0];
@@ -174,7 +205,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
     const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
 
     if (!isLongPressActiveRef.current) {
-      // Cancel long press if user scrolls (> 10px movement)
+      // Cancel long press if user scrolls (> 10px movement before long press)
       if (dx > 10 || dy > 10) {
         isTouchScrolledRef.current = true;
         if (longPressTimerRef.current) {
@@ -185,16 +216,19 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
       return;
     }
 
-    // When long press is active, detect touch position over emojis
-    const elem = document.elementFromPoint(touch.clientX, touch.clientY);
-    const reactionBtn = elem?.closest<HTMLElement>("[data-reaction-type]");
-    if (reactionBtn) {
-      const type = reactionBtn.getAttribute("data-reaction-type") as ReactionType;
-      if (type && REACTIONS_CONFIG[type]) {
-        setHoveredEmoji(type);
+    // Lock touch scroll when dragging over reaction emojis
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+
+    const detected = findReactionFromPoint(touch.clientX, touch.clientY);
+    if (detected !== hoveredEmoji) {
+      setHoveredEmoji(detected);
+      if (detected && typeof window !== "undefined" && "vibrate" in navigator) {
+        try {
+          navigator.vibrate?.(15);
+        } catch {}
       }
-    } else {
-      setHoveredEmoji(null);
     }
   };
 

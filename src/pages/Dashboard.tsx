@@ -9,11 +9,12 @@ import {
   AlertOctagon,
   Bell,
   MessageSquare,
-  Sparkles,
+  Rss,
   Users,
   UserCircle,
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { getTranslation } from "../utils/translations";
 import Sidebar from "../components/Sidebar";
 import ChatArea from "../components/ChatArea";
 import ProfilePanel from "../components/ProfilePanel";
@@ -30,7 +31,7 @@ import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 
 export const Dashboard: React.FC = () => {
-  const { user, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations, stories } = useStore();
+  const { user, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations, stories, language } = useStore();
 
   const [showSettings, setShowSettings] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
@@ -368,40 +369,40 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Mobile bottom navigation bar */}
-      <div className="md:hidden flex items-center justify-around bg-slate-900 border-t border-slate-800 py-2 px-4 pb-[max(0.5rem,calc(0.5rem+env(safe-area-inset-bottom,0px)))] shrink-0">
+      <div className="md:hidden flex items-center justify-around bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-2 px-4 pb-[max(0.5rem,calc(0.5rem+env(safe-area-inset-bottom,0px)))] shrink-0 transition-colors">
         <button
           onClick={() => { setActiveView("chat"); setActiveConversationId(null); }}
           className={cn(
             "flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-all",
-            activeView === "chat" ? "text-violet-400" : "text-slate-500"
+            activeView === "chat" ? "text-violet-600 dark:text-violet-400 font-bold" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
           )}
         >
           <MessageSquare className="w-5 h-5" />
-          <span className="text-[10px] font-medium">চ্যাট</span>
+          <span className="text-[10px] font-medium">{getTranslation(language, "messages")}</span>
         </button>
         <button
           onClick={() => setActiveView("feed")}
           className={cn(
             "flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-all",
-            activeView === "feed" ? "text-indigo-400" : "text-slate-500"
+            activeView === "feed" ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
           )}
         >
-          <Sparkles className="w-5 h-5" />
-          <span className="text-[10px] font-medium">ফিড</span>
+          <Rss className="w-5 h-5" />
+          <span className="text-[10px] font-medium">{getTranslation(language, "feed")}</span>
         </button>
         <button
           onClick={handleToggleFriends}
-          className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl text-slate-500 hover:text-slate-300 transition-all"
+          className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-all"
         >
           <Users className="w-5 h-5" />
-          <span className="text-[10px] font-medium">ফ্রেন্ডস</span>
+          <span className="text-[10px] font-medium">{getTranslation(language, "friends")}</span>
         </button>
         <button
           onClick={handleToggleSettings}
-          className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl text-slate-500 hover:text-slate-300 transition-all"
+          className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-all"
         >
           <UserCircle className="w-5 h-5" />
-          <span className="text-[10px] font-medium">প্রোফাইল</span>
+          <span className="text-[10px] font-medium">{getTranslation(language, "profile")}</span>
         </button>
       </div>
 

@@ -15,11 +15,12 @@ import {
   Clock,
   Shield,
   Settings,
-  Sparkles,
+  Rss,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { sanitizeUrl } from "../utils/security";
+import { getTranslation } from "../utils/translations";
 import StoryCircles from "./StoryCircles";
 
 interface SidebarProps {
@@ -53,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     conversationsLoading,
     theme,
     toggleTheme,
+    language,
   } = useStore();
 
   const [search, setSearch] = useState("");
@@ -121,15 +123,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const avatarFallbackLetter = username.charAt(0).toUpperCase();
 
   return (
-    <div className="flex flex-col h-full w-full bg-slate-900 border-r border-slate-800">
+    <div className="flex flex-col h-full w-full bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-colors">
       {/* ── Row 1: Brand + Actions ── */}
-      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-slate-900 border-b border-slate-800">
+      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
         {/* Brand */}
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-lg shrink-0">
             <MessageSquare className="w-4 h-4 text-white" />
           </div>
-          <span className="text-md font-bold tracking-wider text-slate-100">কথাবার্তা</span>
+          <span className="text-md font-bold tracking-wider text-slate-800 dark:text-slate-100">কথাবার্তা</span>
         </div>
 
         {/* Right actions: theme toggle + friends + avatar menu */}
@@ -138,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={toggleTheme}
             title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800/80 rounded-xl transition-all"
           >
             {theme === "dark" ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
           </button>
@@ -147,7 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onToggleFriends}
             title="Friends & Requests"
-            className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 rounded-xl transition-all"
+            className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-800/80 rounded-xl transition-all"
           >
             <UserPlus className="w-4.5 h-4.5" />
           </button>
@@ -157,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={() => setIsMenuOpen((prev) => !prev)}
               title="মেনু"
-              className="w-8 h-8 rounded-full overflow-hidden border-2 border-slate-700 hover:border-violet-500 transition-all focus:outline-none"
+              className="w-8 h-8 rounded-full overflow-hidden border-2 border-slate-300 dark:border-slate-700 hover:border-violet-500 transition-all focus:outline-none"
             >
               {avatarUrl ? (
                 <img
@@ -180,24 +182,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -8 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-2 w-52 bg-slate-800/95 backdrop-blur-md border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden"
+                  className="absolute right-0 top-full mt-2 w-52 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden"
                 >
                   {/* Profile Settings */}
                   <button
                     onClick={() => { onToggleSettings(); setIsMenuOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
                   >
                     <Settings className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>প্রোফাইল সেটিংস</span>
+                    <span>{getTranslation(language, "profileSettings")}</span>
                   </button>
 
                   {/* Story Archive */}
                   <button
                     onClick={() => { onStoryArchiveClick(); setIsMenuOpen(false); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors"
                   >
                     <Clock className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>স্টোরি আর্কাইভ</span>
+                    <span>{getTranslation(language, "storyArchive")}</span>
                   </button>
 
                   {/* Admin Panel (conditional) */}
@@ -205,22 +207,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <Link
                       to="/admin"
                       onClick={() => setIsMenuOpen(false)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-300 hover:bg-violet-600/20 transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-600 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-600/20 transition-colors"
                     >
-                      <Shield className="w-4 h-4 text-violet-400 shrink-0" />
-                      <span>অ্যাডমিন প্যানেল</span>
+                      <Shield className="w-4 h-4 text-violet-500 shrink-0" />
+                      <span>{getTranslation(language, "adminPanel")}</span>
                     </Link>
                   )}
 
-                  <div className="border-t border-slate-700/60 mx-2" />
+                  <div className="border-t border-slate-200 dark:border-slate-700/60 mx-2" />
 
                   {/* Sign Out */}
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-950/30 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                   >
                     <LogOut className="w-4 h-4 shrink-0" />
-                    <span>সাইন আউট</span>
+                    <span>{getTranslation(language, "signOut")}</span>
                   </button>
                 </motion.div>
               )}
@@ -231,28 +233,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* ── Row 2: Mode Switcher ── */}
       <div className="px-3 pb-2 pt-2">
-        <div className="flex bg-slate-800/60 p-0.5 rounded-xl border border-slate-700/50">
+        <div className="flex bg-slate-200/80 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-300/80 dark:border-slate-700/50 transition-colors">
           <button
             onClick={() => onViewChange("chat")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
               activeView === "chat"
-                ? "bg-violet-600 text-white shadow-sm"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-white text-violet-700 shadow-sm dark:bg-violet-600 dark:text-white"
+                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
             )}
           >
-            <MessageSquare className="w-3.5 h-3.5" /> বার্তা
+            <MessageSquare className="w-3.5 h-3.5" /> {getTranslation(language, "messages")}
           </button>
           <button
             onClick={() => onViewChange("feed")}
             className={cn(
               "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
               activeView === "feed"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-white text-indigo-700 shadow-sm dark:bg-indigo-600 dark:text-white"
+                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
             )}
           >
-            <Sparkles className="w-3.5 h-3.5" /> ফিড
+            <Rss className="w-3.5 h-3.5" /> {getTranslation(language, "feed")}
           </button>
         </div>
       </div>

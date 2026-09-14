@@ -71,6 +71,11 @@ interface AppState {
   theme: "light" | "dark";
   toggleTheme: () => void;
 
+  // Language state
+  language: "bn" | "en";
+  setLanguage: (lang: "bn" | "en") => void;
+  toggleLanguage: () => void;
+
   // Ban status state
   isBanned: boolean;
   bannedReason: string | null;
@@ -401,5 +406,20 @@ export const useStore = create<AppState>((set, get) => ({
     if (typeof window !== "undefined") {
       localStorage.setItem("kb_theme", nextTheme);
     }
+  },
+
+  // Language initial state
+  language: typeof window !== "undefined" && localStorage.getItem("kb_lang") === "en" ? "en" : "bn",
+
+  setLanguage: (lang: "bn" | "en") => {
+    set({ language: lang });
+    if (typeof window !== "undefined") {
+      localStorage.setItem("kb_lang", lang);
+    }
+  },
+
+  toggleLanguage: () => {
+    const nextLang = get().language === "bn" ? "en" : "bn";
+    get().setLanguage(nextLang);
   },
 }));
