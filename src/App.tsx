@@ -84,7 +84,14 @@ const NotificationDeepLinkHandler: React.FC = () => {
     const handleDeepLink = (convId: string) => {
       if (!convId) return;
       console.log("[NotificationDeepLink] Navigating to conversation:", convId);
+      window.dispatchEvent(new CustomEvent("kb_set_active_view", { detail: "chat" }));
       setActiveConversationId(convId);
+      try {
+        useStore.getState().fetchConversations();
+        useStore.getState().fetchMessages(convId);
+      } catch (e) {
+        console.warn("Failed to fetch messages for deep link:", e);
+      }
       if (location.pathname !== "/dashboard") {
         navigate("/dashboard");
       }

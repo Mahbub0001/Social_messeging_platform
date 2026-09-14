@@ -51,6 +51,22 @@ export const Dashboard: React.FC = () => {
     Boolean(user?.email?.toLowerCase().includes("admin"));
 
   useEffect(() => {
+    if (activeConversationId) {
+      setActiveView("chat");
+    }
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    const handleViewEvent = (e: any) => {
+      if (e.detail === "chat" || e.detail === "feed") {
+        setActiveView(e.detail);
+      }
+    };
+    window.addEventListener("kb_set_active_view", handleViewEvent);
+    return () => window.removeEventListener("kb_set_active_view", handleViewEvent);
+  }, []);
+
+  useEffect(() => {
     adminService.getAnnouncements().then((list) => {
       if (list && list.length > 0) {
         const latest = list[0];
@@ -333,7 +349,7 @@ export const Dashboard: React.FC = () => {
         {/* Main content area — FeedView or ChatArea */}
         <div
           className={`h-full w-full md:w-auto flex-1 transition-transform duration-300 md:translate-x-0 absolute md:relative z-0 bg-slate-950 ${
-            !activeConversationId || activeView === "feed" ? "translate-x-0" : "translate-x-full md:translate-x-0"
+            activeView === "feed" || activeConversationId ? "translate-x-0" : "translate-x-full md:translate-x-0"
           }`}
         >
           {activeView === "feed" ? (
@@ -344,7 +360,9 @@ export const Dashboard: React.FC = () => {
               isAdmin={isAdmin}
             />
           ) : (
-            <ChatArea onBack={() => setActiveConversationId(null)} />
+            <ChatArea
+              onBack={() => setActiveConversationId(null)}
+            />
           )}
         </div>
       </div>
