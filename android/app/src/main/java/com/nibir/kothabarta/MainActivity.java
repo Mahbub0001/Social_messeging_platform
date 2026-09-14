@@ -57,19 +57,19 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStart() {
+    public void onStart() {
         super.onStart();
         isForeground = true;
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         super.onStop();
         isForeground = false;
     }
 
     @Override
-    protected void onDestroy() {
+    public void onDestroy() {
         super.onDestroy();
         if (instance == this) {
             instance = null;
