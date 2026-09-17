@@ -7,8 +7,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      'process.env.GROQ_API_KEY': JSON.stringify(env.GROQ_API_KEY || env.VITE_GROQ_API_KEY || ''),
-      'process.env.MODEL_NAME': JSON.stringify(env.model_name || env.MODEL_NAME || env.VITE_MODEL_NAME || 'llama-3.3-70b-versatile'),
+      'process.env.GROQ_API_KEY': JSON.stringify(process.env.GROQ_API_KEY || env.GROQ_API_KEY || env.VITE_GROQ_API_KEY || ''),
+      'process.env.MODEL_NAME': JSON.stringify(process.env.model_name || process.env.MODEL_NAME || env.model_name || env.MODEL_NAME || env.VITE_MODEL_NAME || 'llama-3.3-70b-versatile'),
     },
     envPrefix: ['VITE_', 'GROQ_', 'model_'],
   }

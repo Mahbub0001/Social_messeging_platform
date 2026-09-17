@@ -21,14 +21,30 @@ export interface AiChatMessage {
 
 // Read API keys safely with multiple fallbacks
 export const getGroqApiKey = (): string => {
+  // 1. Check browser localStorage (set via in-app UI)
+  if (typeof window !== "undefined") {
+    const local = localStorage.getItem("kb_groq_api_key");
+    if (local && local.trim()) return local.trim();
+  }
+
+  // 2. Check process.env (Vercel runtime or Vite define)
   const gProcess = (globalThis as any).process;
-  return (
-    gProcess?.env?.GROQ_API_KEY ||
-    gProcess?.env?.VITE_GROQ_API_KEY ||
+  const pKey = gProcess?.env?.GROQ_API_KEY || gProcess?.env?.VITE_GROQ_API_KEY;
+  if (pKey && pKey.trim()) return pKey.trim();
+
+  // 3. Check import.meta.env
+  const metaKey =
     (import.meta as any).env?.GROQ_API_KEY ||
-    (import.meta as any).env?.VITE_GROQ_API_KEY ||
-    ""
-  );
+    (import.meta as any).env?.VITE_GROQ_API_KEY;
+  if (metaKey && metaKey.trim()) return metaKey.trim();
+
+  return "";
+};
+
+export const setGroqApiKey = (key: string) => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("kb_groq_api_key", key.trim());
+  }
 };
 
 export const getGroqModel = (): string => {

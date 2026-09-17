@@ -13,8 +13,14 @@ import {
   Bot,
   User,
   ArrowRight,
+  Key,
 } from "lucide-react";
-import { aiAgentService, type AiChatMessage } from "../../services/aiAgentService";
+import {
+  aiAgentService,
+  getGroqApiKey,
+  setGroqApiKey,
+  type AiChatMessage,
+} from "../../services/aiAgentService";
 import {
   scheduledMessageService,
   type ScheduledMessage,
@@ -36,6 +42,21 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
+
+  // Groq API Key state
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [customKey, setCustomKey] = useState(getGroqApiKey());
+  const [keySavedToast, setKeySavedToast] = useState(false);
+
+  const handleSaveKey = (keyToSave?: string) => {
+    const k = (keyToSave !== undefined ? keyToSave : customKey).trim();
+    if (!k) return;
+    setGroqApiKey(k);
+    setCustomKey(k);
+    setKeySavedToast(true);
+    setShowKeyInput(false);
+    setTimeout(() => setKeySavedToast(false), 3500);
+  };
 
   const [messages, setMessages] = useState<AiChatMessage[]>([
     {
@@ -218,32 +239,32 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ type: "spring", stiffness: 350, damping: 25 }}
-        className="fixed z-50 bottom-20 md:bottom-24 right-3 sm:right-6 md:right-8 w-[calc(100vw-24px)] sm:w-[420px] md:w-[440px] h-[540px] max-h-[calc(100dvh-120px)] bg-slate-900/95 dark:bg-slate-950/95 border border-violet-500/30 rounded-3xl shadow-2xl shadow-violet-950/60 flex flex-col overflow-hidden backdrop-blur-xl"
+        className="fixed z-50 bottom-20 md:bottom-24 right-3 sm:right-6 md:right-8 w-[calc(100vw-24px)] sm:w-[420px] md:w-[440px] h-[550px] max-h-[calc(100dvh-120px)] bg-[#0b0e14]/95 border border-slate-800/90 shadow-2xl shadow-black/90 flex flex-col overflow-hidden backdrop-blur-2xl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800/80 bg-slate-950/50 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="relative w-9 h-9 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-              <Sparkles className="w-5 h-5 text-cyan-300 animate-pulse" />
-              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-950" />
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/80 bg-slate-950/70 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+              <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border-2 border-slate-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-white font-bold text-base tracking-wide">Bhuiyan AI</h3>
+                <h3 className="text-white font-bold text-sm tracking-wide">Bhuiyan AI</h3>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Active" />
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Tabs */}
-            <div className="flex bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/50 text-xs">
+            <div className="flex bg-slate-900 rounded-xl p-0.5 border border-slate-800 text-xs">
               <button
                 onClick={() => setActiveTab("chat")}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg font-medium transition-all",
+                  "px-3 py-1 rounded-lg font-medium transition-all text-xs",
                   activeTab === "chat"
-                    ? "bg-violet-600 text-white shadow-md shadow-violet-700/30"
+                    ? "bg-violet-600 text-white shadow-md shadow-violet-700/30 font-semibold"
                     : "text-slate-400 hover:text-white"
                 )}
               >
@@ -252,60 +273,108 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
               <button
                 onClick={() => setActiveTab("scheduled")}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all relative",
+                  "flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium transition-all relative text-xs",
                   activeTab === "scheduled"
-                    ? "bg-violet-600 text-white shadow-md shadow-violet-700/30"
+                    ? "bg-violet-600 text-white shadow-md shadow-violet-700/30 font-semibold"
                     : "text-slate-400 hover:text-white"
                 )}
               >
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3 h-3" />
                 <span>শিডিউল</span>
                 {scheduledItems.filter((i) => i.status === "pending").length > 0 && (
-                  <span className="w-4 h-4 text-[10px] rounded-full bg-amber-500 text-white font-bold flex items-center justify-center ml-0.5">
+                  <span className="w-3.5 h-3.5 text-[9px] rounded-full bg-amber-500 text-white font-bold flex items-center justify-center ml-0.5">
                     {scheduledItems.filter((i) => i.status === "pending").length}
                   </span>
                 )}
               </button>
             </div>
 
+            {/* Key Settings Button */}
+            <button
+              onClick={() => setShowKeyInput(!showKeyInput)}
+              title="Groq API Key সেটিংস"
+              className={cn(
+                "p-1.5 rounded-xl border transition-all cursor-pointer",
+                getGroqApiKey()
+                  ? "text-slate-400 hover:text-white hover:bg-slate-900 border-transparent"
+                  : "text-amber-400 bg-amber-500/10 border-amber-500/40 animate-pulse"
+              )}
+            >
+              <Key className="w-4 h-4" />
+            </button>
+
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
+
+        {/* Dropdown API Key settings */}
+        {showKeyInput && (
+          <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 flex flex-col gap-2 shrink-0">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-400" /> Groq API Key সেটিংস
+              </span>
+              <span className="text-[10px] text-slate-400">ব্রাউজারে সেভ থাকবে</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                placeholder="gsk_..."
+                value={customKey}
+                onChange={(e) => setCustomKey(e.target.value)}
+                className="flex-1 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-white text-xs outline-none focus:border-violet-500"
+              />
+              <button
+                onClick={() => handleSaveKey()}
+                className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shrink-0"
+              >
+                সেভ
+              </button>
+            </div>
+          </div>
+        )}
+
+        {keySavedToast && (
+          <div className="px-4 py-1.5 bg-emerald-950/90 text-emerald-300 text-xs border-b border-emerald-500/40 flex items-center gap-1.5 shrink-0">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Groq API Key সফলভাবে সেভ হয়েছে!</span>
+          </div>
+        )}
 
         {/* Tab 1: Assistant / Chat View */}
         {activeTab === "chat" && (
           <>
             {/* Quick Action Suggestion Chips */}
-            <div className="px-4 py-2 bg-slate-950/30 border-b border-slate-800/40 flex items-center gap-2 overflow-x-auto no-scrollbar text-xs shrink-0">
+            <div className="px-4 py-2 bg-slate-950/80 border-b border-slate-800/80 flex items-center gap-2 overflow-x-auto no-scrollbar text-xs shrink-0">
               <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider shrink-0 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-violet-400" /> সাজেশন:
               </span>
               <button
                 onClick={() => handleQuickPrompt("Nibir k 'hi' msg pathao")}
-                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-800/70 hover:bg-violet-900/40 text-slate-300 hover:text-violet-200 border border-slate-700/60 hover:border-violet-500/40 transition-all"
+                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-violet-950/40 text-slate-300 hover:text-violet-200 border border-slate-800 hover:border-violet-500/40 transition-all"
               >
                 💬 Nibir কে "hi" পাঠাও
               </button>
               <button
                 onClick={() => handleQuickPrompt("Nuha k raat 9 tay 'kmn aso' msg pathao")}
-                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-800/70 hover:bg-violet-900/40 text-slate-300 hover:text-violet-200 border border-slate-700/60 hover:border-violet-500/40 transition-all"
+                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-violet-950/40 text-slate-300 hover:text-violet-200 border border-slate-800 hover:border-violet-500/40 transition-all"
               >
                 ⏰ Nuha কে রাত ৯টায় মেসেজ দাও
               </button>
               <button
                 onClick={() => handleQuickPrompt("Nibir k voice call dao")}
-                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-800/70 hover:bg-violet-900/40 text-slate-300 hover:text-violet-200 border border-slate-700/60 hover:border-violet-500/40 transition-all"
+                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-violet-950/40 text-slate-300 hover:text-violet-200 border border-slate-800 hover:border-violet-500/40 transition-all"
               >
                 📞 Nibir কে কল দাও
               </button>
               <button
                 onClick={() => handleQuickPrompt("amr scheduled msg gula dekhaw")}
-                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-800/70 hover:bg-violet-900/40 text-slate-300 hover:text-violet-200 border border-slate-700/60 hover:border-violet-500/40 transition-all"
+                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-violet-950/40 text-slate-300 hover:text-violet-200 border border-slate-800 hover:border-violet-500/40 transition-all"
               >
                 📋 শিডিউল মেসেজ লিস্ট
               </button>
@@ -341,12 +410,36 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                         className={cn(
                           "px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line shadow-sm",
                           isUser
-                            ? "bg-violet-600 text-white rounded-tr-none"
-                            : "bg-slate-800/90 text-slate-200 border border-slate-700/50 rounded-tl-none"
+                            ? "bg-violet-600 text-white rounded-tr-none shadow-violet-950/30"
+                            : "bg-slate-900/95 text-slate-100 border border-slate-800/90 rounded-tl-none shadow-md"
                         )}
                       >
                         {m.text}
                       </div>
+
+                      {/* Inline API Key input if missing key */}
+                      {m.text.includes("Groq API Key পাওয়া যায়নি") && (
+                        <div className="p-3 rounded-xl bg-slate-950/90 border border-amber-500/40 text-xs space-y-2.5">
+                          <p className="text-amber-300 font-medium">নিচে আপনার Groq API Key দিন (ব্রাউজারে সেভ থাকবে):</p>
+                          <div className="flex gap-2">
+                            <input
+                              type="password"
+                              placeholder="gsk_..."
+                              value={customKey}
+                              onChange={(e) => setCustomKey(e.target.value)}
+                              className="flex-1 bg-slate-900 border border-slate-700 px-2.5 py-1.5 rounded-lg text-white text-xs outline-none focus:border-amber-400"
+                            />
+                            <button
+                              onClick={() => {
+                                handleSaveKey(customKey);
+                              }}
+                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition-colors cursor-pointer shrink-0"
+                            >
+                              সংরক্ষণ করুন
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Action Result Visual Cards */}
                       {m.actionResult && (
@@ -433,7 +526,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
             )}
 
             {/* Bottom Input Area */}
-            <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center gap-2 shrink-0">
+            <div className="p-3 bg-slate-950/95 border-t border-slate-800/90 flex items-center gap-2 shrink-0">
               {/* Mic / Voice Button */}
               <button
                 type="button"
@@ -442,7 +535,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                   "p-2.5 rounded-xl border transition-all shrink-0 cursor-pointer",
                   isListening
                     ? "bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/40 animate-pulse"
-                    : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-violet-900/30 hover:text-violet-300 hover:border-violet-500/50"
+                    : "bg-slate-900 text-slate-300 border-slate-800 hover:bg-violet-950/50 hover:text-violet-300 hover:border-violet-500/50"
                 )}
                 title={isListening ? "ভয়েস বন্ধ করুন" : "ভয়েস কমান্ড দিন"}
               >
@@ -461,7 +554,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                   }
                 }}
                 placeholder="যেকোনো নির্দেশ দিন (যেমন: Nuha কে রাত ৯টায় kmn aso পাঠাও)..."
-                className="flex-1 bg-slate-900 border border-slate-700/80 focus:border-violet-500 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
+                className="flex-1 bg-slate-900 border border-slate-800 focus:border-violet-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
               />
 
               {/* Send Button */}
@@ -473,7 +566,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                   "p-2.5 rounded-xl font-medium transition-all shrink-0 cursor-pointer",
                   inputText.trim() && !isLoading
                     ? "bg-violet-600 hover:bg-violet-500 text-white shadow-md shadow-violet-700/40"
-                    : "bg-slate-800 text-slate-600 cursor-not-allowed"
+                    : "bg-slate-900 text-slate-600 border border-slate-800/80 cursor-not-allowed"
                 )}
               >
                 <Send className="w-5 h-5" />
