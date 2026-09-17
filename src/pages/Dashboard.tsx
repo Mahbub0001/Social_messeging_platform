@@ -25,6 +25,9 @@ import StoryUploadModal from "../components/StoryUploadModal";
 import StoryViewer from "../components/StoryViewer";
 import { StoryArchive } from "../components/StoryArchive";
 import FeedView from "../components/feed/FeedView";
+import BhuiyanAiButton from "../components/ai/BhuiyanAiButton";
+import BhuiyanAiModal from "../components/ai/BhuiyanAiModal";
+import { scheduledMessageService } from "../services/scheduledMessageService";
 import type { StoryWithDetails } from "../services/storyService";
 import { AnimatePresence, motion } from "framer-motion";
 import { Capacitor } from "@capacitor/core";
@@ -45,6 +48,12 @@ export const Dashboard: React.FC = () => {
   const [bannedInfo, setBannedInfo] = useState<{ is_banned: boolean; reason: string | null } | null>(null);
   const [userNotification, setUserNotification] = useState<{ id: string; title: string; content: string; type: string } | null>(null);
   const [activeView, setActiveView] = useState<"chat" | "feed">("chat");
+  const [showBhuiyanAi, setShowBhuiyanAi] = useState(false);
+
+  // Initialize Bhuiyan AI scheduled messages daemon
+  useEffect(() => {
+    scheduledMessageService.startDaemon();
+  }, []);
 
   // Derive isAdmin (same logic as Sidebar)
   const isAdmin =
@@ -447,6 +456,16 @@ export const Dashboard: React.FC = () => {
       )}
 
       {showStoryArchive && <StoryArchive onClose={() => setShowStoryArchive(false)} />}
+
+      {/* Bhuiyan AI Autonomous Copilot Floating Button & Modal */}
+      <BhuiyanAiButton
+        onClick={() => setShowBhuiyanAi(true)}
+        isOpen={showBhuiyanAi}
+      />
+      <BhuiyanAiModal
+        isOpen={showBhuiyanAi}
+        onClose={() => setShowBhuiyanAi(false)}
+      />
     </div>
   );
 };
