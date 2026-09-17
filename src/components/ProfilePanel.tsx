@@ -6,9 +6,10 @@ import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
 import { motion } from "framer-motion";
 import { sanitizeUrl } from "../utils/security";
-import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock, Globe } from "lucide-react";
+import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock, Globe, Music, Play, Square } from "lucide-react";
 import { storageService } from "../services/storageService";
 import { getTranslation } from "../utils/translations";
+import { RINGTONE_OPTIONS, audioSynthesizer } from "../utils/audio";
 
 interface ProfilePanelProps {
   onClose: () => void;
@@ -38,6 +39,40 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
     bio: string;
     avatar_url: string;
   } | null>(null);
+
+  const [selectedRingtone, setSelectedRingtone] = useState<string>(() => {
+    return localStorage.getItem("kb_ringtone") || "classic";
+  });
+  const [previewingRingtoneId, setPreviewingRingtoneId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      audioSynthesizer.stopRingtone();
+    };
+  }, []);
+
+  const handleSelectRingtone = (ringtoneId: string) => {
+    setSelectedRingtone(ringtoneId);
+    localStorage.setItem("kb_ringtone", ringtoneId);
+    if (typeof (window as any).KBNativeBridge?.syncSelectedRingtone === "function") {
+      try {
+        (window as any).KBNativeBridge.syncSelectedRingtone(ringtoneId);
+      } catch (e) {}
+    }
+  };
+
+  const handleTogglePreview = (ringtoneId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (previewingRingtoneId === ringtoneId) {
+      audioSynthesizer.stopRingtone();
+      setPreviewingRingtoneId(null);
+    } else {
+      setPreviewingRingtoneId(ringtoneId);
+      audioSynthesizer.previewRingtone(ringtoneId, () => {
+        setPreviewingRingtoneId(null);
+      });
+    }
+  };
 
   // Fetch initial profile values
   React.useEffect(() => {
@@ -289,6 +324,82 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
                 >
                   🇺🇸 English
                 </button>
+              </div>
+            </div>
+
+            {/* Ringtone Settings Section */}
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-200 font-semibold">
+                  <Music className="w-4 h-4 text-violet-400" />
+                  <span>{language === "bn" ? "কলের রিংটোন" : "Incoming Ringtone"}</span>
+                </div>
+                <span className="text-[10px] text-violet-400 font-medium">
+                  {RINGTONE_OPTIONS.find((r) => r.id === selectedRingtone)?.[language === "bn" ? "nameBn" : "nameEn"]}
+                </span>
+              </div>
+
+              <div className="space-y-1.5">
+                {RINGTONE_OPTIONS.map((rt) => {
+                  const isSelected = selectedRingtone === rt.id;
+                  const isPreviewing = previewingRingtoneId === rt.id;
+                  return (
+                    <div
+                      key={rt.id}
+                      onClick={() => handleSelectRingtone(rt.id)}
+                      className={`flex items-center justify-between p-2 rounded-lg border transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-violet-950/40 border-violet-500/60 text-white shadow-sm"
+                          : "bg-slate-900/60 border-slate-700/40 text-slate-300 hover:border-slate-600 hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <div
+                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected
+                              ? "border-violet-400 bg-violet-600 text-white"
+                              : "border-slate-600 bg-slate-800"
+                          }`}
+                        >
+                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold truncate leading-tight">
+                            {language === "bn" ? rt.nameBn : rt.nameEn}
+                          </p>
+                          <p className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">
+                            {language === "bn" ? rt.descriptionBn : rt.descriptionEn}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleTogglePreview(rt.id, e)}
+                        className={`p-1.5 rounded-md text-xs font-medium flex items-center gap-1 shrink-0 transition-all ${
+                          isPreviewing
+                            ? "bg-rose-600 text-white animate-pulse"
+                            : isSelected
+                            ? "bg-violet-600/80 hover:bg-violet-600 text-white"
+                            : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                        }`}
+                        title={isPreviewing ? "Stop preview" : "Listen preview"}
+                      >
+                        {isPreviewing ? (
+                          <>
+                            <Square className="w-3 h-3 fill-current" />
+                            <span className="text-[9px]">Stop</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3 h-3 fill-current" />
+                            <span className="text-[9px]">Test</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

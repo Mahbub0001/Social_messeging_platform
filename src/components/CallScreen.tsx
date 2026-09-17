@@ -109,7 +109,8 @@ export const CallScreen: React.FC = () => {
         audioSynthesizer.stopRingtone();
       };
     } else if (callState === "receiving") {
-      audioSynthesizer.startIncomingRingtone();
+      const selectedRingtone = localStorage.getItem("kb_ringtone") || "classic";
+      audioSynthesizer.startIncomingRingtone(selectedRingtone);
       return () => {
         audioSynthesizer.stopRingtone();
       };

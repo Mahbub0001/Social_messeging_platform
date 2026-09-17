@@ -1,6 +1,7 @@
 import { supabase, isMockMode } from "../lib/supabase";
 import { useStore } from "../hooks/useStore";
 import { audioSynthesizer } from "../utils/audio";
+import { pushNotificationService } from "./pushNotificationService";
 import type { Profile } from "./mockDb";
 
 class CallServiceClass {
@@ -33,6 +34,71 @@ class CallServiceClass {
 
   // Initialize listening channel for incoming calls
   public init(userId: string) {
+    // Native bridge listener for incoming calls handled from Android notification / lock screen
+    (window as any).handleIncomingCallAction = (
+      action: "show" | "answer" | "decline",
+      callId: string,
+      callerId: string,
+      callerName: string,
+      callType: "voice" | "video",
+      callerAvatar?: string
+    ) => {
+      console.log("[CallService] Received native call action:", action, callId, callerName);
+      if (!callId) return;
+
+      if (action === "decline") {
+        this.callId = callId;
+        this.partnerId = callerId;
+        this.rejectCall();
+        return;
+      }
+
+      const callerProfile: Profile = {
+        id: callerId,
+        username: callerName || "User",
+        avatar_url: callerAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${callerId}`,
+        full_name: callerName || "User",
+      } as any;
+
+      this.callId = callId;
+      this.partnerId = callerId;
+
+      useStore.setState({
+        callState: "receiving",
+        callType: callType || "voice",
+        callPartner: callerProfile,
+      });
+
+      if (action === "answer") {
+        setTimeout(() => {
+          this.acceptCall();
+        }, 300);
+      }
+    };
+
+    // Check if there is a pending call from Android cold launch
+    if (typeof (window as any).KBNativeBridge?.getPendingCallData === "function") {
+      try {
+        const pendingCallJson = (window as any).KBNativeBridge.getPendingCallData();
+        if (pendingCallJson) {
+          const data = JSON.parse(pendingCallJson);
+          if (data && data.callId) {
+            console.log("[CallService] Processing cold launch call data:", data);
+            (window as any).handleIncomingCallAction(
+              data.action || "show",
+              data.callId,
+              data.callerId,
+              data.callerName,
+              data.callType || "voice",
+              data.callerAvatar
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[CallService] Error checking pending call data:", err);
+      }
+    }
+
     if (isMockMode) return;
 
     if (this.userChannel) {
@@ -145,6 +211,18 @@ class CallServiceClass {
         setTimeout(() => supabase.removeChannel(channel), 1000);
       }
     });
+
+    // Send high-priority FCM call push notification to wake up device / screen if sleeping or app closed
+    pushNotificationService.sendCallPush({
+      callId: this.callId,
+      callerId: myUser.id,
+      callerName: myUser.user_metadata?.username || myUser.email.split("@")[0],
+      callerAvatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${myUser.id}`,
+      callType: useStore.getState().callType || type,
+      receiverId: partner.id,
+    }).catch((err) => {
+      console.warn("[CallService] Error sending call push notification:", err);
+    });
   }
 
   private handleInvite(payload: { callId: string; callerId: string; callerProfile: Profile; callType: "voice" | "video" }) {
@@ -254,6 +332,14 @@ class CallServiceClass {
           });
           setTimeout(() => supabase.removeChannel(channel), 1000);
         }
+      });
+
+      // Send push notification to cancel incoming call notification on receiver's phone
+      pushNotificationService.sendCallCancelledPush({
+        callId: this.callId,
+        receiverId: this.partnerId,
+      }).catch((err) => {
+        console.warn("[CallService] Error sending call cancel push notification:", err);
       });
     }
 
@@ -643,6 +729,12 @@ class CallServiceClass {
     if (this.sessionChannel) {
       supabase.removeChannel(this.sessionChannel);
       this.sessionChannel = null;
+    }
+
+    if (this.callId && typeof (window as any).KBNativeBridge?.cancelCallNotification === "function") {
+      try {
+        (window as any).KBNativeBridge.cancelCallNotification(this.callId);
+      } catch (ignored) {}
     }
 
     this.callId = null;

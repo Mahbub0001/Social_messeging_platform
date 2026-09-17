@@ -11,6 +11,7 @@ import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
@@ -27,6 +28,8 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
 
     public static final String CHANNEL_ID = "messages";
     public static final String CHANNEL_NAME = "Messages";
+    public static final String CALL_CHANNEL_ID = "calls";
+    public static final String CALL_CHANNEL_NAME = "Incoming Calls";
     public static final String KEY_TEXT_REPLY = "key_direct_reply";
     public static final String ACTION_DIRECT_REPLY = "com.nibir.kothabarta.ACTION_DIRECT_REPLY";
 
@@ -72,6 +75,27 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
         String senderId = data.get("senderId");
         String senderName = data.get("senderName");
         String type = data.get("type");
+
+        // Handle call cancellation from remote caller
+        if ("call_cancelled".equals(type)) {
+            String callId = data.get("callId");
+            Log.d(TAG, "Incoming call cancelled by remote caller: " + callId);
+            if (callId != null) {
+                int callNotifId = Math.abs(callId.hashCode());
+                NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (notificationManager != null) {
+                    notificationManager.cancel(callNotifId);
+                }
+            }
+            return;
+        }
+
+        // Handle incoming call with high-priority full-screen intent & ringing
+        if ("incoming_call".equals(type)) {
+            Log.d(TAG, "Incoming call push notification received. Triggering full-screen call alert.");
+            showIncomingCallNotification(data);
+            return;
+        }
 
         String title = data.get("title");
         String body = data.get("body");
@@ -230,6 +254,163 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
             Log.d(TAG, "Notification successfully posted for conversation: " + conversationId + ", notifId: " + notifId);
         } catch (Throwable t) {
             Log.e(TAG, "Error posting notification: " + t.getMessage(), t);
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private void showIncomingCallNotification(Map<String, String> data) {
+        try {
+            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager == null) return;
+
+            String callId = data.get("callId");
+            String callerId = data.get("callerId");
+            String callerName = data.get("callerName");
+            String callerAvatar = data.get("callerAvatar");
+            String callType = data.get("callType");
+            if (callType == null || callType.isEmpty()) callType = "voice";
+
+            // 1. Acquire WakeLock to wake the phone screen up from sleep mode
+            try {
+                PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (powerManager != null) {
+                    PowerManager.WakeLock wakeLock = powerManager.newWakeLock(
+                        PowerManager.FULL_WAKE_LOCK |
+                        PowerManager.ACQUIRE_CAUSES_WAKEUP |
+                        PowerManager.ON_AFTER_RELEASE,
+                        "kothabarta:call_wakelock"
+                    );
+                    wakeLock.acquire(15000); // Hold for 15s max to bring UI up
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Could not acquire WakeLock for incoming call: " + e.getMessage());
+            }
+
+            // 2. Ensure high-importance VoIP call channel exists
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel callChannel = notificationManager.getNotificationChannel(CALL_CHANNEL_ID);
+                if (callChannel == null) {
+                    callChannel = new NotificationChannel(
+                        CALL_CHANNEL_ID,
+                        CALL_CHANNEL_NAME,
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    callChannel.setDescription("Incoming voice and video calls");
+                    callChannel.enableLights(true);
+                    callChannel.setLightColor(Color.parseColor("#10B981"));
+                    callChannel.enableVibration(true);
+                    callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+                    callChannel.setShowBadge(true);
+                    callChannel.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+
+                    Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .build();
+                    callChannel.setSound(ringtoneUri, audioAttributes);
+
+                    notificationManager.createNotificationChannel(callChannel);
+                }
+            }
+
+            int callNotifId = callId != null && !callId.isEmpty()
+                ? Math.abs(callId.hashCode())
+                : 88888;
+
+            int flagImmutable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0;
+
+            // 3. Full-screen tap intent (launches/wakes MainActivity over lockscreen)
+            Intent fullScreenIntent = new Intent(this, MainActivity.class);
+            fullScreenIntent.setAction("com.nibir.kothabarta.ACTION_INCOMING_CALL");
+            fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            fullScreenIntent.putExtra("type", "incoming_call");
+            fullScreenIntent.putExtra("callAction", "show");
+            fullScreenIntent.putExtra("callId", callId);
+            fullScreenIntent.putExtra("callerId", callerId);
+            fullScreenIntent.putExtra("callerName", callerName);
+            fullScreenIntent.putExtra("callerAvatar", callerAvatar);
+            fullScreenIntent.putExtra("callType", callType);
+
+            PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(
+                this,
+                callNotifId,
+                fullScreenIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | flagImmutable
+            );
+
+            // 4. Answer Action Button Intent
+            Intent answerIntent = new Intent(this, MainActivity.class);
+            answerIntent.setAction("com.nibir.kothabarta.ACTION_ANSWER_CALL");
+            answerIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            answerIntent.putExtra("type", "incoming_call");
+            answerIntent.putExtra("callAction", "answer");
+            answerIntent.putExtra("callId", callId);
+            answerIntent.putExtra("callerId", callerId);
+            answerIntent.putExtra("callerName", callerName);
+            answerIntent.putExtra("callerAvatar", callerAvatar);
+            answerIntent.putExtra("callType", callType);
+
+            PendingIntent answerPendingIntent = PendingIntent.getActivity(
+                this,
+                callNotifId + 1,
+                answerIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | flagImmutable
+            );
+
+            // 5. Decline Action Button Intent (Broadcast to CallActionReceiver)
+            Intent declineIntent = new Intent(this, CallActionReceiver.class);
+            declineIntent.setAction(CallActionReceiver.ACTION_DECLINE_CALL);
+            declineIntent.putExtra("callId", callId);
+            declineIntent.putExtra("callerId", callerId);
+            declineIntent.putExtra("notificationId", callNotifId);
+
+            PendingIntent declinePendingIntent = PendingIntent.getBroadcast(
+                this,
+                callNotifId + 2,
+                declineIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | flagImmutable
+            );
+
+            // 6. Safe small icon
+            int iconRes = android.R.drawable.stat_notify_chat;
+            try {
+                int res = getResources().getIdentifier("ic_stat_notify", "drawable", getPackageName());
+                if (res != 0) {
+                    iconRes = res;
+                }
+            } catch (Exception ignored) {}
+
+            String displayTitle = (callerName != null && !callerName.isEmpty())
+                ? callerName
+                : "কথা বার্তা (Kotha Barta)";
+            String displayBody = "video".equalsIgnoreCase(callType)
+                ? "ইনকামিং ভিডিও কল..."
+                : "ইনকামিং অডিও কল...";
+
+            NotificationCompat.Builder callBuilder = new NotificationCompat.Builder(this, CALL_CHANNEL_ID)
+                .setSmallIcon(iconRes)
+                .setContentTitle(displayTitle)
+                .setContentText(displayBody)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setOngoing(true)
+                .setColor(Color.parseColor("#10B981"))
+                .setFullScreenIntent(fullScreenPendingIntent, true)
+                .setContentIntent(fullScreenPendingIntent)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "কেটে দিন (Decline)", declinePendingIntent)
+                .addAction(android.R.drawable.ic_menu_call, "উত্তর দিন (Answer)", answerPendingIntent);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                callBuilder.setTimeoutAfter(45000); // Ring for max 45 seconds
+            }
+
+            notificationManager.notify(callNotifId, callBuilder.build());
+            Log.d(TAG, "Incoming call notification successfully posted for callId: " + callId + ", notifId: " + callNotifId);
+        } catch (Throwable t) {
+            Log.e(TAG, "Error posting incoming call notification: " + t.getMessage(), t);
         }
     }
 }

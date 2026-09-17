@@ -169,7 +169,22 @@ class PushNotificationService {
         lights: true,
         lightColor: "#6366f1",
       }).catch((err) => {
-        console.warn("Error creating notification channel:", err);
+        console.warn("Error creating messages notification channel:", err);
+      });
+
+      // 1b. Create high-priority notification channel for Incoming Calls (ringtone & full-screen)
+      await PushNotifications.createChannel({
+        id: "calls",
+        name: "Incoming Calls",
+        description: "Incoming voice and video calls",
+        importance: 5, // IMPORTANCE_HIGH
+        visibility: 1, // VISIBILITY_PUBLIC
+        sound: "default",
+        vibration: true,
+        lights: true,
+        lightColor: "#10b981",
+      }).catch((err) => {
+        console.warn("Error creating calls notification channel:", err);
       });
 
       // 2. Add listeners before requesting permissions or registering
@@ -567,6 +582,160 @@ class PushNotificationService {
       }
     } catch (err) {
       console.warn("sendDirectUserPush error:", err);
+    }
+  }
+
+  public async sendCallPush(params: {
+    callId: string;
+    callerId: string;
+    callerName: string;
+    callerAvatar?: string;
+    callType: "voice" | "video";
+    receiverId: string;
+  }): Promise<void> {
+    if (isMockMode || !supabase) return;
+
+    try {
+      // 1. Fetch active device tokens for the receiver
+      const { data: tokens, error } = await supabase
+        .from("user_push_tokens")
+        .select("id, token")
+        .eq("user_id", params.receiverId);
+
+      if (error || !tokens || tokens.length === 0) {
+        console.log("[PushNotification] No push tokens found for call receiver:", params.receiverId);
+        return;
+      }
+
+      console.log(`[PushNotification] Sending high-priority incoming call push to ${tokens.length} device(s)`);
+      const googleToken = await getGoogleAccessToken();
+      const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${fcmConfig.projectId}/messages:send`;
+      const staleIds: string[] = [];
+
+      const callTitle = `${params.callerName || "Someone"} is calling...`;
+      const callBody = `Incoming ${params.callType === "video" ? "video" : "voice"} call`;
+
+      for (const item of tokens) {
+        try {
+          const res = await fetch(fcmEndpoint, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${googleToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: {
+                token: item.token,
+                notification: {
+                  title: callTitle,
+                  body: callBody,
+                },
+                data: {
+                  type: "incoming_call",
+                  callId: String(params.callId),
+                  callerId: String(params.callerId),
+                  callerName: String(params.callerName || "User"),
+                  callerAvatar: String(params.callerAvatar || ""),
+                  callType: String(params.callType),
+                  title: callTitle,
+                  body: callBody,
+                },
+                android: {
+                  priority: "high",
+                  notification: {
+                    channel_id: "calls",
+                    sound: "default",
+                    click_action: "FCM_PLUGIN_ACTIVITY",
+                    icon: "ic_stat_notify",
+                  },
+                },
+              },
+            }),
+          });
+
+          if (res.status === 404 || res.status === 400) {
+            const errBody = await res.json().catch(() => ({}));
+            if (
+              res.status === 404 ||
+              errBody.error?.message?.includes("UNREGISTERED") ||
+              errBody.error?.details?.some((d: any) => d.errorCode === "UNREGISTERED")
+            ) {
+              staleIds.push(item.id);
+            }
+          }
+        } catch (e) {
+          console.warn("[PushNotification] FCM call push error for token:", e);
+        }
+      }
+
+      if (staleIds.length > 0) {
+        await supabase.from("user_push_tokens").delete().in("id", staleIds);
+      }
+    } catch (err) {
+      console.warn("[PushNotification] sendCallPush error:", err);
+    }
+  }
+
+  public async sendCallCancelledPush(params: {
+    callId: string;
+    receiverId: string;
+  }): Promise<void> {
+    if (isMockMode || !supabase) return;
+
+    try {
+      const { data: tokens, error } = await supabase
+        .from("user_push_tokens")
+        .select("id, token")
+        .eq("user_id", params.receiverId);
+
+      if (error || !tokens || tokens.length === 0) return;
+
+      const googleToken = await getGoogleAccessToken();
+      const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${fcmConfig.projectId}/messages:send`;
+      const staleIds: string[] = [];
+
+      for (const item of tokens) {
+        try {
+          const res = await fetch(fcmEndpoint, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${googleToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              message: {
+                token: item.token,
+                data: {
+                  type: "call_cancelled",
+                  callId: String(params.callId),
+                },
+                android: {
+                  priority: "high",
+                },
+              },
+            }),
+          });
+
+          if (res.status === 404 || res.status === 400) {
+            const errBody = await res.json().catch(() => ({}));
+            if (
+              res.status === 404 ||
+              errBody.error?.message?.includes("UNREGISTERED") ||
+              errBody.error?.details?.some((d: any) => d.errorCode === "UNREGISTERED")
+            ) {
+              staleIds.push(item.id);
+            }
+          }
+        } catch (e) {
+          console.warn("[PushNotification] FCM call cancel push error for token:", e);
+        }
+      }
+
+      if (staleIds.length > 0) {
+        await supabase.from("user_push_tokens").delete().in("id", staleIds);
+      }
+    } catch (err) {
+      console.warn("[PushNotification] sendCallCancelledPush error:", err);
     }
   }
 }
