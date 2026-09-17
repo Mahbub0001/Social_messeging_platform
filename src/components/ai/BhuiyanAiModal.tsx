@@ -177,6 +177,13 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
 
       setMessages((prev) => [...prev, aiMsg]);
       refreshScheduled();
+
+      // If call was successfully initiated, close assistant modal so user sees the CallScreen
+      if (res.actionResult?.type === "start_call" && res.actionResult.success) {
+        setTimeout(() => {
+          onClose();
+        }, 1200);
+      }
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,

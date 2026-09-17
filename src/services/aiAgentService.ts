@@ -315,6 +315,436 @@ class AiAgentServiceClass {
   }
 
   /**
+   * Helper to extract recipient from text
+   */
+  private extractRecipient(text: string): string {
+    const match = text.match(/^([a-zA-Z0-9_\u0980-\u09FF]+)\s*(?:k|ke|কে)?/i);
+    return match ? match[1].trim() : "";
+  }
+
+  /**
+   * Helper to extract direct message
+   */
+  private extractDirectMessage(prompt: string): string {
+    const quoteMatch = prompt.match(/["'“‘](.+?)["'”’]/);
+    if (quoteMatch) return quoteMatch[1];
+
+    const midMatch = prompt.match(
+      /^[a-zA-Z0-9_\u0980-\u09FF]+\s*(?:k|ke|কে)?\s+(.+?)\s+(?:msg|message|text|মেসেজ)?\s*(?:pathao|pathaio|dao|পাঠাও|পাঠাইও|দাও)/i
+    );
+    if (midMatch && midMatch[1]?.trim()) return midMatch[1].trim();
+
+    const match = prompt.match(
+      /(?:msg|message|text|মেসেজ)?\s*(?:pathao|pathaio|dao|পাঠাও|পাঠাইও|দাও)\s*(.*)/i
+    );
+    if (match && match[1]?.trim()) return match[1].trim();
+
+    return "Hi!";
+  }
+
+  private extractScheduledMessage(prompt: string): string {
+    const quoteMatch = prompt.match(/["'“‘](.+?)["'”’]/);
+    if (quoteMatch) return quoteMatch[1];
+
+    const likheMatch = prompt.match(
+      /(?:likhe|bole|লিখে|বলে)\s*(?:msg|message|text|মেসেজ)?\s*(?:pathao|pathaio|dao|পাঠাও|পাঠাইও|দাও)/i
+    );
+    if (likheMatch) {
+      const beforeLikhe = prompt.substring(0, likheMatch.index);
+      const cleaned = beforeLikhe
+        .replace(/^[a-zA-Z0-9_\u0980-\u09FF]+\s*(?:k|ke|কে)?/i, "")
+        .replace(/(?:raat|rat|shondha|shokal|রাত|সন্ধ্যা|সকাল)?\s*\d{1,2}(?:[:.]\d{2})?\s*(?:tay|টায়|ta|টা|e|এ)?/gi, "")
+        .trim();
+      if (cleaned) return cleaned;
+    }
+
+    return "কেমন আছো?";
+  }
+
+  /**
+   * Helper to parse schedule details from prompt and/or reply
+   */
+  private parseScheduleDetails(
+    prompt: string,
+    replyText: string = ""
+  ): {
+    isoTime: string;
+    timeDesc: string;
+    message: string;
+  } {
+    const combined = (prompt + " " + replyText).toLowerCase();
+
+    // 1. Check relative minutes (e.g. "5 min por", "10 minute por", "in 5 minutes")
+    const minMatch = combined.match(/(\d+)\s*(min|minute|মিনিট)\s*(por|পর|later)/i);
+    if (minMatch) {
+      const mins = parseInt(minMatch[1], 10);
+      const targetDate = new Date(Date.now() + mins * 60 * 1000);
+      return {
+        isoTime: targetDate.toISOString(),
+        timeDesc: `${mins} মিনিট পর`,
+        message: this.extractScheduledMessage(prompt),
+      };
+    }
+
+    let targetHours = 21;
+    let targetMinutes = 0;
+
+    const colonTimeMatch = combined.match(/(\d{1,2})[:.](\d{2})/);
+    if (colonTimeMatch) {
+      targetHours = parseInt(colonTimeMatch[1], 10);
+      targetMinutes = parseInt(colonTimeMatch[2], 10);
+    } else {
+      const hourMatch = combined.match(/(\d{1,2})\s*(tay|টায়|ta|টা|pm|am)/i);
+      if (hourMatch) {
+        targetHours = parseInt(hourMatch[1], 10);
+        targetMinutes = 0;
+      }
+    }
+
+    const isNightOrEvening = /raat|rat|shondha|রাত|সন্ধ্যা|pm/i.test(combined);
+    const isMorning = /shokal|সকাল|am/i.test(combined);
+    const isAfternoon = /dupur|bikel|দুপুর|বিকেল/i.test(combined);
+
+    if ((isNightOrEvening || isAfternoon) && targetHours < 12) {
+      targetHours += 12;
+    } else if (isMorning && targetHours === 12) {
+      targetHours = 0;
+    }
+
+    const targetDate = new Date();
+    targetDate.setHours(targetHours, targetMinutes, 0, 0);
+
+    let timeDesc = "";
+    if (targetDate.getTime() < Date.now() - 2 * 60 * 1000) {
+      targetDate.setDate(targetDate.getDate() + 1);
+      timeDesc = `আগামীকাল ${targetHours > 12 ? targetHours - 12 : targetHours}:${targetMinutes < 10 ? "0" + targetMinutes : targetMinutes} ${targetHours >= 12 ? "PM" : "AM"}`;
+    } else {
+      timeDesc = `আজ ${targetHours > 12 ? targetHours - 12 : targetHours}:${targetMinutes < 10 ? "0" + targetMinutes : targetMinutes} ${targetHours >= 12 ? "PM" : "AM"}`;
+    }
+
+    return {
+      isoTime: targetDate.toISOString(),
+      timeDesc,
+      message: this.extractScheduledMessage(prompt),
+    };
+  }
+
+  /**
+   * Deterministic Intent Fallback parser when LLM returns simulated plain text
+   */
+  private detectIntentFallback(
+    userPrompt: string,
+    aiReplyText: string,
+    friends: { id: string; username: string }[]
+  ): { toolName: string; args: any } | null {
+    const text = userPrompt.toLowerCase();
+    const reply = (aiReplyText || "").toLowerCase();
+
+    // 1. Check CALL intent
+    const isCall =
+      /\b(call|video call|voice call|phone|ফোন|কল|ডায়াল)\b/i.test(text) ||
+      /কল করা হচ্ছে|কল শুরু করা হচ্ছে|call initiated/i.test(reply);
+
+    if (isCall && !text.includes("scheduled") && !text.includes("শিডিউল")) {
+      const friend = friends.find(
+        (f) => text.includes(f.username.toLowerCase()) || reply.includes(f.username.toLowerCase())
+      );
+      const recipientName = friend ? friend.username : this.extractRecipient(text);
+      if (recipientName) {
+        const isVideo = text.includes("video") || text.includes("ভিডিও");
+        return {
+          toolName: "start_call",
+          args: {
+            recipient_name: recipientName,
+            call_type: isVideo ? "video" : "voice",
+          },
+        };
+      }
+    }
+
+    // 2. Check SCHEDULE intent
+    const isSchedule =
+      /\b(raat|rat|shondha|shokal|bikel|dupur|রাত|সন্ধ্যা|সকাল|বিকেল|দুপুর|pm|am|কাল|আগামীকাল|tomorrow)\b/i.test(text) ||
+      /\b\d{1,2}[:.]\d{2}\b/.test(text) ||
+      /\b\d{1,2}\s*(tay|টায়|ta|টা)\b/i.test(text) ||
+      /\b\d+\s*(min|minute|মিনিট)\s*(por|পর|later)\b/i.test(text) ||
+      /শিডিউল|schedule/i.test(text) ||
+      /শিডিউল করা হয়েছে|শিডিউল করা হলো|scheduled/i.test(reply);
+
+    const isMessage =
+      /\b(msg|message|text|মেসেজ|বার্তা|পাঠাও|পাঠাইও|লিখ|লিখে|send)\b/i.test(text);
+
+    if (isSchedule && isMessage) {
+      const friend = friends.find(
+        (f) => text.includes(f.username.toLowerCase()) || reply.includes(f.username.toLowerCase())
+      );
+      const recipientName = friend ? friend.username : this.extractRecipient(text);
+      if (recipientName) {
+        const parsed = this.parseScheduleDetails(userPrompt, aiReplyText);
+        return {
+          toolName: "schedule_message",
+          args: {
+            recipient_name: recipientName,
+            message: parsed.message,
+            scheduled_iso_time: parsed.isoTime,
+            time_description: parsed.timeDesc,
+          },
+        };
+      }
+    }
+
+    // 3. Check DIRECT SEND MESSAGE intent
+    if (isMessage && !isSchedule) {
+      const friend = friends.find(
+        (f) => text.includes(f.username.toLowerCase()) || reply.includes(f.username.toLowerCase())
+      );
+      const recipientName = friend ? friend.username : this.extractRecipient(text);
+      if (recipientName) {
+        const msgContent = this.extractDirectMessage(userPrompt);
+        return {
+          toolName: "send_message",
+          args: {
+            recipient_name: recipientName,
+            message: msgContent,
+          },
+        };
+      }
+    }
+
+    // 4. Check LIST SCHEDULED intent
+    if (/পেন্ডিং|শিডিউল মেসেজ|scheduled message|scheduled list|শিডিউল লিস্ট/i.test(text)) {
+      return {
+        toolName: "list_scheduled_messages",
+        args: {},
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Centralized tool action executor
+   */
+  private async executeAction(
+    fnName: string,
+    args: any,
+    currentUser: { id: string; [key: string]: any }
+  ): Promise<{ replyText: string; actionResult?: AiActionResult }> {
+    // ==========================================
+    // ACTION 1: SEND MESSAGE
+    // ==========================================
+    if (fnName === "send_message") {
+      const targetFriend = await this.resolveFriend(args.recipient_name, currentUser.id);
+      if (!targetFriend) {
+        return {
+          replyText: `দুঃখিত, '${args.recipient_name}' নামের কাউকে আপনার ফ্রেন্ডলিস্ট বা চ্যাটে পাওয়া যায়নি। অনুগ্রহ করে সঠিক নামটি বলুন।`,
+          actionResult: {
+            type: "send_message",
+            success: false,
+            message: `User '${args.recipient_name}' not found`,
+          },
+        };
+      }
+
+      const convId = await this.getOrCreateConversationId(currentUser.id, targetFriend.id);
+      const sendResult = await chatService.sendMessage(convId, currentUser.id, args.message);
+
+      if (sendResult.error) {
+        return {
+          replyText: `মেসেজ পাঠাতে সমস্যা হয়েছে: ${sendResult.error.message}`,
+          actionResult: {
+            type: "send_message",
+            success: false,
+            message: sendResult.error.message,
+          },
+        };
+      }
+
+      // Auto-focus conversation so user sees it live
+      useStore.getState().setActiveConversationId(convId);
+      useStore.getState().fetchMessages(convId);
+
+      return {
+        replyText: `✅ **${targetFriend.username}** কে সফলভাবে বার্তা পাঠানো হয়েছে:\n> "${args.message}"`,
+        actionResult: {
+          type: "send_message",
+          success: true,
+          message: `Message sent to ${targetFriend.username}`,
+          data: {
+            recipient: targetFriend.username,
+            avatar: targetFriend.avatar_url,
+            content: args.message,
+            conversationId: convId,
+          },
+        },
+      };
+    }
+
+    // ==========================================
+    // ACTION 2: START CALL
+    // ==========================================
+    if (fnName === "start_call") {
+      const targetFriend = await this.resolveFriend(args.recipient_name, currentUser.id);
+      if (!targetFriend) {
+        return {
+          replyText: `দুঃখিত, '${args.recipient_name}' নামের বন্ধুকে পাওয়া যায়নি।`,
+          actionResult: {
+            type: "start_call",
+            success: false,
+            message: `Friend not found`,
+          },
+        };
+      }
+
+      const callType = args.call_type === "video" ? "video" : "voice";
+      const convId = await this.getOrCreateConversationId(currentUser.id, targetFriend.id);
+
+      // Trigger store call action
+      useStore.getState().startCall(targetFriend, callType, convId);
+
+      return {
+        replyText: `📞 **${targetFriend.username}** এর সাথে ${callType === "video" ? "ভিডিও" : "ভয়েস"} কল শুরু করা হচ্ছে...`,
+        actionResult: {
+          type: "start_call",
+          success: true,
+          message: `Call initiated to ${targetFriend.username}`,
+          data: {
+            recipient: targetFriend.username,
+            avatar: targetFriend.avatar_url,
+            callType,
+          },
+        },
+      };
+    }
+
+    // ==========================================
+    // ACTION 3: SCHEDULE MESSAGE
+    // ==========================================
+    if (fnName === "schedule_message") {
+      const targetFriend = await this.resolveFriend(args.recipient_name, currentUser.id);
+      if (!targetFriend) {
+        return {
+          replyText: `দুঃখিত, '${args.recipient_name}' নামের বন্ধুকে পাওয়া যায়নি। অনুগ্রহ করে সঠিক ফ্রেন্ডের নাম বলুন।`,
+          actionResult: {
+            type: "schedule_message",
+            success: false,
+            message: `Friend not found`,
+          },
+        };
+      }
+
+      const convId = await this.getOrCreateConversationId(currentUser.id, targetFriend.id);
+      const scheduledDate = this.parseScheduledDate(args.scheduled_iso_time);
+
+      const scheduledItem = await scheduledMessageService.scheduleMessage({
+        senderId: currentUser.id,
+        receiverId: targetFriend.id,
+        receiverName: targetFriend.username,
+        receiverAvatar: targetFriend.avatar_url,
+        conversationId: convId,
+        message: args.message,
+        scheduledAt: scheduledDate,
+        displayTime:
+          args.time_description ||
+          scheduledDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      });
+
+      const formattedTime = scheduledDate.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      return {
+        replyText: `⏰ **${targetFriend.username}** এর জন্য বার্তাটি শিডিউল করা হয়েছে!\n- **সময়:** ${args.time_description || formattedTime}\n- **বার্তা:** "${args.message}"\n\nনির্ধারিত সময়ে স্বয়ংক্রিয়ভাবে মেসেজটি পাঠানো হবে।`,
+        actionResult: {
+          type: "schedule_message",
+          success: true,
+          message: `Scheduled for ${targetFriend.username}`,
+          data: scheduledItem,
+        },
+      };
+    }
+
+    // ==========================================
+    // ACTION 4: LIST SCHEDULED
+    // ==========================================
+    if (fnName === "list_scheduled_messages") {
+      const pending = scheduledMessageService.getPendingMessages(currentUser.id);
+      if (pending.length === 0) {
+        return {
+          replyText: "আপনার বর্তমানে কোনো পেন্ডিং শিডিউলড মেসেজ নেই।",
+          actionResult: {
+            type: "list_scheduled",
+            success: true,
+            message: "No pending scheduled messages",
+            data: [],
+          },
+        };
+      }
+
+      const listStr = pending
+        .map(
+          (p, idx) =>
+            `${idx + 1}. **${p.receiverName}** — "${p.message}" (সময়: ${p.displayTime || new Date(p.scheduledAt).toLocaleTimeString()})`
+        )
+        .join("\n");
+
+      return {
+        replyText: `📋 **আপনার পেন্ডিং শিডিউল মেসেজসমূহ:**\n\n${listStr}`,
+        actionResult: {
+          type: "list_scheduled",
+          success: true,
+          message: "List retrieved",
+          data: pending,
+        },
+      };
+    }
+
+    // ==========================================
+    // ACTION 5: CANCEL SCHEDULED
+    // ==========================================
+    if (fnName === "cancel_scheduled_message") {
+      const pending = scheduledMessageService.getPendingMessages(currentUser.id);
+      let target: ScheduledMessage | undefined;
+
+      if (args.scheduled_id) {
+        target = pending.find((p) => p.id === args.scheduled_id);
+      } else if (args.recipient_name) {
+        target = pending.find((p) =>
+          p.receiverName.toLowerCase().includes(args.recipient_name.toLowerCase())
+        );
+      }
+
+      if (target) {
+        scheduledMessageService.cancelMessage(target.id);
+        return {
+          replyText: `🗑️ ${target.receiverName} এর জন্য নির্ধারিত শিডিউল মেসেজটি বাতিল করা হয়েছে।`,
+          actionResult: {
+            type: "cancel_scheduled",
+            success: true,
+            message: "Cancelled successfully",
+            data: target,
+          },
+        };
+      }
+
+      return {
+        replyText: "বাতিল করার মতো কোনো উপযুক্ত শিডিউল মেসেজ পাওয়া যায়নি।",
+        actionResult: {
+          type: "cancel_scheduled",
+          success: false,
+          message: "Target not found",
+        },
+      };
+    }
+
+    return {
+      replyText: "অ্যাকশন সম্পন্ন হয়েছে।",
+    };
+  }
+
+  /**
    * Main entry point to process a command with Bhuiyan AI
    */
   public async executeCommand(
@@ -352,26 +782,26 @@ class AiAgentServiceClass {
       timeStyle: "medium",
     });
 
-    const systemPrompt = `You are "Bhuiyan AI", an intelligent, high-speed, proactive autonomous assistant for the user's Chat Web App.
-Current Real-World Date & Time: ${now.toISOString()} (${now.toLocaleString()} / Bangladesh time: ${localTimeString}).
+    const systemPrompt = `You are "Bhuiyan AI", an autonomous action executor for the user's Chat Web App.
+Current Real-World Date & Time: ${now.toISOString()} (Bangladesh time: ${localTimeString}).
 
-The user's active friends are:
+Active friends list:
 ${JSON.stringify(friendsContext, null, 2)}
 
-Your capabilities:
-1. "send_message": If the user asks to send a message to someone (e.g. "Nibir k 'hi' msg pathao", "Nuha ke text pathao"), extract recipient_name and message, and call the send_message tool.
-2. "start_call": If the user asks to call someone (e.g. "Nibir k call dao", "Nuha k video call koro"), extract recipient_name and call_type (voice or video) and call start_call.
-3. "schedule_message": If the user specifies a time (e.g. "Nuha k raat 9 tay 'kmn aso' msg pathao", "send message at 9:00pm"), compute the exact ISO timestamp for that time (today or appropriate date in ${now.getFullYear()}), and call schedule_message with recipient_name, message, scheduled_iso_time, and time_description.
-4. "list_scheduled_messages": If user asks to check, show, or list scheduled messages.
-5. "cancel_scheduled_message": If user asks to cancel or remove a scheduled message.
-
-Language Guideline:
-- Always respond courteously in the language the user used (natural conversational Bengali, Banglish, or English).
-- When an action is taken, confirm clearly with an emoji (e.g. "✅ নিবিড়কে বার্তাটি পাঠানো হয়েছে!", "📞 কল দেওয়া হচ্ছে...", "⏰ বার্তাটি রাত ৯:০০ টায় পাঠানোর জন্য শিডিউল করা হয়েছে।").`;
+CRITICAL FUNCTION-CALLING MANDATE:
+1. When user asks to CALL someone (e.g. "nibir k call deo", "call nibir", "video call dao"):
+   YOU MUST CALL the "start_call" tool. NEVER output conversational text pretending to place the call.
+2. When user asks to SCHEDULE a message (e.g. "nibir k raat 8:30 e kmn aso likhe msg pathaio", "nuha k raat 9 tay text dio"):
+   YOU MUST CALL the "schedule_message" tool with recipient_name, message, scheduled_iso_time, and time_description.
+3. When user asks to SEND a message directly (e.g. "nibir k hi msg pathao"):
+   YOU MUST CALL the "send_message" tool with recipient_name and message.
+4. When user asks to list or cancel scheduled messages:
+   CALL "list_scheduled_messages" or "cancel_scheduled_message".
+5. ONLY return text response for general questions, greetings, or friendly chat.`;
 
     const messagesPayload = [
       { role: "system", content: systemPrompt },
-      ...history.slice(-6).map((h) => ({ role: h.role, content: h.content })),
+      ...history.slice(-4).map((h) => ({ role: h.role, content: h.content })),
       { role: "user", content: prompt },
     ];
 
@@ -387,12 +817,12 @@ Language Guideline:
           messages: messagesPayload,
           tools: AI_TOOLS,
           tool_choice: "auto",
-          temperature: 0.3,
+          temperature: 0.1,
           max_tokens: 600,
         }),
       });
 
-      // If initial model returns 404 (e.g. model deprecated or not accessible), fallback automatically to qwen/qwen3.8-27b
+      // If initial model returns 404, fallback automatically to qwen/qwen3.8-27b
       if (!response.ok && response.status === 404 && model !== "qwen/qwen3.8-27b") {
         console.warn(`[Bhuiyan AI] Model ${model} returned 404. Falling back to qwen/qwen3.8-27b...`);
         response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -406,7 +836,7 @@ Language Guideline:
             messages: messagesPayload,
             tools: AI_TOOLS,
             tool_choice: "auto",
-            temperature: 0.3,
+            temperature: 0.1,
             max_tokens: 600,
           }),
         });
@@ -415,6 +845,11 @@ Language Guideline:
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error("[Bhuiyan AI] Groq API Error:", errorData);
+        // Even if Groq API returns network error, attempt local intent extraction fallback
+        const offlineFallback = this.detectIntentFallback(prompt, "", friendsContext);
+        if (offlineFallback) {
+          return await this.executeAction(offlineFallback.toolName, offlineFallback.args, currentUser);
+        }
         return {
           replyText: `দুঃখিত, সার্ভারের সাথে সংযোগ স্থাপনে সমস্যা হচ্ছে (${response.status})। কিছুক্ষণ পর পুনরায় চেষ্টা করুন।`,
         };
@@ -424,238 +859,43 @@ Language Guideline:
       const choice = data.choices?.[0]?.message;
       const toolCalls = choice?.tool_calls;
 
-      // If no tool was called, return standard conversation text
-      if (!toolCalls || toolCalls.length === 0) {
-        return {
-          replyText:
-            choice?.content || "আমি আপনার কথাটি বুঝতে পেরেছি। আপনার জন্য কি করতে পারি?",
-        };
-      }
-
-      // Execute primary tool call
-      const firstCall = toolCalls[0];
-      const fnName = firstCall.function.name;
+      let fnName = "";
       let args: any = {};
-      try {
-        args = JSON.parse(firstCall.function.arguments);
-      } catch (e) {
-        console.error("Failed to parse tool arguments:", e);
+
+      if (toolCalls && toolCalls.length > 0) {
+        const firstCall = toolCalls[0];
+        fnName = firstCall.function.name;
+        try {
+          args = JSON.parse(firstCall.function.arguments);
+        } catch (e) {
+          console.error("Failed to parse tool arguments:", e);
+        }
       }
 
-      // ==========================================
-      // ACTION 1: SEND MESSAGE
-      // ==========================================
-      if (fnName === "send_message") {
-        const targetFriend = await this.resolveFriend(args.recipient_name, currentUser.id);
-        if (!targetFriend) {
-          return {
-            replyText: `দুঃখিত, '${args.recipient_name}' নামের কাউকে আপনার ফ্রেন্ডলিস্ট বা চ্যাটে পাওয়া যায়নি। অনুগ্রহ করে সঠিক নামটি বলুন।`,
-            actionResult: {
-              type: "send_message",
-              success: false,
-              message: `User '${args.recipient_name}' not found`,
-            },
-          };
+      // If model failed to call structured tool or returned plain text simulating the action:
+      if (!fnName) {
+        const fallback = this.detectIntentFallback(prompt, choice?.content || "", friendsContext);
+        if (fallback) {
+          fnName = fallback.toolName;
+          args = fallback.args;
         }
-
-        const convId = await this.getOrCreateConversationId(currentUser.id, targetFriend.id);
-        const sendResult = await chatService.sendMessage(convId, currentUser.id, args.message);
-
-        if (sendResult.error) {
-          return {
-            replyText: `মেসেজ পাঠাতে সমস্যা হয়েছে: ${sendResult.error.message}`,
-            actionResult: {
-              type: "send_message",
-              success: false,
-              message: sendResult.error.message,
-            },
-          };
-        }
-
-        // Auto-focus conversation so user sees it live
-        useStore.getState().setActiveConversationId(convId);
-        useStore.getState().fetchMessages(convId);
-
-        return {
-          replyText: `✅ **${targetFriend.username}** কে সফলভাবে বার্তা পাঠানো হয়েছে:\n> "${args.message}"`,
-          actionResult: {
-            type: "send_message",
-            success: true,
-            message: `Message sent to ${targetFriend.username}`,
-            data: {
-              recipient: targetFriend.username,
-              avatar: targetFriend.avatar_url,
-              content: args.message,
-              conversationId: convId,
-            },
-          },
-        };
       }
 
-      // ==========================================
-      // ACTION 2: START CALL
-      // ==========================================
-      if (fnName === "start_call") {
-        const targetFriend = await this.resolveFriend(args.recipient_name, currentUser.id);
-        if (!targetFriend) {
-          return {
-            replyText: `দুঃখিত, '${args.recipient_name}' নামের বন্ধুকে পাওয়া যায়নি।`,
-            actionResult: {
-              type: "start_call",
-              success: false,
-              message: `Friend not found`,
-            },
-          };
-        }
-
-        const callType = args.call_type === "video" ? "video" : "voice";
-        const convId = await this.getOrCreateConversationId(currentUser.id, targetFriend.id);
-
-        // Trigger store call action
-        useStore.getState().startCall(targetFriend, callType, convId);
-
-        return {
-          replyText: `📞 **${targetFriend.username}** এর সাথে ${callType === "video" ? "ভিডিও" : "ভয়েস"} কল শুরু করা হচ্ছে...`,
-          actionResult: {
-            type: "start_call",
-            success: true,
-            message: `Call initiated to ${targetFriend.username}`,
-            data: {
-              recipient: targetFriend.username,
-              avatar: targetFriend.avatar_url,
-              callType,
-            },
-          },
-        };
-      }
-
-      // ==========================================
-      // ACTION 3: SCHEDULE MESSAGE
-      // ==========================================
-      if (fnName === "schedule_message") {
-        const targetFriend = await this.resolveFriend(args.recipient_name, currentUser.id);
-        if (!targetFriend) {
-          return {
-            replyText: `দুঃখিত, '${args.recipient_name}' নামের বন্ধুকে পাওয়া যায়নি। অনুগ্রহ করে সঠিক ফ্রেন্ডের নাম বলুন।`,
-            actionResult: {
-              type: "schedule_message",
-              success: false,
-              message: `Friend not found`,
-            },
-          };
-        }
-
-        const convId = await this.getOrCreateConversationId(currentUser.id, targetFriend.id);
-        const scheduledDate = this.parseScheduledDate(args.scheduled_iso_time);
-
-        const scheduledItem = await scheduledMessageService.scheduleMessage({
-          senderId: currentUser.id,
-          receiverId: targetFriend.id,
-          receiverName: targetFriend.username,
-          receiverAvatar: targetFriend.avatar_url,
-          conversationId: convId,
-          message: args.message,
-          scheduledAt: scheduledDate,
-          displayTime:
-            args.time_description ||
-            scheduledDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        });
-
-        const formattedTime = scheduledDate.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        });
-
-        return {
-          replyText: `⏰ **${targetFriend.username}** এর জন্য বার্তাটি শিডিউল করা হয়েছে!\n- **সময়:** ${args.time_description || formattedTime}\n- **বার্তা:** "${args.message}"\n\nনির্ধারিত সময়ে স্বয়ংক্রিয়ভাবে মেসেজটি পাঠানো হবে।`,
-          actionResult: {
-            type: "schedule_message",
-            success: true,
-            message: `Scheduled for ${targetFriend.username}`,
-            data: scheduledItem,
-          },
-        };
-      }
-
-      // ==========================================
-      // ACTION 4: LIST SCHEDULED
-      // ==========================================
-      if (fnName === "list_scheduled_messages") {
-        const pending = scheduledMessageService.getPendingMessages(currentUser.id);
-        if (pending.length === 0) {
-          return {
-            replyText: "আপনার বর্তমানে কোনো পেন্ডিং শিডিউলড মেসেজ নেই।",
-            actionResult: {
-              type: "list_scheduled",
-              success: true,
-              message: "No pending scheduled messages",
-              data: [],
-            },
-          };
-        }
-
-        const listStr = pending
-          .map(
-            (p, idx) =>
-              `${idx + 1}. **${p.receiverName}** — "${p.message}" (সময়: ${p.displayTime || new Date(p.scheduledAt).toLocaleTimeString()})`
-          )
-          .join("\n");
-
-        return {
-          replyText: `📋 **আপনার পেন্ডিং শিডিউল মেসেজসমূহ:**\n\n${listStr}`,
-          actionResult: {
-            type: "list_scheduled",
-            success: true,
-            message: "List retrieved",
-            data: pending,
-          },
-        };
-      }
-
-      // ==========================================
-      // ACTION 5: CANCEL SCHEDULED
-      // ==========================================
-      if (fnName === "cancel_scheduled_message") {
-        const pending = scheduledMessageService.getPendingMessages(currentUser.id);
-        let target: ScheduledMessage | undefined;
-
-        if (args.scheduled_id) {
-          target = pending.find((p) => p.id === args.scheduled_id);
-        } else if (args.recipient_name) {
-          target = pending.find((p) =>
-            p.receiverName.toLowerCase().includes(args.recipient_name.toLowerCase())
-          );
-        }
-
-        if (target) {
-          scheduledMessageService.cancelMessage(target.id);
-          return {
-            replyText: `🗑️ ${target.receiverName} এর জন্য নির্ধারিত শিডিউল মেসেজটি বাতিল করা হয়েছে।`,
-            actionResult: {
-              type: "cancel_scheduled",
-              success: true,
-              message: "Cancelled successfully",
-              data: target,
-            },
-          };
-        }
-
-        return {
-          replyText: "বাতিল করার মতো কোনো উপযুক্ত শিডিউল মেসেজ পাওয়া যায়নি।",
-          actionResult: {
-            type: "cancel_scheduled",
-            success: false,
-            message: "Target not found",
-          },
-        };
+      if (fnName) {
+        return await this.executeAction(fnName, args, currentUser);
       }
 
       return {
-        replyText: choice?.content || "অ্যাকশন সম্পন্ন হয়েছে।",
+        replyText:
+          choice?.content || "আমি আপনার কথাটি বুঝতে পেরেছি। আপনার জন্য কি করতে পারি?",
       };
     } catch (err: any) {
       console.error("[Bhuiyan AI] Execution Exception:", err);
+      // Intent fallback on error
+      const offlineFallback = this.detectIntentFallback(prompt, "", friendsContext);
+      if (offlineFallback) {
+        return await this.executeAction(offlineFallback.toolName, offlineFallback.args, currentUser);
+      }
       return {
         replyText: `একটি ত্রুটি ঘটেছে: ${err?.message || "অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।"}`,
       };
