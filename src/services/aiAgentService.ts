@@ -19,24 +19,40 @@ export interface AiChatMessage {
   timestamp: string;
 }
 
-// Read API keys safely with multiple fallbacks
+// Declare build-time defined globals from Vite
+declare const __GROQ_API_KEY__: string | undefined;
+declare const __GROQ_MODEL__: string | undefined;
+declare const process: any;
+
+// Read API key safely from Vite environment / build
 export const getGroqApiKey = (): string => {
-  // 1. Check browser localStorage (set via in-app UI)
+  // 1. Check Vite define constant __GROQ_API_KEY__
+  try {
+    if (typeof __GROQ_API_KEY__ !== "undefined" && __GROQ_API_KEY__ && __GROQ_API_KEY__.trim()) {
+      return __GROQ_API_KEY__.trim();
+    }
+  } catch {}
+
+  // 2. Check standard Vite import.meta.env
+  try {
+    const meta = import.meta as any;
+    const metaKey = meta.env?.VITE_GROQ_API_KEY || meta.env?.GROQ_API_KEY;
+    if (metaKey && metaKey.trim()) return metaKey.trim();
+  } catch {}
+
+  // 3. Check process.env (replaced by Vite define)
+  try {
+    if (typeof process !== "undefined" && process?.env) {
+      const pKey = process.env.VITE_GROQ_API_KEY || process.env.GROQ_API_KEY;
+      if (pKey && pKey.trim()) return pKey.trim();
+    }
+  } catch {}
+
+  // 4. Browser localStorage fallback (if set)
   if (typeof window !== "undefined") {
     const local = localStorage.getItem("kb_groq_api_key");
     if (local && local.trim()) return local.trim();
   }
-
-  // 2. Check process.env (Vercel runtime or Vite define)
-  const gProcess = (globalThis as any).process;
-  const pKey = gProcess?.env?.GROQ_API_KEY || gProcess?.env?.VITE_GROQ_API_KEY;
-  if (pKey && pKey.trim()) return pKey.trim();
-
-  // 3. Check import.meta.env
-  const metaKey =
-    (import.meta as any).env?.GROQ_API_KEY ||
-    (import.meta as any).env?.VITE_GROQ_API_KEY;
-  if (metaKey && metaKey.trim()) return metaKey.trim();
 
   return "";
 };
@@ -48,15 +64,41 @@ export const setGroqApiKey = (key: string) => {
 };
 
 export const getGroqModel = (): string => {
-  const gProcess = (globalThis as any).process;
-  return (
-    gProcess?.env?.MODEL_NAME ||
-    gProcess?.env?.model_name ||
-    gProcess?.env?.VITE_MODEL_NAME ||
-    (import.meta as any).env?.model_name ||
-    (import.meta as any).env?.VITE_MODEL_NAME ||
-    "llama-3.3-70b-versatile"
-  );
+  try {
+    const meta = import.meta as any;
+    const envModel =
+      meta.env?.VITE_MODEL_NAME ||
+      meta.env?.MODEL_NAME ||
+      meta.env?.model_name;
+    if (envModel && envModel !== "llama-3.3-70b-versatile" && envModel.trim()) {
+      return envModel.trim();
+    }
+  } catch {}
+
+  try {
+    if (
+      typeof __GROQ_MODEL__ !== "undefined" &&
+      __GROQ_MODEL__ &&
+      __GROQ_MODEL__ !== "llama-3.3-70b-versatile"
+    ) {
+      return __GROQ_MODEL__.trim();
+    }
+  } catch {}
+
+  try {
+    if (typeof process !== "undefined" && process?.env) {
+      const pModel =
+        process.env.VITE_MODEL_NAME ||
+        process.env.MODEL_NAME ||
+        process.env.model_name;
+      if (pModel && pModel !== "llama-3.3-70b-versatile" && pModel.trim()) {
+        return pModel.trim();
+      }
+    }
+  } catch {}
+
+  // Active verified Groq model with full tool calling
+  return "qwen/qwen3.8-27b";
 };
 
 // Groq Function Calling Tool Definitions
@@ -286,7 +328,7 @@ class AiAgentServiceClass {
     if (!apiKey) {
       return {
         replyText:
-          "⚠️ Groq API Key পাওয়া যায়নি! অনুগ্রহ করে আপনার `.env` ফাইলে `GROQ_API_KEY` সঠিকভাবে সেট করুন।",
+          "⚠️ AI সার্ভার বর্তমানে সংযুক্ত হতে পারছে না। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।",
       };
     }
 
@@ -334,7 +376,7 @@ Language Guideline:
     ];
 
     try {
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      let response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -350,11 +392,31 @@ Language Guideline:
         }),
       });
 
+      // If initial model returns 404 (e.g. model deprecated or not accessible), fallback automatically to qwen/qwen3.8-27b
+      if (!response.ok && response.status === 404 && model !== "qwen/qwen3.8-27b") {
+        console.warn(`[Bhuiyan AI] Model ${model} returned 404. Falling back to qwen/qwen3.8-27b...`);
+        response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "qwen/qwen3.8-27b",
+            messages: messagesPayload,
+            tools: AI_TOOLS,
+            tool_choice: "auto",
+            temperature: 0.3,
+            max_tokens: 600,
+          }),
+        });
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error("[Bhuiyan AI] Groq API Error:", errorData);
         return {
-          replyText: `Groq API ত্রুটি (${response.status}): ${errorData?.error?.message || "সার্ভারের সাথে যোগাযোগ করা যাচ্ছে না।"}`,
+          replyText: `দুঃখিত, সার্ভারের সাথে সংযোগ স্থাপনে সমস্যা হচ্ছে (${response.status})। কিছুক্ষণ পর পুনরায় চেষ্টা করুন।`,
         };
       }
 

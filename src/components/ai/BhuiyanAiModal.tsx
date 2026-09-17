@@ -13,12 +13,9 @@ import {
   Bot,
   User,
   ArrowRight,
-  Key,
 } from "lucide-react";
 import {
   aiAgentService,
-  getGroqApiKey,
-  setGroqApiKey,
   type AiChatMessage,
 } from "../../services/aiAgentService";
 import {
@@ -42,21 +39,6 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
-
-  // Groq API Key state
-  const [showKeyInput, setShowKeyInput] = useState(false);
-  const [customKey, setCustomKey] = useState(getGroqApiKey());
-  const [keySavedToast, setKeySavedToast] = useState(false);
-
-  const handleSaveKey = (keyToSave?: string) => {
-    const k = (keyToSave !== undefined ? keyToSave : customKey).trim();
-    if (!k) return;
-    setGroqApiKey(k);
-    setCustomKey(k);
-    setKeySavedToast(true);
-    setShowKeyInput(false);
-    setTimeout(() => setKeySavedToast(false), 3500);
-  };
 
   const [messages, setMessages] = useState<AiChatMessage[]>([
     {
@@ -289,20 +271,6 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
               </button>
             </div>
 
-            {/* Key Settings Button */}
-            <button
-              onClick={() => setShowKeyInput(!showKeyInput)}
-              title="Groq API Key সেটিংস"
-              className={cn(
-                "p-1.5 rounded-xl border transition-all cursor-pointer",
-                getGroqApiKey()
-                  ? "text-slate-400 hover:text-white hover:bg-slate-900 border-transparent"
-                  : "text-amber-400 bg-amber-500/10 border-amber-500/40 animate-pulse"
-              )}
-            >
-              <Key className="w-4 h-4" />
-            </button>
-
             <button
               onClick={onClose}
               className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors cursor-pointer"
@@ -311,40 +279,6 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
             </button>
           </div>
         </div>
-
-        {/* Dropdown API Key settings */}
-        {showKeyInput && (
-          <div className="px-4 py-3 bg-slate-950 border-b border-slate-800 flex flex-col gap-2 shrink-0">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-amber-400" /> Groq API Key সেটিংস
-              </span>
-              <span className="text-[10px] text-slate-400">ব্রাউজারে সেভ থাকবে</span>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                placeholder="gsk_..."
-                value={customKey}
-                onChange={(e) => setCustomKey(e.target.value)}
-                className="flex-1 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-white text-xs outline-none focus:border-violet-500"
-              />
-              <button
-                onClick={() => handleSaveKey()}
-                className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shrink-0"
-              >
-                সেভ
-              </button>
-            </div>
-          </div>
-        )}
-
-        {keySavedToast && (
-          <div className="px-4 py-1.5 bg-emerald-950/90 text-emerald-300 text-xs border-b border-emerald-500/40 flex items-center gap-1.5 shrink-0">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Groq API Key সফলভাবে সেভ হয়েছে!</span>
-          </div>
-        )}
 
         {/* Tab 1: Assistant / Chat View */}
         {activeTab === "chat" && (
@@ -416,30 +350,6 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                       >
                         {m.text}
                       </div>
-
-                      {/* Inline API Key input if missing key */}
-                      {m.text.includes("Groq API Key পাওয়া যায়নি") && (
-                        <div className="p-3 rounded-xl bg-slate-950/90 border border-amber-500/40 text-xs space-y-2.5">
-                          <p className="text-amber-300 font-medium">নিচে আপনার Groq API Key দিন (ব্রাউজারে সেভ থাকবে):</p>
-                          <div className="flex gap-2">
-                            <input
-                              type="password"
-                              placeholder="gsk_..."
-                              value={customKey}
-                              onChange={(e) => setCustomKey(e.target.value)}
-                              className="flex-1 bg-slate-900 border border-slate-700 px-2.5 py-1.5 rounded-lg text-white text-xs outline-none focus:border-amber-400"
-                            />
-                            <button
-                              onClick={() => {
-                                handleSaveKey(customKey);
-                              }}
-                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg transition-colors cursor-pointer shrink-0"
-                            >
-                              সংরক্ষণ করুন
-                            </button>
-                          </div>
-                        </div>
-                      )}
 
                       {/* Action Result Visual Cards */}
                       {m.actionResult && (
