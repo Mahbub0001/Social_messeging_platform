@@ -41,7 +41,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
     {
       id: "welcome",
       sender: "bhuiyan_ai",
-      text: "আসসালামু আলাইকুম! আমি **Bhuiyan AI**। আপনার নির্দেশ অনুযায়ী আমি যেকোনো বন্ধুকে সরাসরি মেসেজ পাঠানো, কল দেওয়া বা নির্দিষ্ট সময়ে (যেমন রাত ৯:০০ টায়) মেসেজ শিডিউল করতে পারি।\n\nআপনি কী করতে চান?",
+      text: "আসসালামু আলাইকুম! আমি Bhuiyan AI। আপনার নির্দেশ অনুযায়ী আমি যেকোনো বন্ধুকে সরাসরি মেসেজ পাঠানো, কল দেওয়া বা নির্দিষ্ট সময়ে (যেমন রাত ৯:০০ টায়) মেসেজ শিডিউল করতে পারি।\n\nআপনি কী করতে চান?",
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -218,23 +218,20 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ type: "spring", stiffness: 350, damping: 25 }}
-        className="fixed inset-x-3 bottom-3 top-16 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[620px] md:h-[720px] max-h-[92vh] bg-slate-900/95 dark:bg-slate-950/95 border border-violet-500/30 rounded-3xl shadow-2xl shadow-violet-950/60 z-50 flex flex-col overflow-hidden backdrop-blur-xl"
+        className="fixed z-50 bottom-20 md:bottom-24 right-3 sm:right-6 md:right-8 w-[calc(100vw-24px)] sm:w-[420px] md:w-[440px] h-[540px] max-h-[calc(100dvh-120px)] bg-slate-900/95 dark:bg-slate-950/95 border border-violet-500/30 rounded-3xl shadow-2xl shadow-violet-950/60 flex flex-col overflow-hidden backdrop-blur-xl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800/80 bg-slate-950/50">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800/80 bg-slate-950/50 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+            <div className="relative w-9 h-9 rounded-2xl bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
               <Sparkles className="w-5 h-5 text-cyan-300 animate-pulse" />
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-white font-bold text-base tracking-wide">Bhuiyan AI</h3>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                  Copilot
-                </span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Active" />
               </div>
-              <p className="text-xs text-slate-400">Powered by Groq • Llama 3.3</p>
             </div>
           </div>
 
@@ -284,7 +281,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
         {activeTab === "chat" && (
           <>
             {/* Quick Action Suggestion Chips */}
-            <div className="px-4 py-2.5 bg-slate-950/30 border-b border-slate-800/40 flex items-center gap-2 overflow-x-auto no-scrollbar text-xs">
+            <div className="px-4 py-2 bg-slate-950/30 border-b border-slate-800/40 flex items-center gap-2 overflow-x-auto no-scrollbar text-xs shrink-0">
               <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider shrink-0 flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-violet-400" /> সাজেশন:
               </span>
@@ -315,7 +312,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
             </div>
 
             {/* Conversation Messages Stream */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {messages.map((m) => {
                 const isUser = m.sender === "user";
                 return (
@@ -411,7 +408,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="px-4 py-2 bg-gradient-to-r from-violet-900/60 via-indigo-900/60 to-cyan-900/60 border-t border-violet-500/40 flex items-center justify-between text-xs text-violet-200"
+                className="px-4 py-2 bg-gradient-to-r from-violet-900/60 via-indigo-900/60 to-cyan-900/60 border-t border-violet-500/40 flex items-center justify-between text-xs text-violet-200 shrink-0"
               >
                 <div className="flex items-center gap-2">
                   <span className="flex h-3 w-3 relative">
@@ -430,13 +427,13 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
             )}
 
             {speechError && (
-              <div className="px-4 py-1.5 bg-amber-500/20 text-amber-300 text-xs border-t border-amber-500/30">
+              <div className="px-4 py-1.5 bg-amber-500/20 text-amber-300 text-xs border-t border-amber-500/30 shrink-0">
                 {speechError}
               </div>
             )}
 
             {/* Bottom Input Area */}
-            <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center gap-2">
+            <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center gap-2 shrink-0">
               {/* Mic / Voice Button */}
               <button
                 type="button"
@@ -487,7 +484,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
 
         {/* Tab 2: Scheduled Messages Queue View */}
         {activeTab === "scheduled" && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <h4 className="text-white text-sm font-semibold flex items-center gap-2">
                 <Clock className="w-4 h-4 text-violet-400" />

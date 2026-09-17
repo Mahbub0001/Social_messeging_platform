@@ -39,7 +39,7 @@ export const BhuiyanAiButton: React.FC<BhuiyanAiButtonProps> = ({ onClick, isOpe
             className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 dark:bg-slate-800/90 backdrop-blur-md border border-violet-500/30 text-white text-xs font-semibold shadow-xl shadow-violet-950/40 pointer-events-none"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span>Bhuiyan AI Copilot</span>
+            <span>Bhuiyan AI</span>
           </motion.div>
         )}
       </AnimatePresence>
