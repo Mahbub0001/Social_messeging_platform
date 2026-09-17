@@ -172,21 +172,6 @@ class PushNotificationService {
         console.warn("Error creating messages notification channel:", err);
       });
 
-      // 1b. Create high-priority notification channel for Incoming Calls (ringtone & full-screen)
-      await PushNotifications.createChannel({
-        id: "calls",
-        name: "Incoming Calls",
-        description: "Incoming voice and video calls",
-        importance: 5, // IMPORTANCE_HIGH
-        visibility: 1, // VISIBILITY_PUBLIC
-        sound: "default",
-        vibration: true,
-        lights: true,
-        lightColor: "#10b981",
-      }).catch((err) => {
-        console.warn("Error creating calls notification channel:", err);
-      });
-
       // 2. Add listeners before requesting permissions or registering
       this.setupListeners();
 
@@ -626,10 +611,6 @@ class PushNotificationService {
             body: JSON.stringify({
               message: {
                 token: item.token,
-                notification: {
-                  title: callTitle,
-                  body: callBody,
-                },
                 data: {
                   type: "incoming_call",
                   callId: String(params.callId),
@@ -642,12 +623,7 @@ class PushNotificationService {
                 },
                 android: {
                   priority: "high",
-                  notification: {
-                    channel_id: "calls",
-                    sound: "default",
-                    click_action: "FCM_PLUGIN_ACTIVITY",
-                    icon: "ic_stat_notify",
-                  },
+                  ttl: "60s",
                 },
               },
             }),

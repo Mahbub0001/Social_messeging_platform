@@ -39,6 +39,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
+            <!-- Incoming call and answer call action filters -->
+            <intent-filter>
+                <action android:name="com.nibir.kothabarta.ACTION_INCOMING_CALL" />
+                <action android:name="com.nibir.kothabarta.ACTION_ANSWER_CALL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
         </activity>
 
         <!-- Remove default Capacitor PushNotifications MessagingService so KothaBartaMessagingService handles FCM cleanly -->

@@ -7,6 +7,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.app.KeyguardManager;
+import android.app.Notification;
 import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -28,7 +30,7 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
 
     public static final String CHANNEL_ID = "messages";
     public static final String CHANNEL_NAME = "Messages";
-    public static final String CALL_CHANNEL_ID = "calls";
+    public static final String CALL_CHANNEL_ID = "kothabarta_incoming_calls_v2";
     public static final String CALL_CHANNEL_NAME = "Incoming Calls";
     public static final String KEY_TEXT_REPLY = "key_direct_reply";
     public static final String ACTION_DIRECT_REPLY = "com.nibir.kothabarta.ACTION_DIRECT_REPLY";
@@ -271,23 +273,29 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
             if (callType == null || callType.isEmpty()) callType = "voice";
 
             // 1. Acquire WakeLock to wake the phone screen up from sleep mode
-            try {
-                PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-                if (powerManager != null) {
+            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (powerManager != null) {
+                try {
                     PowerManager.WakeLock wakeLock = powerManager.newWakeLock(
-                        PowerManager.FULL_WAKE_LOCK |
+                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK |
                         PowerManager.ACQUIRE_CAUSES_WAKEUP |
                         PowerManager.ON_AFTER_RELEASE,
-                        "kothabarta:call_wakelock"
+                        "kothabarta:call_screen_wake"
                     );
-                    wakeLock.acquire(15000); // Hold for 15s max to bring UI up
+                    wakeLock.acquire(20000); // Hold for 20s max to allow answering
+                } catch (Exception e) {
+                    Log.w(TAG, "Could not acquire WakeLock for incoming call: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                Log.w(TAG, "Could not acquire WakeLock for incoming call: " + e.getMessage());
             }
 
             // 2. Ensure high-importance VoIP call channel exists
+            Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Delete legacy/stale channel so sound is never stuck on default ping
+                try {
+                    notificationManager.deleteNotificationChannel("calls");
+                } catch (Exception ignored) {}
+
                 NotificationChannel callChannel = notificationManager.getNotificationChannel(CALL_CHANNEL_ID);
                 if (callChannel == null) {
                     callChannel = new NotificationChannel(
@@ -299,11 +307,10 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
                     callChannel.enableLights(true);
                     callChannel.setLightColor(Color.parseColor("#10B981"));
                     callChannel.enableVibration(true);
-                    callChannel.setVibrationPattern(new long[]{0, 1000, 500, 1000, 500, 1000});
+                    callChannel.setVibrationPattern(new long[]{0, 1000, 600, 1000, 600, 1000});
                     callChannel.setShowBadge(true);
                     callChannel.setLockscreenVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
-                    Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
                     AudioAttributes audioAttributes = new AudioAttributes.Builder()
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
@@ -338,6 +345,13 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
                 fullScreenIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | flagImmutable
             );
+
+            // Fallback attempt to wake activity directly if device is sleeping or locked
+            try {
+                if (powerManager != null && !powerManager.isInteractive()) {
+                    startActivity(fullScreenIntent);
+                }
+            } catch (Exception ignored) {}
 
             // 4. Answer Action Button Intent
             Intent answerIntent = new Intent(this, MainActivity.class);
@@ -395,8 +409,10 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setAutoCancel(true)
+                .setAutoCancel(false)
                 .setOngoing(true)
+                .setSound(ringtoneUri)
+                .setVibrate(new long[]{0, 1000, 600, 1000, 600, 1000})
                 .setColor(Color.parseColor("#10B981"))
                 .setFullScreenIntent(fullScreenPendingIntent, true)
                 .setContentIntent(fullScreenPendingIntent)
@@ -407,7 +423,11 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
                 callBuilder.setTimeoutAfter(45000); // Ring for max 45 seconds
             }
 
-            notificationManager.notify(callNotifId, callBuilder.build());
+            Notification notification = callBuilder.build();
+            // Loop ringtone & vibration continuously until user answers or declines
+            notification.flags |= Notification.FLAG_INSISTENT | Notification.FLAG_ONGOING_EVENT;
+
+            notificationManager.notify(callNotifId, notification);
             Log.d(TAG, "Incoming call notification successfully posted for callId: " + callId + ", notifId: " + callNotifId);
         } catch (Throwable t) {
             Log.e(TAG, "Error posting incoming call notification: " + t.getMessage(), t);
