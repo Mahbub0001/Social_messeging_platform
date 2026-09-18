@@ -378,41 +378,87 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Mobile bottom navigation bar */}
-      <div className="md:hidden flex items-center justify-around bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-2 px-4 pb-[max(0.5rem,calc(0.5rem+env(safe-area-inset-bottom,0px)))] shrink-0 transition-colors">
-        <button
+      <div className="md:hidden flex items-center justify-around bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 py-1.5 px-3 pb-[max(0.5rem,calc(0.5rem+env(safe-area-inset-bottom,0px)))] shrink-0 transition-colors z-20 shadow-lg">
+        <motion.button
+          whileTap={{ scale: 0.92 }}
           onClick={() => { setActiveView("chat"); setActiveConversationId(null); }}
           className={cn(
-            "flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-all",
-            activeView === "chat" ? "text-violet-600 dark:text-violet-400 font-bold" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+            "relative flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors",
+            activeView === "chat" && !showFriends && !showSettings
+              ? "text-violet-600 dark:text-violet-400 font-semibold"
+              : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
           )}
         >
+          {activeView === "chat" && !showFriends && !showSettings && (
+            <motion.div
+              layoutId="mobileNavActivePill"
+              className="absolute inset-0 bg-violet-500/10 dark:bg-violet-500/20 rounded-xl -z-10"
+              transition={{ type: "spring", stiffness: 450, damping: 35 }}
+            />
+          )}
           <MessageSquare className="w-5 h-5" />
           <span className="text-[10px] font-medium">{getTranslation(language, "messages")}</span>
-        </button>
-        <button
-          onClick={() => setActiveView("feed")}
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.92 }}
+          onClick={() => { setActiveView("feed"); setShowFriends(false); setShowSettings(false); }}
           className={cn(
-            "flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-all",
-            activeView === "feed" ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+            "relative flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors",
+            activeView === "feed" && !showFriends && !showSettings
+              ? "text-indigo-600 dark:text-indigo-400 font-semibold"
+              : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
           )}
         >
+          {activeView === "feed" && !showFriends && !showSettings && (
+            <motion.div
+              layoutId="mobileNavActivePill"
+              className="absolute inset-0 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-xl -z-10"
+              transition={{ type: "spring", stiffness: 450, damping: 35 }}
+            />
+          )}
           <Rss className="w-5 h-5" />
           <span className="text-[10px] font-medium">{getTranslation(language, "feed")}</span>
-        </button>
-        <button
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.92 }}
           onClick={handleToggleFriends}
-          className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-all"
+          className={cn(
+            "relative flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors",
+            showFriends
+              ? "text-violet-600 dark:text-violet-400 font-semibold"
+              : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+          )}
         >
+          {showFriends && (
+            <motion.div
+              layoutId="mobileNavActivePill"
+              className="absolute inset-0 bg-violet-500/10 dark:bg-violet-500/20 rounded-xl -z-10"
+              transition={{ type: "spring", stiffness: 450, damping: 35 }}
+            />
+          )}
           <Users className="w-5 h-5" />
           <span className="text-[10px] font-medium">{getTranslation(language, "friends")}</span>
-        </button>
-        <button
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.92 }}
           onClick={handleToggleSettings}
-          className="flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 transition-all"
+          className={cn(
+            "relative flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors",
+            showSettings
+              ? "text-violet-600 dark:text-violet-400 font-semibold"
+              : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
+          )}
         >
+          {showSettings && (
+            <motion.div
+              layoutId="mobileNavActivePill"
+              className="absolute inset-0 bg-violet-500/10 dark:bg-violet-500/20 rounded-xl -z-10"
+              transition={{ type: "spring", stiffness: 450, damping: 35 }}
+            />
+          )}
           <UserCircle className="w-5 h-5" />
           <span className="text-[10px] font-medium">{getTranslation(language, "profile")}</span>
-        </button>
+        </motion.button>
       </div>
 
       <AnimatePresence>

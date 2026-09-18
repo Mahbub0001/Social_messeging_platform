@@ -293,12 +293,12 @@ function ReactionSummaryPill({ reactions }: { reactions: Record<string, { userId
   const top3 = totals.slice(0, 3);
 
   return (
-    <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
       <div className="flex -space-x-1">
         {top3.map(({ type }) => (
           <span
             key={type}
-            className="w-5 h-5 rounded-full bg-white dark:bg-gray-800 shadow border border-gray-100 dark:border-gray-700 flex items-center justify-center text-[11px] leading-none"
+            className="w-5 h-5 rounded-full bg-white dark:bg-slate-800 shadow-2xs border border-slate-200 dark:border-slate-700 flex items-center justify-center text-[11px] leading-none"
           >
             {REACTIONS_CONFIG[type].emoji}
           </span>
@@ -348,7 +348,7 @@ function PostMenu({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
         aria-label="আরও বিকল্প"
       >
         <MoreHorizontal className="w-4 h-4" />
@@ -361,12 +361,12 @@ function PostMenu({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: -4 }}
             transition={{ duration: 0.12 }}
-            className="absolute right-0 top-full mt-1 z-50 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 py-1 overflow-hidden"
+            className="absolute right-0 top-full mt-1 z-50 w-52 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 py-1 overflow-hidden"
           >
             <button
               type="button"
               onClick={copyLink}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors text-left"
             >
               <Link2 className="w-4 h-4 flex-shrink-0" />
               লিংক কপি করুন

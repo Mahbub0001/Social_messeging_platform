@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
 import { Rss, RefreshCw } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { feedService } from "../../services/feedService";
@@ -31,24 +32,24 @@ type FeedFilter = "all" | "my";
 // ---------------------------------------------------------------------------
 function SkeletonCard() {
   return (
-    <div className="w-full bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700/60 shadow-sm p-4 animate-pulse">
+    <div className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 animate-pulse">
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+        <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex-shrink-0" />
         <div className="flex-1 space-y-2">
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-2/5" />
-          <div className="h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full w-1/4" />
+          <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full w-2/5" />
+          <div className="h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-full w-1/4" />
         </div>
       </div>
       <div className="mt-4 space-y-2">
-        <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full w-full" />
-        <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full w-5/6" />
-        <div className="h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full w-3/4" />
+        <div className="h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full w-full" />
+        <div className="h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full w-5/6" />
+        <div className="h-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-full w-3/4" />
       </div>
-      <div className="mt-4 h-36 bg-gray-100 dark:bg-gray-800 rounded-xl" />
+      <div className="mt-4 h-36 bg-slate-100 dark:bg-slate-800/60 rounded-xl" />
       <div className="mt-4 flex gap-3">
-        <div className="h-7 w-20 bg-gray-100 dark:bg-gray-800 rounded-full" />
-        <div className="h-7 w-20 bg-gray-100 dark:bg-gray-800 rounded-full" />
-        <div className="h-7 w-20 bg-gray-100 dark:bg-gray-800 rounded-full" />
+        <div className="h-7 w-20 bg-slate-100 dark:bg-slate-800/60 rounded-full" />
+        <div className="h-7 w-20 bg-slate-100 dark:bg-slate-800/60 rounded-full" />
+        <div className="h-7 w-20 bg-slate-100 dark:bg-slate-800/60 rounded-full" />
       </div>
     </div>
   );
@@ -179,7 +180,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
         </div>
 
         {/* ── Filter tabs ── */}
-        <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 px-4 pb-3 overflow-x-auto scrollbar-none">
           {filterTabs.map((tab) => {
             const active = filter === tab.key;
             return (
@@ -188,12 +189,19 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 type="button"
                 onClick={() => setFilter(tab.key)}
                 className={cn(
-                  "flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 whitespace-nowrap",
+                  "relative flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-colors duration-150 whitespace-nowrap z-10 select-none",
                   active
-                    ? "bg-indigo-600 text-white shadow-sm dark:bg-indigo-500/20 dark:text-indigo-400 dark:border dark:border-indigo-500/30"
-                    : "bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+                    ? "text-white"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-800"
                 )}
               >
+                {active && (
+                  <motion.div
+                    layoutId="feedFilterPill"
+                    className="absolute inset-0 bg-indigo-600 rounded-full shadow-xs -z-10"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
                 {tab.label}
               </button>
             );

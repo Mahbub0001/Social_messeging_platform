@@ -303,7 +303,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
       initial={{ opacity: 0, y: -16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", damping: 24, stiffness: 300 }}
-      className="w-full bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700/60 shadow-sm overflow-visible"
+      className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-visible"
     >
       <div className="p-4">
         {/* Top row: avatar + textarea */}
@@ -342,7 +342,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
               {imagePreviews.map((src, idx) => (
                 <div
                   key={idx}
-                  className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 flex-shrink-0"
+                  className="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 flex-shrink-0"
                   style={{ width: 80, height: 80 }}
                 >
                   <img
@@ -371,7 +371,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-3 relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700"
+              className="mt-3 relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700"
             >
               <video
                 src={videoPreview}
@@ -413,7 +413,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
         </AnimatePresence>
 
         {/* Divider */}
-        <div className="mt-3 border-t border-gray-100 dark:border-gray-800" />
+        <div className="mt-3 border-t border-slate-100 dark:border-slate-800" />
 
         {/* Bottom toolbar */}
         <div className="mt-3 flex items-center gap-2 flex-wrap">
@@ -434,7 +434,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
             className={cn(
               "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
               videoFile !== null
-                ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
                 : "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
             )}
             title="ছবি যোগ করুন"
@@ -459,7 +459,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
             className={cn(
               "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
               imageFiles.length > 0
-                ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
                 : "text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30"
             )}
             title="ভিডিও যোগ করুন"
@@ -488,9 +488,9 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.92, y: 4 }}
                   transition={{ type: "spring", damping: 22, stiffness: 380 }}
-                  className="absolute left-0 bottom-full mb-2 z-50 w-64 p-2 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700"
+                  className="absolute left-0 bottom-full mb-2 z-50 w-64 p-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700"
                 >
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 px-1 mb-1.5 font-medium">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 px-1 mb-1.5 font-medium">
                     ইমোজি বেছে নিন
                   </p>
                   <div className="grid grid-cols-8 gap-1">
@@ -502,7 +502,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
                           insertEmoji(emoji);
                           setShowEmojiPicker(false);
                         }}
-                        className="text-xl leading-none p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center justify-center"
+                        className="text-xl leading-none p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center"
                         title={emoji}
                       >
                         {emoji}
@@ -525,7 +525,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
                 ? "text-transparent select-none"
                 : charCount > 450
                 ? "text-red-500 dark:text-red-400 font-semibold"
-                : "text-gray-400 dark:text-gray-500"
+                : "text-slate-400 dark:text-slate-500"
             )}
           >
             {charCount}/{MAX_CHARS}
@@ -539,7 +539,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
             className={cn(
               "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-violet-500/50",
               isDisabled
-                ? "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 cursor-not-allowed"
+                ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed"
                 : "bg-violet-600 hover:bg-violet-700 active:scale-95 text-white shadow-sm"
             )}
           >

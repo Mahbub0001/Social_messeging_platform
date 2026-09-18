@@ -16,6 +16,7 @@ import {
   Shield,
   Settings,
   Rss,
+  X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../lib/utils";
@@ -233,28 +234,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* ── Row 2: Mode Switcher ── */}
       <div className="px-3 pb-2 pt-2">
-        <div className="flex bg-slate-200/80 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-300/80 dark:border-slate-700/50 transition-colors">
+        <div className="relative flex bg-slate-200/80 dark:bg-slate-800/70 p-1 rounded-xl border border-slate-300/80 dark:border-slate-700/60 transition-colors shadow-xs">
           <button
             onClick={() => onViewChange("chat")}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
+              "relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-colors z-10 select-none",
               activeView === "chat"
-                ? "bg-white text-violet-700 shadow-sm dark:bg-violet-600 dark:text-white"
+                ? "text-violet-700 dark:text-white"
                 : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
             )}
           >
-            <MessageSquare className="w-3.5 h-3.5" /> {getTranslation(language, "messages")}
+            {activeView === "chat" && (
+              <motion.div
+                layoutId="sidebarModePill"
+                className="absolute inset-0 bg-white dark:bg-violet-600 rounded-lg shadow-sm -z-10"
+                transition={{ type: "spring", stiffness: 450, damping: 35 }}
+              />
+            )}
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>{getTranslation(language, "messages")}</span>
           </button>
           <button
             onClick={() => onViewChange("feed")}
             className={cn(
-              "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
+              "relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-colors z-10 select-none",
               activeView === "feed"
-                ? "bg-white text-indigo-700 shadow-sm dark:bg-indigo-600 dark:text-white"
+                ? "text-indigo-700 dark:text-white"
                 : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
             )}
           >
-            <Rss className="w-3.5 h-3.5" /> {getTranslation(language, "feed")}
+            {activeView === "feed" && (
+              <motion.div
+                layoutId="sidebarModePill"
+                className="absolute inset-0 bg-white dark:bg-indigo-600 rounded-lg shadow-sm -z-10"
+                transition={{ type: "spring", stiffness: 450, damping: 35 }}
+              />
+            )}
+            <Rss className="w-3.5 h-3.5" />
+            <span>{getTranslation(language, "feed")}</span>
           </button>
         </div>
       </div>
@@ -264,20 +281,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <>
           {/* Search Bar */}
           <div className="p-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search chats..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-950/50 border border-slate-800 focus:outline-none focus:ring-1 focus:ring-violet-500/50 focus:border-violet-500 rounded-xl text-xs text-slate-200 placeholder-slate-500 transition-all"
+                className="w-full pl-9 pr-8 py-2 bg-slate-200/60 dark:bg-slate-950/60 border border-slate-300/80 dark:border-slate-800 focus:bg-white dark:focus:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-2xs"
               />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  title="Clear search"
+                  className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Stories Carousel */}
-          <div className="border-b border-slate-800/60 pb-2 mb-2">
+          <div className="border-b border-slate-200/80 dark:border-slate-800/60 pb-2 mb-2">
             <StoryCircles
               onStoryClick={onStoryClick}
               onUploadClick={onStoryUploadClick}
@@ -286,40 +312,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Category Tabs & Create Button */}
           <div className="flex items-center justify-between px-3 mb-2">
-            <div className="flex gap-1 bg-slate-950/60 p-0.5 border border-slate-800/50 rounded-xl">
-              <button
-                onClick={() => setFilter("all")}
-                className={cn(
-                  "px-3 py-1 text-2xs font-semibold rounded-lg transition-all",
-                  filter === "all" ? "bg-slate-800 text-slate-100" : "text-slate-400 hover:text-slate-200"
-                )}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilter("direct")}
-                className={cn(
-                  "px-3 py-1 text-2xs font-semibold rounded-lg transition-all",
-                  filter === "direct" ? "bg-slate-800 text-slate-100" : "text-slate-400 hover:text-slate-200"
-                )}
-              >
-                DMs
-              </button>
-              <button
-                onClick={() => setFilter("groups")}
-                className={cn(
-                  "px-3 py-1 text-2xs font-semibold rounded-lg transition-all",
-                  filter === "groups" ? "bg-slate-800 text-slate-100" : "text-slate-400 hover:text-slate-200"
-                )}
-              >
-                Groups
-              </button>
+            <div className="relative flex gap-0.5 bg-slate-200/80 dark:bg-slate-950/70 p-0.5 border border-slate-300/70 dark:border-slate-800/60 rounded-xl">
+              {(["all", "direct", "groups"] as const).map((tabKey) => {
+                const label = tabKey === "all" ? "All" : tabKey === "direct" ? "DMs" : "Groups";
+                const isTabActive = filter === tabKey;
+                return (
+                  <button
+                    key={tabKey}
+                    onClick={() => setFilter(tabKey)}
+                    className={cn(
+                      "relative px-3 py-1 text-2xs font-semibold rounded-lg transition-colors z-10 select-none",
+                      isTabActive
+                        ? "text-slate-900 dark:text-slate-100"
+                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                    )}
+                  >
+                    {isTabActive && (
+                      <motion.div
+                        layoutId="sidebarFilterTab"
+                        className="absolute inset-0 bg-white dark:bg-slate-800 rounded-lg shadow-2xs -z-10"
+                        transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                      />
+                    )}
+                    {label}
+                  </button>
+                );
+              })}
             </div>
 
             <button
               onClick={onCreateGroup}
               title="Create Group"
-              className="flex items-center gap-1 px-2.5 py-1 bg-violet-600/10 hover:bg-violet-600 border border-violet-500/20 text-violet-400 hover:text-white text-2xs font-semibold rounded-lg transition-all"
+              className="flex items-center gap-1 px-2.5 py-1 bg-violet-600/10 hover:bg-violet-600 border border-violet-500/20 text-violet-600 dark:text-violet-400 hover:text-white text-2xs font-semibold rounded-lg transition-all"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Group</span>
@@ -331,20 +355,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {conversationsLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 p-3 rounded-2xl animate-pulse">
-                  <div className="w-11 h-11 bg-slate-800 rounded-full shrink-0"></div>
+                  <div className="w-11 h-11 bg-slate-200 dark:bg-slate-800 rounded-full shrink-0"></div>
                   <div className="flex-1 min-w-0 space-y-2">
-                    <div className="h-3 w-1/3 bg-slate-800 rounded"></div>
-                    <div className="h-3.5 w-3/4 bg-slate-800 rounded"></div>
+                    <div className="h-3 w-1/3 bg-slate-200 dark:bg-slate-800 rounded"></div>
+                    <div className="h-3.5 w-3/4 bg-slate-200 dark:bg-slate-800 rounded"></div>
                   </div>
                 </div>
               ))
             ) : filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-slate-500 px-4">
-                <Compass className="w-10 h-10 text-slate-700 mb-2" />
+                <Compass className="w-10 h-10 text-slate-400 dark:text-slate-700 mb-2" />
                 <p className="text-xs">No conversations found.</p>
                 <button
                   onClick={onToggleFriends}
-                  className="mt-3 text-2xs font-bold text-violet-400 hover:underline hover:text-violet-300"
+                  className="mt-3 text-2xs font-bold text-violet-600 dark:text-violet-400 hover:underline hover:text-violet-500 dark:hover:text-violet-300"
                 >
                   Find Friends to Chat
                 </button>
@@ -399,49 +423,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }
 
                 return (
-                  <button
+                  <motion.button
                     key={conv.id}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setActiveConversationId(conv.id)}
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left",
                       isSelected
-                        ? "bg-violet-600/15 border border-violet-500/20 shadow-md shadow-violet-500/5"
-                        : "hover:bg-slate-800/50 border border-transparent"
+                        ? "bg-violet-500/10 dark:bg-violet-600/15 border border-violet-500/30 dark:border-violet-500/20 shadow-xs"
+                        : "hover:bg-slate-200/60 dark:hover:bg-slate-800/50 border border-transparent"
                     )}
                   >
                     <div className="relative shrink-0 select-none">
                       <img
                         src={sanitizeUrl(avatar)}
                         alt={title || "Chat avatar"}
-                        className="w-11 h-11 rounded-full object-cover bg-slate-800 border border-slate-700/60"
+                        className="w-11 h-11 rounded-full object-cover bg-slate-200 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60"
                       />
                       {isOnline && (
-                        <div className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-emerald-500 border-[2.5px] border-slate-900 rounded-full"></div>
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-100 dark:border-slate-900 rounded-full shadow-xs ring-1 ring-emerald-500/30" />
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h4 className="text-sm font-bold text-slate-100 truncate pr-2">
+                        <h4 className={cn(
+                          "text-sm font-semibold truncate pr-2 transition-colors",
+                          isSelected
+                            ? "text-violet-900 dark:text-violet-200"
+                            : "text-slate-800 dark:text-slate-100"
+                        )}>
                           {title}
                         </h4>
-                        <span className="text-2xs text-slate-500 shrink-0 font-sans">
+                        <span className="text-2xs text-slate-400 dark:text-slate-500 shrink-0 font-sans">
                           {timeStr}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         {isTyping ? (
-                          <span className="text-2xs font-semibold text-violet-400 animate-pulse">
+                          <span className="text-2xs font-semibold text-violet-500 dark:text-violet-400 animate-pulse">
                             typing...
                           </span>
                         ) : (
-                          <p className="text-xs text-slate-400 truncate pr-4">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate pr-4">
                             {previewText}
                           </p>
                         )}
                       </div>
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })
             )}
