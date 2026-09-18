@@ -1,19 +1,25 @@
 package com.nibir.kothabarta;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
+import android.util.Log;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
+import com.google.firebase.messaging.FirebaseMessaging;
 import java.util.ArrayList;
 import java.util.List;
 import org.json.JSONObject;
@@ -64,6 +70,9 @@ public class MainActivity extends BridgeActivity {
         // Pre-request permissions at launch so calls connect seamlessly
         requestRequiredPermissions();
 
+        // Fetch and sync FCM push device token natively
+        fetchAndSyncFcmToken();
+
         // Allow WebRTC audio/video to autoplay without user gesture
         if (getBridge() != null && getBridge().getWebView() != null) {
             android.webkit.WebSettings webSettings = getBridge().getWebView().getSettings();
@@ -78,6 +87,14 @@ public class MainActivity extends BridgeActivity {
     public void onStart() {
         super.onStart();
         isForeground = true;
+        fetchAndSyncFcmToken();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        isForeground = true;
+        fetchAndSyncFcmToken();
     }
 
     @Override
@@ -194,6 +211,34 @@ public class MainActivity extends BridgeActivity {
         });
     }
 
+    public void fetchAndSyncFcmToken() {
+        try {
+            FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null) {
+                    String token = task.getResult();
+                    Log.d("MainActivity", "Firebase FCM Token retrieved: " + token);
+                    getSharedPreferences("kb_native_prefs", Context.MODE_PRIVATE)
+                        .edit()
+                        .putString("fcm_token", token)
+                        .apply();
+
+                    runOnUiThread(() -> {
+                        try {
+                            if (getBridge() != null && getBridge().getWebView() != null) {
+                                String script = String.format("window.handleNativeFcmToken && window.handleNativeFcmToken('%s');", token);
+                                getBridge().getWebView().evaluateJavascript(script, null);
+                            }
+                        } catch (Exception ignored) {}
+                    });
+                } else {
+                    Log.w("MainActivity", "Failed to retrieve Firebase FCM token: ", task.getException());
+                }
+            });
+        } catch (Throwable t) {
+            Log.e("MainActivity", "Error in fetchAndSyncFcmToken: " + t.getMessage());
+        }
+    }
+
     private void requestRequiredPermissions() {
         List<String> permissions = new ArrayList<>();
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -201,6 +246,11 @@ public class MainActivity extends BridgeActivity {
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.RECORD_AUDIO);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
         }
         if (!permissions.isEmpty()) {
             ActivityCompat.requestPermissions(this, permissions.toArray(new String[0]), PERMISSION_REQUEST_CODE);
@@ -259,6 +309,78 @@ public class MainActivity extends BridgeActivity {
         public void clearUserAuth() {
             SharedPreferences prefs = getSharedPreferences("kb_native_prefs", Context.MODE_PRIVATE);
             prefs.edit().clear().apply();
+        }
+
+        @JavascriptInterface
+        public String getFcmToken() {
+            SharedPreferences prefs = getSharedPreferences("kb_native_prefs", Context.MODE_PRIVATE);
+            return prefs.getString("fcm_token", "");
+        }
+
+        @JavascriptInterface
+        public void refreshFcmToken() {
+            fetchAndSyncFcmToken();
+        }
+
+        @JavascriptInterface
+        public boolean isNotificationPermissionGranted() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                return ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            }
+            return true;
+        }
+
+        @JavascriptInterface
+        public void requestNotificationPermission() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_REQUEST_CODE);
+            }
+        }
+
+        @JavascriptInterface
+        public boolean canUseFullScreenIntent() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                return nm != null && nm.canUseFullScreenIntent();
+            }
+            return true;
+        }
+
+        @JavascriptInterface
+        public void openFullScreenIntentSettings() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        @JavascriptInterface
+        public boolean isIgnoringBatteryOptimizations() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                return pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
+            }
+            return true;
+        }
+
+        @SuppressLint("BatteryLife")
+        @JavascriptInterface
+        public void requestIgnoreBatteryOptimizations() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                } catch (Exception e) {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                        startActivity(intent);
+                    } catch (Exception ignored) {}
+                }
+            }
         }
     }
 }

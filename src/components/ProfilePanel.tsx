@@ -6,10 +6,11 @@ import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
 import { motion } from "framer-motion";
 import { sanitizeUrl } from "../utils/security";
-import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock, Globe, Music, Play, Square } from "lucide-react";
+import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock, Globe, Music, Play, Square, Bell, Zap } from "lucide-react";
 import { storageService } from "../services/storageService";
 import { getTranslation } from "../utils/translations";
 import { RINGTONE_OPTIONS, audioSynthesizer } from "../utils/audio";
+import { pushNotificationService } from "../services/pushNotificationService";
 
 interface ProfilePanelProps {
   onClose: () => void;
@@ -71,6 +72,53 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
       audioSynthesizer.previewRingtone(ringtoneId, () => {
         setPreviewingRingtoneId(null);
       });
+    }
+  };
+
+  const [hasFcmToken, setHasFcmToken] = useState<boolean>(() => {
+    return !!localStorage.getItem("kb_fcm_token");
+  });
+  const [isConfiguringBgCalls, setIsConfiguringBgCalls] = useState(false);
+  const [bgCallStatusMsg, setBgCallStatusMsg] = useState<string | null>(null);
+
+  const handleFixBackgroundCalls = async () => {
+    if (!user?.id) return;
+    setIsConfiguringBgCalls(true);
+    setBgCallStatusMsg(null);
+    try {
+      if (typeof (window as any).KBNativeBridge?.requestNotificationPermission === "function") {
+        (window as any).KBNativeBridge.requestNotificationPermission();
+      }
+      if (typeof (window as any).KBNativeBridge?.requestIgnoreBatteryOptimizations === "function") {
+        (window as any).KBNativeBridge.requestIgnoreBatteryOptimizations();
+      }
+      if (typeof (window as any).KBNativeBridge?.refreshFcmToken === "function") {
+        (window as any).KBNativeBridge.refreshFcmToken();
+      }
+
+      await pushNotificationService.init(user.id);
+
+      let token = localStorage.getItem("kb_fcm_token");
+      if (!token && typeof (window as any).KBNativeBridge?.getFcmToken === "function") {
+        token = (window as any).KBNativeBridge.getFcmToken();
+      }
+
+      if (token) {
+        localStorage.setItem("kb_fcm_token", token);
+        const saved = await pushNotificationService.saveTokenToDatabase(user.id, token);
+        if (saved) {
+          setHasFcmToken(true);
+          setBgCallStatusMsg(language === "bn" ? "✅ ব্যাকগ্রাউন্ড কল ও নোটিফিকেশন সফলভাবে সক্রিয় হয়েছে!" : "✅ Background calling & push notifications active!");
+        } else {
+          setBgCallStatusMsg(language === "bn" ? "⚠️ টোকেন পাওয়া গেছে, সার্ভারে সেভ হচ্ছে..." : "⚠️ Token retrieved, syncing to server...");
+        }
+      } else {
+        setBgCallStatusMsg(language === "bn" ? "✅ রিকোয়েস্ট সম্পন্ন হয়েছে! কিছুক্ষণ পর আবার চেক করুন।" : "✅ Request sent! Check back shortly.");
+      }
+    } catch (e: any) {
+      setBgCallStatusMsg(e?.message || "Error configuring background calls");
+    } finally {
+      setIsConfiguringBgCalls(false);
     }
   };
 
@@ -401,6 +449,54 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
                   );
                 })}
               </div>
+            </div>
+
+            {/* Background Calling & Push Setup Section */}
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-200 font-semibold">
+                  <Bell className="w-4 h-4 text-emerald-400" />
+                  <span>{language === "bn" ? "ব্যাকগ্রাউন্ড কল ও নোটিফিকেশন" : "Background Calls & Push"}</span>
+                </div>
+                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                  hasFcmToken ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                }`}>
+                  {hasFcmToken
+                    ? (language === "bn" ? "টোকেন সক্রিয়" : "Token Active")
+                    : (language === "bn" ? "সেটআপ প্রয়োজন" : "Setup Needed")}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-450 leading-relaxed">
+                {language === "bn"
+                  ? "অ্যাপ বন্ধ বা ফোন স্লিপ থাকা অবস্থায় কল ও মেসেজ পেতে ব্যাকগ্রাউন্ড পারমিশন নিশ্চিত করুন।"
+                  : "Ensure background permissions are granted to receive calls and messages when the app is closed."}
+              </p>
+
+              {bgCallStatusMsg && (
+                <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-700/60 text-[11px] text-slate-300">
+                  {bgCallStatusMsg}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleFixBackgroundCalls}
+                disabled={isConfiguringBgCalls}
+                className="w-full flex items-center justify-center gap-2 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow active:scale-95 transition-all disabled:opacity-50"
+              >
+                {isConfiguringBgCalls ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{language === "bn" ? "কনফিগার করা হচ্ছে..." : "Configuring..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-3.5 h-3.5 fill-current" />
+                    <span>{language === "bn" ? "ব্যাকগ্রাউন্ড কল সচল করুন (Fix & Enable)" : "Fix & Enable Background Calls"}</span>
+                  </>
+                )}
+              </button>
             </div>
 
             {/* Save Button */}

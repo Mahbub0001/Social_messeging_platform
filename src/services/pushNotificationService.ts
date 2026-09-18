@@ -91,6 +91,10 @@ class PushNotificationService {
   private currentToken: string | null = null;
   private onConversationClickCallback: ((conversationId: string) => void) | null = null;
 
+  public isReady(): boolean {
+    return this.isInitialized;
+  }
+
   public async init(
     userId: string,
     onConversationClick?: (conversationId: string) => void
@@ -134,12 +138,54 @@ class PushNotificationService {
       }
     };
 
+    // Global listener for native Android FCM token bridge
+    (window as any).handleNativeFcmToken = async (token: string) => {
+      console.log("[PushNotification] Received native FCM token via bridge:", token);
+      if (token) {
+        this.currentToken = token;
+        try {
+          localStorage.setItem("kb_fcm_token", token);
+        } catch (ignored) {}
+        if (this.currentUserId && !isMockMode && supabase) {
+          await this.saveTokenToDatabase(this.currentUserId, token);
+        }
+      }
+    };
+
     if (!Capacitor.isNativePlatform()) {
       return;
     }
 
-    // Sync session to native Android SharedPreferences
+    // 1. Sync session to native Android SharedPreferences
     this.syncAuthWithNative(userId);
+
+    // 2. Check if token already exists in localStorage and sync to database
+    try {
+      const cachedToken = localStorage.getItem("kb_fcm_token");
+      if (cachedToken && !isMockMode && supabase) {
+        this.currentToken = cachedToken;
+        await this.saveTokenToDatabase(userId, cachedToken);
+      }
+    } catch (ignored) {}
+
+    // 3. Check if token already exists in native Android bridge
+    try {
+      if (typeof (window as any).KBNativeBridge?.getFcmToken === "function") {
+        const nativeToken = (window as any).KBNativeBridge.getFcmToken();
+        if (nativeToken && !isMockMode && supabase) {
+          this.currentToken = nativeToken;
+          localStorage.setItem("kb_fcm_token", nativeToken);
+          await this.saveTokenToDatabase(userId, nativeToken);
+        }
+      }
+    } catch (ignored) {}
+
+    // 4. Trigger native token refresh
+    try {
+      if (typeof (window as any).KBNativeBridge?.refreshFcmToken === "function") {
+        (window as any).KBNativeBridge.refreshFcmToken();
+      }
+    } catch (ignored) {}
 
     // Check if there was a pending notification click on cold start
     if (typeof (window as any).KBNativeBridge?.getPendingConversationId === "function") {
@@ -149,15 +195,8 @@ class PushNotificationService {
       }
     }
 
-    if (this.isInitialized) {
-      if (this.currentToken && !isMockMode && supabase) {
-        await this.saveTokenToDatabase(userId, this.currentToken);
-      }
-      return;
-    }
-
     try {
-      // 1. Create high-priority notification channel for Android (WhatsApp/Messenger style)
+      // 5. Create high-priority notification channel for Android (WhatsApp/Messenger style)
       await PushNotifications.createChannel({
         id: "messages",
         name: "Messages",
@@ -172,21 +211,21 @@ class PushNotificationService {
         console.warn("Error creating messages notification channel:", err);
       });
 
-      // 2. Add listeners before requesting permissions or registering
+      // 6. Add Capacitor listeners
       this.setupListeners();
 
-      // 3. Request permissions
-      let permStatus = await PushNotifications.checkPermissions();
-      if (permStatus.receive !== "granted") {
-        permStatus = await PushNotifications.requestPermissions();
-      }
+      // 7. Request permissions in background (non-blocking)
+      PushNotifications.checkPermissions().then(async (permStatus) => {
+        if (permStatus.receive !== "granted") {
+          await PushNotifications.requestPermissions().catch(() => {});
+        }
+      }).catch(() => {});
 
-      if (permStatus.receive === "granted") {
-        await PushNotifications.register();
-        this.isInitialized = true;
-      } else {
-        console.warn("Push notification permission was not granted:", permStatus.receive);
-      }
+      // 8. ALWAYS register with FCM on native platform regardless of UI notification status
+      await PushNotifications.register().catch((err) => {
+        console.warn("[PushNotification] PushNotifications.register warning:", err);
+      });
+      this.isInitialized = true;
     } catch (err) {
       console.error("Error initializing push notifications:", err);
     }
@@ -212,7 +251,11 @@ class PushNotificationService {
 
     // Token successfully received from FCM
     PushNotifications.addListener("registration", async (token: Token) => {
+      console.log("[PushNotification] Token received from Capacitor registration listener:", token.value);
       this.currentToken = token.value;
+      try {
+        localStorage.setItem("kb_fcm_token", token.value);
+      } catch (ignored) {}
       if (this.currentUserId && !isMockMode && supabase) {
         await this.saveTokenToDatabase(this.currentUserId, token.value);
       }
@@ -238,7 +281,8 @@ class PushNotificationService {
     });
   }
 
-  private async saveTokenToDatabase(userId: string, token: string): Promise<void> {
+  public async saveTokenToDatabase(userId: string, token: string): Promise<boolean> {
+    if (!userId || !token || isMockMode || !supabase) return false;
     try {
       console.log("[PushNotification] Registering device token in Supabase for user:", userId);
       const { error } = await supabase.from("user_push_tokens").upsert(
@@ -258,11 +302,14 @@ class PushNotificationService {
 
       if (error) {
         console.warn("[PushNotification] Could not save push token to user_push_tokens:", error.message);
+        return false;
       } else {
-        console.log("[PushNotification] Push token successfully registered in database!");
+        console.log("[PushNotification] Push token successfully registered in database for user:", userId);
+        return true;
       }
     } catch (err) {
       console.warn("[PushNotification] Error saving push token to database:", err);
+      return false;
     }
   }
 

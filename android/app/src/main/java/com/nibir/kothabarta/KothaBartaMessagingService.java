@@ -44,6 +44,14 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
         Log.d(TAG, "New FCM Token received: " + token);
+
+        try {
+            getSharedPreferences("kb_native_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .putString("fcm_token", token)
+                .apply();
+        } catch (Exception ignored) {}
+
         try {
             Class<?> pluginClass = Class.forName("com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin");
             Method method = pluginClass.getMethod("onNewToken", String.class);
@@ -51,6 +59,18 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
         } catch (Exception e) {
             Log.w(TAG, "Could not forward token to Capacitor PushNotificationsPlugin: " + e.getMessage());
         }
+
+        try {
+            MainActivity mainActivity = MainActivity.getInstance();
+            if (mainActivity != null && mainActivity.getBridge() != null && mainActivity.getBridge().getWebView() != null) {
+                mainActivity.runOnUiThread(() -> {
+                    try {
+                        String script = String.format("window.handleNativeFcmToken && window.handleNativeFcmToken('%s');", token);
+                        mainActivity.getBridge().getWebView().evaluateJavascript(script, null);
+                    } catch (Exception ignored) {}
+                });
+            }
+        } catch (Exception ignored) {}
     }
 
     @Override
