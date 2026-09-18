@@ -135,34 +135,34 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. Main Interactive Activity & Growth Area Chart */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-xl backdrop-blur-xl relative overflow-hidden">
+      <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 shadow-xs hover:shadow-md transition-shadow backdrop-blur-xl relative overflow-hidden">
         {/* Ambient Glow */}
-        <div className="absolute top-0 right-1/4 w-72 h-72 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-1/4 w-72 h-72 bg-violet-500/10 dark:bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Card Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-violet-400" />
-              <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
+              <TrendingUp className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+              <h2 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white tracking-tight">
                 {t("chart.activityTitle")}
               </h2>
             </div>
-            <p className="text-xs text-slate-400">{t("chart.activitySubtitle")}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{t("chart.activitySubtitle")}</p>
           </div>
 
           {/* Time range selector pills */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/80 border border-slate-800 self-start sm:self-auto">
-            <Calendar className="w-3.5 h-3.5 text-slate-500 ml-2" />
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 self-start sm:self-auto">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 ml-2" />
             {([7, 14, 30] as const).map((r) => (
               <button
                 key={r}
                 type="button"
                 onClick={() => setTimeRange(r)}
-                className={`px-3 py-1 rounded-lg text-2xs font-semibold transition-all ${
+                className={`px-3 py-1 rounded-lg text-2xs font-semibold transition-all active:scale-95 ${
                   timeRange === r
-                    ? "bg-violet-600 text-white shadow-md shadow-violet-600/20"
-                    : "text-slate-400 hover:text-slate-200"
+                    ? "bg-violet-600 text-white shadow-sm shadow-violet-600/30"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                 }`}
               >
                 {r === 7 ? t("chart.days7") : r === 14 ? t("chart.days14") : t("chart.days30")}
@@ -180,14 +180,14 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
           >
             <defs>
               <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.45" />
-                <stop offset="60%" stopColor="#6366f1" stopOpacity="0.12" />
+                <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
+                <stop offset="60%" stopColor="#6366f1" stopOpacity="0.08" />
                 <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
               </linearGradient>
               <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#a78bfa" />
-                <stop offset="50%" stopColor="#818cf8" />
-                <stop offset="100%" stopColor="#38bdf8" />
+                <stop offset="0%" stopColor="#7c3aed" />
+                <stop offset="50%" stopColor="#6366f1" />
+                <stop offset="100%" stopColor="#0284c7" />
               </linearGradient>
             </defs>
 
@@ -201,9 +201,9 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
                   y1={y}
                   x2={chartWidth - padding}
                   y2={y}
-                  stroke="#334155"
+                  className="stroke-slate-200 dark:stroke-slate-800"
                   strokeDasharray="4 4"
-                  strokeOpacity="0.4"
+                  strokeOpacity="0.7"
                 />
               );
             })}
@@ -299,7 +299,7 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
                       x={x}
                       y={chartHeight - 3}
                       textAnchor="middle"
-                      className="fill-slate-500 text-[9px] font-mono select-none pointer-events-none"
+                      className="fill-slate-400 dark:fill-slate-500 text-[9px] font-mono select-none pointer-events-none"
                     >
                       {d.date}
                     </text>
@@ -316,21 +316,21 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
                 initial={{ opacity: 0, scale: 0.9, y: 5 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="absolute z-20 pointer-events-none px-3 py-2 rounded-xl bg-slate-950/95 border border-violet-500/40 shadow-2xl backdrop-blur-md text-2xs min-w-[130px]"
+                className="absolute z-20 pointer-events-none px-3 py-2 rounded-xl bg-white/95 dark:bg-slate-950/95 border border-slate-200 dark:border-violet-500/40 shadow-xl dark:shadow-2xl backdrop-blur-md text-2xs min-w-[130px]"
                 style={{
                   left: `${(hoveredPoint.x / chartWidth) * 100}%`,
                   top: `${Math.max(10, (hoveredPoint.y / chartHeight) * 100 - 35)}%`,
                   transform: "translate(-50%, -100%)",
                 }}
               >
-                <p className="font-bold text-slate-200 border-b border-slate-800 pb-1 mb-1">
+                <p className="font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-1 mb-1">
                   {hoveredPoint.date}
                 </p>
-                <div className="flex items-center justify-between gap-3 text-emerald-400">
+                <div className="flex items-center justify-between gap-3 text-emerald-600 dark:text-emerald-400">
                   <span>{t("chart.activeUsers")}:</span>
                   <span className="font-bold">{hoveredPoint.active.toLocaleString()}</span>
                 </div>
-                <div className="flex items-center justify-between gap-3 text-violet-300 mt-0.5">
+                <div className="flex items-center justify-between gap-3 text-violet-600 dark:text-violet-300 mt-0.5">
                   <span>{t("chart.newSignups")}:</span>
                   <span className="font-bold">+{hoveredPoint.signups.toLocaleString()}</span>
                 </div>
@@ -343,16 +343,16 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
       {/* 2. Side-by-Side Lower Visuals: Message Bar Chart & Donut Ratio */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Message Traffic Bar Chart (2 Cols) */}
-        <div className="lg:col-span-2 p-5 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-xl space-y-4">
+        <div className="lg:col-span-2 p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 shadow-xs hover:shadow-md transition-shadow space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>{t("chart.messagesTitle")}</span>
               </h3>
-              <p className="text-2xs text-slate-400 mt-0.5">{t("chart.messagesSubtitle")}</p>
+              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">{t("chart.messagesSubtitle")}</p>
             </div>
-            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-2xs font-bold">
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-2xs font-bold">
               {stats.totalMessages.toLocaleString()} {t("chart.totalMessages")}
             </span>
           </div>
@@ -374,7 +374,7 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
                   {/* Floating count on hover */}
                   <div
                     className={`text-[10px] font-bold transition-all ${
-                      isHovered ? "opacity-100 text-emerald-300 scale-110" : "opacity-0 text-slate-500"
+                      isHovered ? "opacity-100 text-emerald-600 dark:text-emerald-300 scale-110" : "opacity-0 text-slate-400 dark:text-slate-500"
                     }`}
                   >
                     {item.messages}
@@ -387,13 +387,13 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
                     transition={{ duration: 0.6, delay: idx * 0.04 }}
                     className={`w-full rounded-t-lg transition-all ${
                       isHovered
-                        ? "bg-gradient-to-t from-emerald-500 to-teal-300 shadow-lg shadow-emerald-500/30"
-                        : "bg-gradient-to-t from-slate-800 to-emerald-600/70 hover:from-emerald-700 hover:to-emerald-500"
+                        ? "bg-gradient-to-t from-emerald-500 to-teal-400 shadow-lg shadow-emerald-500/30"
+                        : "bg-gradient-to-t from-slate-200 to-emerald-500/80 dark:from-slate-800 dark:to-emerald-600/70 hover:from-emerald-600 hover:to-emerald-400"
                     }`}
                   />
 
                   {/* Day Date */}
-                  <span className="text-[9px] font-mono text-slate-500 truncate w-full text-center">
+                  <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500 truncate w-full text-center">
                     {item.date.split(" ")[1] || item.date}
                   </span>
                 </div>
@@ -403,13 +403,13 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
         </div>
 
         {/* User Status Donut Chart (1 Col) */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800/80 shadow-xl space-y-4 flex flex-col justify-between">
+        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 shadow-xs hover:shadow-md transition-shadow space-y-4 flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <PieChartIcon className="w-4 h-4 text-violet-400" />
+            <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <PieChartIcon className="w-4 h-4 text-violet-600 dark:text-violet-400" />
               <span>{t("chart.statusTitle")}</span>
             </h3>
-            <p className="text-2xs text-slate-400 mt-0.5">{t("chart.statusSubtitle")}</p>
+            <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">{t("chart.statusSubtitle")}</p>
           </div>
 
           {/* Donut graphic */}
@@ -443,33 +443,33 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
 
             {/* Center Label */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-              <span className="text-xl font-bold text-white tracking-tight">
+              <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
                 {stats.totalUsers.toLocaleString()}
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                 {t("overview.totalUsers").split(" ")[0]}
               </span>
             </div>
           </div>
 
           {/* Donut Legend */}
-          <div className="space-y-2 pt-2 border-t border-slate-800/80">
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
             {donutArcs.map((item, idx) => (
               <div
                 key={idx}
                 onMouseEnter={() => setActiveDonutIndex(idx)}
                 onMouseLeave={() => setActiveDonutIndex(null)}
                 className={`flex items-center justify-between p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                  activeDonutIndex === idx ? "bg-slate-800/80" : "hover:bg-slate-800/40"
+                  activeDonutIndex === idx ? "bg-slate-100 dark:bg-slate-800/80" : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${item.bg}`} />
-                  <span className="text-slate-300">{item.label}</span>
+                  <span className="text-slate-700 dark:text-slate-300">{item.label}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-white">{item.count.toLocaleString()}</span>
-                  <span className="text-3xs font-mono text-slate-500">({item.percent}%)</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{item.count.toLocaleString()}</span>
+                  <span className="text-3xs font-mono text-slate-400 dark:text-slate-500">({item.percent}%)</span>
                 </div>
               </div>
             ))}
