@@ -40,6 +40,9 @@ class ChatServiceClass {
   private activeTypingChannels: Map<string, any> = new Map();
   private reactionIdMap: Map<string, { messageId: string; userId: string; emoji: string }> = new Map();
 
+  // Global background subscription — listens to ALL of the user's conversations at once
+  private globalMessageChannel: any = null;
+
   constructor() {
     if (typeof window !== "undefined") {
       this.initGlobalListeners();
@@ -979,6 +982,72 @@ class ChatServiceClass {
         supabase.removeChannel(channel);
         supabase.removeChannel(reactionsChannel);
       };
+    }
+  }
+
+  // ----------------------------------------------------
+  // GLOBAL BACKGROUND SUBSCRIPTION (all conversations)
+  // ----------------------------------------------------
+  /**
+   * Subscribe to message INSERTs across ALL of the user's conversations.
+   * Call this once at login. Re-call when the conversation list changes
+   * (e.g. a new conversation is created) to pick up new conversation IDs.
+   *
+   * @param conversationIds - all conversation IDs the user belongs to
+   * @param callback - receives (conversationId, message)
+   */
+  public subscribeToGlobalMessages(
+    conversationIds: string[],
+    callback: (conversationId: string, message: MessageWithSender) => void
+  ) {
+    if (isMockMode || !conversationIds.length) return;
+
+    // Tear down any previous channel first
+    this.unsubscribeFromGlobalMessages();
+
+    // Supabase Realtime postgres_changes filter supports IN via a comma-separated list
+    // Format: "conversation_id=in.(id1,id2,...)"
+    const filterValue = `conversation_id=in.(${conversationIds.join(",")})`;
+
+    this.globalMessageChannel = supabase
+      .channel("global-messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: filterValue,
+        },
+        async (payload: any) => {
+          const raw = payload.new;
+          if (!raw?.id) return;
+
+          // Enrich with sender profile
+          const { data: sender } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", raw.sender_id)
+            .single();
+
+          const enriched: MessageWithSender = {
+            ...raw,
+            sender: sender || undefined,
+            reactions: {},
+            reply_to: null,
+          };
+
+          callback(raw.conversation_id, enriched);
+        }
+      )
+      .subscribe();
+  }
+
+  /** Remove and clean up the global background subscription. */
+  public unsubscribeFromGlobalMessages() {
+    if (this.globalMessageChannel) {
+      supabase.removeChannel(this.globalMessageChannel);
+      this.globalMessageChannel = null;
     }
   }
 

@@ -216,6 +216,9 @@ export const useStore = create<AppState>((set, get) => ({
         set({ conversations: [], activeConversationId: null, messages: {}, stories: [], currentProfile: null });
         get().cleanupStories();
 
+        // Clean up global background message subscription
+        chatService.unsubscribeFromGlobalMessages();
+
         // Clean up WebRTC signaling channels
         const { isMockMode } = await import("../lib/supabase");
         if (!isMockMode) {
@@ -241,6 +244,14 @@ export const useStore = create<AppState>((set, get) => ({
     const { data, error } = await chatService.getConversations(userId);
     if (!error && data) {
       set({ conversations: data, conversationsLoading: false });
+
+      // Re-subscribe global background channel so any new conversations are included
+      const conversationIds = data.map((c) => c.id);
+      chatService.subscribeToGlobalMessages(conversationIds, (convId, message) => {
+        // The per-conversation ChatArea subscription handles the active chat.
+        // For background conversations, addMessage handles dedup, unread count, and re-sort.
+        useStore.getState().addMessage(convId, message);
+      });
     } else {
       set({ conversationsLoading: false });
     }
