@@ -22,6 +22,7 @@ interface AppState {
   conversationsLoading: boolean;
   fetchConversations: () => Promise<void>;
   setActiveConversationId: (id: string | null) => void;
+  markConversationAsRead: (conversationId: string) => void;
   addConversation: (conv: ConversationWithDetails) => void;
   updateConversationLastMessage: (convId: string, lastMessage: any) => void;
 
@@ -209,7 +210,34 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  setActiveConversationId: (id) => set({ activeConversationId: id }),
+  setActiveConversationId: (id) => {
+    set({ activeConversationId: id });
+    if (id) {
+      get().markConversationAsRead(id);
+    }
+  },
+
+  markConversationAsRead: (conversationId) => {
+    const state = get();
+    const userId = state.user?.id;
+    if (!userId) return;
+
+    // Reset unread_count in conversation list immediately
+    set((curr) => ({
+      conversations: curr.conversations.map((c) =>
+        c.id === conversationId ? { ...c, unread_count: 0 } : c
+      ),
+    }));
+
+    const conv = state.conversations.find((c) => c.id === conversationId);
+    const lastMsg = conv?.last_message;
+    chatService.markConversationAsRead(
+      conversationId,
+      userId,
+      lastMsg?.id,
+      lastMsg?.created_at
+    );
+  },
 
   addConversation: (conv) => {
     const list = get().conversations;
@@ -259,21 +287,25 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addMessage: (conversationId, message) => {
-    set((state) => {
-      const chatMessages = state.messages[conversationId] || [];
+    const state = get();
+    const isSelf = message.sender_id === state.user?.id;
+    const isCurrentChat = conversationId === state.activeConversationId;
+
+    set((curr) => {
+      const chatMessages = curr.messages[conversationId] || [];
       // Prevent duplicates
       if (chatMessages.some((m) => m.id === message.id)) {
-        return state;
+        return curr;
       }
 
       // Play sound ping if message from someone else
-      if (message.sender_id !== state.user?.id) {
+      if (!isSelf) {
         audioSynthesizer.playMessageNotification();
       }
 
       return {
         messages: {
-          ...state.messages,
+          ...curr.messages,
           [conversationId]: [...chatMessages, message],
         },
       };
@@ -281,6 +313,26 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Update last message in conversation list
     get().updateConversationLastMessage(conversationId, message);
+
+    // Read tracking & unread count badge update
+    if (!isSelf) {
+      if (isCurrentChat && state.user?.id) {
+        chatService.markConversationAsRead(
+          conversationId,
+          state.user.id,
+          message.id,
+          message.created_at
+        );
+      } else {
+        set((curr) => ({
+          conversations: curr.conversations.map((c) =>
+            c.id === conversationId
+              ? { ...c, unread_count: (c.unread_count || 0) + 1 }
+              : c
+          ),
+        }));
+      }
+    }
   },
 
   updateMessageInStore: (conversationId, message) => {

@@ -422,6 +422,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                 }
 
+                const unreadCount = conv.unread_count || 0;
+                const hasUnread = unreadCount > 0;
+
                 return (
                   <motion.button
                     key={conv.id}
@@ -431,14 +434,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       "w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left",
                       isSelected
                         ? "bg-violet-500/10 dark:bg-violet-600/15 border border-violet-500/30 dark:border-violet-500/20 shadow-xs"
-                        : "hover:bg-slate-200/60 dark:hover:bg-slate-800/50 border border-transparent"
+                        : "hover:bg-slate-200/60 dark:hover:bg-slate-800/50 border border-transparent",
+                      hasUnread && !isSelected && "bg-violet-500/[0.04] dark:bg-violet-500/[0.06]"
                     )}
                   >
                     <div className="relative shrink-0 select-none">
                       <img
                         src={sanitizeUrl(avatar)}
                         alt={title || "Chat avatar"}
-                        className="w-11 h-11 rounded-full object-cover bg-slate-200 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60"
+                        className={cn(
+                          "w-11 h-11 rounded-full object-cover bg-slate-200 dark:bg-slate-800 border transition-all",
+                          hasUnread
+                            ? "border-violet-400/60 dark:border-violet-500/60 ring-2 ring-violet-500/20"
+                            : "border-slate-200 dark:border-slate-700/60"
+                        )}
                       />
                       {isOnline && (
                         <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-100 dark:border-slate-900 rounded-full shadow-xs ring-1 ring-emerald-500/30" />
@@ -448,26 +457,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <h4 className={cn(
-                          "text-sm font-semibold truncate pr-2 transition-colors",
-                          isSelected
-                            ? "text-violet-900 dark:text-violet-200"
-                            : "text-slate-800 dark:text-slate-100"
+                          "text-sm truncate pr-2 transition-colors",
+                          hasUnread
+                            ? "font-bold text-slate-950 dark:text-white"
+                            : "font-semibold text-slate-800 dark:text-slate-100",
+                          isSelected && "text-violet-900 dark:text-violet-200"
                         )}>
                           {title}
                         </h4>
-                        <span className="text-2xs text-slate-400 dark:text-slate-500 shrink-0 font-sans">
+                        <span className={cn(
+                          "text-2xs shrink-0 font-sans transition-colors",
+                          hasUnread
+                            ? "text-violet-600 dark:text-violet-400 font-bold"
+                            : "text-slate-400 dark:text-slate-500 font-normal"
+                        )}>
                           {timeStr}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-1">
                         {isTyping ? (
                           <span className="text-2xs font-semibold text-violet-500 dark:text-violet-400 animate-pulse">
                             typing...
                           </span>
                         ) : (
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate pr-4">
+                          <p className={cn(
+                            "text-xs truncate transition-colors",
+                            hasUnread
+                              ? "font-semibold text-slate-900 dark:text-slate-100"
+                              : "text-slate-500 dark:text-slate-400"
+                          )}>
                             {previewText}
                           </p>
+                        )}
+
+                        {hasUnread && (
+                          <motion.span
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="inline-flex items-center justify-center px-1.5 py-0.5 min-w-[1.25rem] h-5 rounded-full text-3xs font-bold bg-violet-600 text-white shadow-xs shrink-0 ml-1"
+                          >
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </motion.span>
                         )}
                       </div>
                     </div>

@@ -33,6 +33,7 @@ type PresenceCallback = (onlineUserIds: string[]) => void;
 class ChatServiceClass {
   private typingListeners: Map<string, Set<TypingCallback>> = new Map();
   private presenceListeners: Set<PresenceCallback> = new Set();
+  private seenListeners: Map<string, Set<(payload: any) => void>> = new Map();
   
   // Keep track of active channels for cleanup
   private activeMessageSubscriptions: Map<string, any> = new Map();
@@ -46,6 +47,15 @@ class ChatServiceClass {
   }
 
   private initGlobalListeners() {
+    // Listen to local/cross-tab seen events in all modes
+    window.addEventListener("kb_message_seen", (e: any) => {
+      const { conversationId, readerId, seenAt, lastMessageId } = e.detail || {};
+      const listeners = this.seenListeners.get(conversationId);
+      if (listeners) {
+        listeners.forEach((cb) => cb({ conversationId, readerId, seenAt, lastMessageId }));
+      }
+    });
+
     if (isMockMode) {
       // Listen to cross-tab/local events for messages
       window.addEventListener("kb_message_event", (e: any) => {
@@ -115,11 +125,18 @@ class ChatServiceClass {
           
           const last_message = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1] : null;
 
+          const lastReadAt = this.getLastReadTimestamp(conv.id, userId);
+          const unread_count = chatMessages.filter((msg) => {
+            if (msg.sender_id === userId) return false;
+            if (!lastReadAt) return true;
+            return new Date(msg.created_at).getTime() > new Date(lastReadAt).getTime();
+          }).length;
+
           return {
             ...conv,
             members,
             last_message,
-            unread_count: 0, // Mocked for now
+            unread_count,
           } as ConversationWithDetails;
         })
         .filter(Boolean) as ConversationWithDetails[];
@@ -179,6 +196,13 @@ class ChatServiceClass {
         );
         const last_message = sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null;
 
+        const lastReadAt = this.getLastReadTimestamp(conv.id, userId);
+        const unread_count = sortedMsgs.filter((m: any) => {
+          if (m.sender_id === userId) return false;
+          if (!lastReadAt) return true;
+          return new Date(m.created_at).getTime() > new Date(lastReadAt).getTime();
+        }).length;
+
         return {
           id: conv.id,
           name: conv.name,
@@ -188,7 +212,7 @@ class ChatServiceClass {
           updated_at: conv.updated_at,
           members,
           last_message,
-          unread_count: 0,
+          unread_count,
         };
       });
 
@@ -1107,11 +1131,134 @@ class ChatServiceClass {
   }
 
   // ----------------------------------------------------
+  // READ RECEIPTS & SEEN TRACKING
+  // ----------------------------------------------------
+  public getLastReadTimestamp(conversationId: string, userId: string): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = localStorage.getItem(`kb_read_timestamps_${userId}`);
+      if (!stored) return null;
+      const parsed = JSON.parse(stored);
+      return parsed[conversationId] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  public getPartnerLastSeen(conversationId: string, partnerId?: string): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+      if (partnerId) {
+        const specific = localStorage.getItem(`kb_partner_seen_${conversationId}_${partnerId}`);
+        if (specific) return specific;
+      }
+      const generic = localStorage.getItem(`kb_conversation_seen_${conversationId}`);
+      if (generic) {
+        const parsed = JSON.parse(generic);
+        if (!partnerId || parsed.readerId === partnerId) {
+          return parsed.seenAt;
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  public async markConversationAsRead(
+    conversationId: string,
+    userId: string,
+    lastMessageId?: string,
+    lastMessageCreatedAt?: string
+  ): Promise<{ error: any }> {
+    if (typeof window === "undefined") return { error: null };
+    const nowIso = lastMessageCreatedAt || new Date().toISOString();
+
+    try {
+      // 1. Save user's own read timestamp
+      const key = `kb_read_timestamps_${userId}`;
+      const stored = JSON.parse(localStorage.getItem(key) || "{}");
+      stored[conversationId] = nowIso;
+      localStorage.setItem(key, JSON.stringify(stored));
+
+      // 2. Save conversation seen receipt (for partner to read)
+      const receipt = { readerId: userId, seenAt: nowIso, lastMessageId };
+      localStorage.setItem(`kb_conversation_seen_${conversationId}`, JSON.stringify(receipt));
+      if (userId) {
+        localStorage.setItem(`kb_partner_seen_${conversationId}_${userId}`, nowIso);
+      }
+
+      // 3. Dispatch local event for instant UI reaction across components/tabs
+      window.dispatchEvent(
+        new CustomEvent("kb_message_seen", {
+          detail: { conversationId, readerId: userId, seenAt: nowIso, lastMessageId },
+        })
+      );
+
+      // 4. In Supabase mode, broadcast via Realtime channel
+      if (!isMockMode) {
+        const channel = supabase.channel(`conversation-seen:${conversationId}`);
+        channel.subscribe((status: string) => {
+          if (status === "SUBSCRIBED") {
+            channel.send({
+              type: "broadcast",
+              event: "message_seen",
+              payload: { conversationId, readerId: userId, seenAt: nowIso, lastMessageId },
+            });
+          }
+        });
+      }
+
+      return { error: null };
+    } catch (err: any) {
+      return { error: err };
+    }
+  }
+
+  public subscribeToConversationSeen(
+    conversationId: string,
+    callback: (payload: { conversationId: string; readerId: string; seenAt: string; lastMessageId?: string }) => void
+  ) {
+    if (!this.seenListeners.has(conversationId)) {
+      this.seenListeners.set(conversationId, new Set());
+    }
+    this.seenListeners.get(conversationId)!.add(callback);
+
+    let supabaseChannel: any = null;
+    if (!isMockMode) {
+      supabaseChannel = supabase.channel(`conversation-seen:${conversationId}`);
+      supabaseChannel
+        .on("broadcast", { event: "message_seen" }, (payload: any) => {
+          callback(payload.payload);
+        })
+        .subscribe();
+    }
+
+    return () => {
+      const listeners = this.seenListeners.get(conversationId);
+      if (listeners) {
+        listeners.delete(callback);
+        if (listeners.size === 0) {
+          this.seenListeners.delete(conversationId);
+        }
+      }
+      if (supabaseChannel) {
+        supabase.removeChannel(supabaseChannel);
+      }
+    };
+  }
+
+  // ----------------------------------------------------
   // CHATBOT SIMULATIONS (MOCK MODE ONLY)
   // ----------------------------------------------------
   private simulateBotReply(userMsg: string, replyToId: string | null) {
     const delayTyping = 1000;
     const delayReply = 2500;
+
+    // 0. Bot marks message as seen
+    setTimeout(() => {
+      this.markConversationAsRead("conv-bot", "bot-id");
+    }, 400);
 
     // 1. Show bot typing
     setTimeout(() => {
@@ -1140,6 +1287,11 @@ class ChatServiceClass {
   }
 
   private simulateSajeebReply(_userMsg: string) {
+    // 0. Sajeeb marks message as seen
+    setTimeout(() => {
+      this.markConversationAsRead("conv-sajeeb", "sajeeb-id");
+    }, 500);
+
     setTimeout(() => {
       this.sendTypingIndicator("conv-sajeeb", "sajeeb-id", true);
     }, 1200);

@@ -13,6 +13,7 @@ import {
   CornerUpLeft,
   X,
   Download,
+  Check,
   CheckCheck,
   Loader2,
   FileText,
@@ -117,6 +118,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
   const [uploading, setUploading] = useState(false);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
 
+  // Seen and Read Tracking states
+  const [partnerLastSeenAt, setPartnerLastSeenAt] = useState<string | null>(null);
+  const [initialLastReadAt, setInitialLastReadAt] = useState<string | null>(null);
+
   // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
@@ -127,14 +132,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 1. Subscribe to messages inside the active conversation
+  // 1. Subscribe to messages & seen receipts inside the active conversation
   useEffect(() => {
     if (!activeConversationId) return;
+
+    // Capture previous read timestamp to show the "New Messages / নতুন বার্তা" divider line
+    if (user?.id) {
+      const prevReadAt = chatService.getLastReadTimestamp(activeConversationId, user.id);
+      setInitialLastReadAt(prevReadAt);
+      useStore.getState().markConversationAsRead(activeConversationId);
+    }
 
     // Fetch initial history
     fetchMessages(activeConversationId);
 
-    // Listen to real-time events
+    // Fetch partner's initial last seen timestamp
+    const otherMember = activeChat?.members?.find((m) => m.id !== user?.id);
+    const initialSeen = chatService.getPartnerLastSeen(activeConversationId, otherMember?.id);
+    setPartnerLastSeenAt(initialSeen);
+
+    // Listen to real-time message events
     const unsubscribe = chatService.subscribeToMessages(
       activeConversationId,
       (payload) => {
@@ -142,6 +159,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
           addMessage(activeConversationId, payload.new as MessageWithSender);
         } else if (payload.type === "UPDATE") {
           updateMessageInStore(activeConversationId, payload.new as MessageWithSender);
+        }
+      }
+    );
+
+    // Listen to partner seen receipts
+    const unsubscribeSeen = chatService.subscribeToConversationSeen(
+      activeConversationId,
+      (payload) => {
+        if (payload.readerId !== user?.id) {
+          setPartnerLastSeenAt(payload.seenAt);
         }
       }
     );
@@ -156,13 +183,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
 
     return () => {
       unsubscribe();
+      unsubscribeSeen();
       unsubscribeTyping();
     };
   }, [activeConversationId]);
 
-  // 2. Auto-scroll on new messages
+  // Keep partnerLastSeen in sync when activeChat or its members load
+  useEffect(() => {
+    if (!activeConversationId) return;
+    const partner = activeChat?.members?.find((m) => m.id !== user?.id);
+    if (partner) {
+      const seen = chatService.getPartnerLastSeen(activeConversationId, partner.id);
+      if (seen) {
+        setPartnerLastSeenAt(seen);
+      }
+    }
+  }, [activeChat?.id, activeChat?.members]);
+
+  // 2. Auto-scroll on new messages & mark incoming active chat messages as read
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (activeConversationId && user?.id) {
+      chatService.markConversationAsRead(activeConversationId, user.id);
+    }
   }, [messages[activeConversationId || ""]?.length]);
 
   // 3. Typing broadcast tracking
@@ -438,6 +481,65 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
     return msg.content.toLowerCase().includes(messageSearchQuery.toLowerCase());
   });
 
+  // Identify first unread message from partner for "New Messages" banner
+  const firstUnreadMessageId = React.useMemo(() => {
+    if (!initialLastReadAt) return null;
+    const prevTime = new Date(initialLastReadAt).getTime();
+    const first = filteredMessages.find(
+      (m) =>
+        m.sender_id !== user?.id &&
+        new Date(m.created_at).getTime() > prevTime
+    );
+    return first?.id || null;
+  }, [filteredMessages, initialLastReadAt, user?.id]);
+
+  // Identify last sent message seen by partner for Messenger-style seen avatar
+  const lastSeenSentMessageId = React.useMemo(() => {
+    if (!partnerLastSeenAt) return null;
+    const partnerSeenTime = new Date(partnerLastSeenAt).getTime();
+    for (let i = filteredMessages.length - 1; i >= 0; i--) {
+      const m = filteredMessages[i];
+      if (m.sender_id === user?.id) {
+        const msgTime = new Date(m.created_at).getTime();
+        if (msgTime <= partnerSeenTime + 1000) {
+          return m.id;
+        }
+      }
+    }
+    return null;
+  }, [filteredMessages, partnerLastSeenAt, user?.id]);
+
+  // Render WhatsApp-style tick receipts: Sent (single check), Delivered (double grey), Seen (double sky blue)
+  const renderMessageTicks = (createdAt: string) => {
+    const msgTime = new Date(createdAt).getTime();
+    const isPartnerOnline = !activeChat.is_group && otherMember && onlineUsers.includes(otherMember.id);
+    const isSeen = partnerLastSeenAt
+      ? msgTime <= new Date(partnerLastSeenAt).getTime() + 1000
+      : false;
+
+    if (isSeen) {
+      return (
+        <span title="Seen" className="inline-flex items-center text-sky-400">
+          <CheckCheck className="w-3.5 h-3.5 drop-shadow-[0_0_2px_rgba(56,189,248,0.6)]" />
+        </span>
+      );
+    }
+
+    if (isPartnerOnline || activeChat.is_group) {
+      return (
+        <span title="Delivered" className="inline-flex items-center text-white/70">
+          <CheckCheck className="w-3.5 h-3.5" />
+        </span>
+      );
+    }
+
+    return (
+      <span title="Sent" className="inline-flex items-center text-white/50">
+        <Check className="w-3 h-3" />
+      </span>
+    );
+  };
+
   // Typing status details
   const typingList = typingUsers[activeChat.id] || [];
   const otherTypingList = typingList.filter((uid) => uid !== user?.id);
@@ -624,6 +726,17 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                     <span className="px-3.5 py-1 bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 rounded-full text-[11px] font-medium shadow-2xs backdrop-blur-sm font-sans">
                       {formatMessageDateDivider(msg.created_at)}
                     </span>
+                  </div>
+                )}
+
+                {/* "New Messages / নতুন বার্তা" divider line */}
+                {msg.id === firstUnreadMessageId && (
+                  <div className="flex items-center justify-center my-3.5 select-none">
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
+                    <span className="mx-3 px-3 py-0.5 bg-violet-500/10 dark:bg-violet-500/20 border border-violet-500/30 text-violet-600 dark:text-violet-400 rounded-full text-[10px] font-bold tracking-wide shadow-2xs font-sans">
+                      নতুন বার্তা / New Messages
+                    </span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent" />
                   </div>
                 )}
                 <motion.div
@@ -857,9 +970,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                           )}
                         >
                           <span>{formatMessageTimestamp(msg.created_at)}</span>
-                          {isSelf && (
-                            <CheckCheck className="w-3.5 h-3.5 text-violet-200" />
-                          )}
+                          {isSelf && renderMessageTicks(msg.created_at)}
                         </div>
                       </div>
                     ) : (
@@ -904,7 +1015,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                                 rel="noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 className={cn(
-                                  "flex items-center gap-2 p-2 rounded-lg border text-2xs hover:underline",
+                                   "flex items-center gap-2 p-2 rounded-lg border text-2xs hover:underline",
                                   isSelf
                                     ? "bg-violet-700/60 border-violet-500/40 text-white"
                                     : "bg-slate-100 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200"
@@ -932,9 +1043,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                         >
                           {msg.is_edited && !isDeleted && <span className="italic text-[8px]">edited</span>}
                           <span>{formatMessageTimestamp(msg.created_at)}</span>
-                          {isSelf && (
-                            <CheckCheck className="w-3.5 h-3.5 text-violet-200" />
-                          )}
+                          {isSelf && renderMessageTicks(msg.created_at)}
                         </div>
                       </div>
                     )}
@@ -960,6 +1069,22 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                           </button>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Messenger-style Seen Avatar Receipt */}
+                  {msg.id === lastSeenSentMessageId && otherMember && !activeChat.is_group && (
+                    <div className="flex items-center justify-end gap-1.5 mt-1 pr-1 select-none animate-in fade-in duration-300">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-sans font-medium">Seen</span>
+                      <img
+                        src={sanitizeUrl(
+                          otherMember.avatar_url ||
+                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(otherMember.username)}`
+                        )}
+                        alt={otherMember.username}
+                        title={`Seen by ${otherMember.username}`}
+                        className="w-3.5 h-3.5 rounded-full object-cover border border-white dark:border-slate-800 shadow-2xs ring-1 ring-violet-500/30"
+                      />
                     </div>
                   )}
                 </motion.div>

@@ -299,7 +299,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.8 }}
               transition={{ type: "spring", damping: 20, stiffness: 350 }}
-              className="flex items-center gap-1 sm:gap-1.5 p-1.5 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-full shadow-xl border border-gray-200/90 dark:border-gray-700/80 select-none"
+              className="flex items-center gap-1 sm:gap-1.5 p-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-full shadow-xl border border-slate-200/90 dark:border-slate-800/80 select-none"
             >
               {ORDERED_REACTIONS.map((type) => {
                 const item = REACTIONS_CONFIG[type];
@@ -333,28 +333,13 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
                       "relative p-1.5 sm:p-2 rounded-full transition-colors flex items-center justify-center focus:outline-none",
                       isSelected
                         ? item.bg
-                        : "hover:bg-gray-100 dark:hover:bg-gray-800/70"
+                        : "hover:bg-slate-100 dark:hover:bg-slate-800/70"
                     )}
                     aria-label={item.label}
                   >
                     <span className="text-2xl leading-none select-none block filter drop-shadow-sm">
                       {item.emoji}
                     </span>
-
-                    {/* Bengali Tooltip */}
-                    <AnimatePresence>
-                      {isHovered && (
-                        <motion.span
-                          initial={{ opacity: 0, y: 4, scale: 0.8 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 4, scale: 0.8 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-gray-900/95 dark:bg-gray-800/95 text-white shadow-md pointer-events-none whitespace-nowrap z-50"
-                        >
-                          {item.label}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
                   </motion.button>
                 );
               })}
@@ -363,10 +348,12 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Main Reaction Trigger Button */}
+      {/* Main Trigger Button */}
       <button
         type="button"
         onClick={handleMainButtonClick}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -375,31 +362,16 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
           "group inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all duration-150 select-none touch-manipulation focus:outline-none active:scale-95",
           activeConfig
             ? cn(activeConfig.bg, "font-semibold")
-            : "text-gray-600 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/80"
+            : "text-slate-600 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80"
         )}
-        aria-label={activeConfig ? activeConfig.label : "রিঅ্যাক্ট"}
+        aria-label={activeConfig ? activeConfig.label : "Reaction"}
       >
         {activeConfig ? (
-          <>
-            <span className="text-base leading-none select-none">
-              {activeConfig.emoji}
-            </span>
-            <span
-              className={cn(
-                "text-xs font-semibold select-none",
-                activeConfig.color
-              )}
-            >
-              {activeConfig.label}
-            </span>
-          </>
+          <span className="text-base leading-none select-none">
+            {activeConfig.emoji}
+          </span>
         ) : (
-          <>
-            <Heart className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-rose-500 transition-colors" />
-            <span className="text-xs font-medium text-gray-600 dark:text-gray-300 group-hover:text-rose-500 transition-colors">
-              রিঅ্যাক্ট
-            </span>
-          </>
+          <Heart className="w-4 h-4 text-slate-500 dark:text-slate-400 group-hover:text-rose-500 transition-colors" />
         )}
 
         {/* Reaction Summary Icons (if provided) */}
@@ -408,8 +380,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
             {reactionsSummary.slice(0, 3).map((item) => (
               <span
                 key={item.type}
-                className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700"
-                title={`${REACTIONS_CONFIG[item.type]?.label || item.type}: ${item.count}`}
+                className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-white dark:bg-slate-800 shadow-2xs border border-slate-100 dark:border-slate-700"
               >
                 {REACTIONS_CONFIG[item.type]?.emoji || "❤️"}
               </span>
@@ -421,10 +392,10 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
         {typeof activeCount === "number" && activeCount > 0 && (
           <span
             className={cn(
-              "text-xs font-medium ml-0.5",
+              "text-xs font-semibold ml-0.5",
               activeConfig
                 ? activeConfig.color
-                : "text-gray-500 dark:text-gray-400"
+                : "text-slate-500 dark:text-slate-400"
             )}
           >
             {activeCount}
