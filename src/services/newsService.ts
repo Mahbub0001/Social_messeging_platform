@@ -197,9 +197,7 @@ class NewsService {
       } else {
         // Fallback to Wikipedia search if query not found in top headlines
         const wikiArticles = await this.searchWikipedia(query);
-        if (wikiArticles.length > 0) {
-          allArticles = [...wikiArticles, ...allArticles.slice(0, 3)];
-        }
+        allArticles = wikiArticles.length > 0 ? wikiArticles : [];
       }
     }
 
@@ -275,6 +273,9 @@ class NewsService {
     query?: string
   ): string {
     if (articles.length === 0) {
+      if (query) {
+        return `দুঃখিত, "${query}" সম্পর্কিত কোনো সাম্প্রতিক সংবাদ এই মুহূর্তে পাওয়া যায়নি।`;
+      }
       return "দুঃখিত, এই মুহূর্তে নির্দিষ্ট বিষয়ের ওপর কোনো লাইভ সংবাদ পাওয়া যায়নি।";
     }
 

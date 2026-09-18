@@ -2,6 +2,7 @@ import { chatService } from "./chatService";
 import { friendService } from "./friendService";
 import { scheduledMessageService, type ScheduledMessage } from "./scheduledMessageService";
 import { newsService } from "./newsService";
+import { weatherService } from "./weatherService";
 import { useStore } from "../hooks/useStore";
 import type { Profile } from "./mockDb";
 
@@ -13,6 +14,7 @@ export interface AiActionResult {
     | "list_scheduled"
     | "cancel_scheduled"
     | "latest_news"
+    | "weather"
     | "general_reply";
   success: boolean;
   message: string;
@@ -219,9 +221,28 @@ const AI_TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_weather",
+      description:
+        "Get real-time weather and temperature for a city or district (e.g. Narsingdi, Dhaka, Chittagong, Sylhet, etc.). Call this ONLY when user asks about weather, temperature, rain, or climate for a location.",
+      parameters: {
+        type: "object",
+        properties: {
+          location: {
+            type: "string",
+            description:
+              "The name of the city or district (e.g. 'Narsingdi', 'Dhaka', 'Chittagong').",
+          },
+        },
+        required: ["location"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_latest_news",
       description:
-        "Fetch the latest real-time breaking news updates, top headlines, sports results, world news, and current events from live news sources (such as Prothom Alo, BBC Bangla, and BBC News). Call this tool whenever the user asks about today's news, current affairs, breaking updates, sports scores/news, or recent happenings.",
+        "Fetch the latest journalism news articles and headlines from newspapers (Prothom Alo, BBC). Call this ONLY when user EXPLICITLY asks for news, headlines, newspapers, current political/world events, or breaking news reports (e.g. 'ajker news ki', 'khobor bolo', 'breaking news', 'khelar khobor'). NEVER call this for weather, temperatures, math, code, general questions, or chatting.",
       parameters: {
         type: "object",
         properties: {
@@ -234,7 +255,7 @@ const AI_TOOLS = [
           query: {
             type: "string",
             description:
-              "Optional specific topic, keyword, person, or event to search news for (e.g. 'cricket', 'weather', 'election', 'dr yunus').",
+              "Optional specific topic or keyword for newspaper headlines (e.g. 'cricket', 'election', 'dr yunus'). Do NOT use for weather.",
           },
         },
       },
@@ -551,14 +572,37 @@ class AiAgentServiceClass {
       };
     }
 
-    // 5. Check LATEST NEWS / LIVE UPDATE intent
+    // 5. Check WEATHER & TEMPERATURE intent
+    const isWeather =
+      /\b(temperature|temparature|weather|temp|তাপমাত্রা|আবহাওয়া|আবহাওয়া|গরম|ঠান্ডা|বৃষ্টির পূর্বাভাস)\b/i.test(
+        text
+      );
+
+    if (isWeather && !isMessage && !isCall && !isSchedule) {
+      // Clean query and extract location
+      const cleanLoc = text
+        .replace(
+          /te|e|তে|এ|এর|র|akn|ekhon|এখন|koto|kemon|আজকে|আজকের|কত|কেমন|বলো|জানাও|কী|কি|temperature|temparature|weather|temp|তাপমাত্রা|আবহাওয়া|আবহাওয়া/gi,
+          ""
+        )
+        .trim();
+
+      return {
+        toolName: "get_weather",
+        args: {
+          location: cleanLoc.length > 1 ? cleanLoc : "Dhaka",
+        },
+      };
+    }
+
+    // 6. Check LATEST NEWS / LIVE UPDATE intent (STRICTLY for news)
     const isNews =
-      /\b(news|khobor|breaking|shongbad|সংবাদ|খবর|তাজা খবর|আজকের খবর|লেটেস্ট খবর|আপডেট|খেলার খবর|বিশ্ব সংবাদ)\b/i.test(
+      /\b(news|khobor|breaking|shongbad|সংবাদ|খবর|তাজা খবর|আজকের খবর|লেটেস্ট খবর|খেলার খবর|বিশ্ব সংবাদ)\b/i.test(
         text
       ) ||
-      /\b(আজকের|আজকে|লেটেস্ট|তাজা)\s+(খবর|সংবাদ|ঘটনা|আপডেট)\b/i.test(text);
+      /\b(আজকের|আজকে|লেটেস্ট|তাজা)\s+(খবর|সংবাদ|হেডলাইন)\b/i.test(text);
 
-    if (isNews && !isMessage && !isCall && !isSchedule) {
+    if (isNews && !isMessage && !isCall && !isSchedule && !isWeather) {
       let category = "bangladesh";
       if (/\b(world|international|biddho|বিশ্ব|আন্তর্জাতিক)\b/i.test(text)) {
         category = "world";
@@ -570,7 +614,7 @@ class AiAgentServiceClass {
 
       const cleanedQuery = text
         .replace(
-          /আজকের|আজকে|লেটেস্ট|তাজা|খবর|সংবাদ|বলো|জানাও|দেখাও|দাও|কি|news|latest|update|ki|bolo|dekhao/gi,
+          /আজকের|আজকে|লেটেস্ট|তাজা|খবর|সংবাদ|হেডলাইন|বলো|জানাও|দেখাও|দাও|কি|news|latest|update|ki|bolo|dekhao/gi,
           ""
         )
         .trim();
@@ -839,6 +883,23 @@ class AiAgentServiceClass {
       };
     }
 
+    // ==========================================
+    // ACTION 7: GET WEATHER (CONCISE)
+    // ==========================================
+    if (fnName === "get_weather") {
+      const location = args.location || "Dhaka";
+      const result = await weatherService.getWeather(location);
+      return {
+        replyText: result.text,
+        actionResult: {
+          type: "weather",
+          success: result.success,
+          message: result.success ? `${location}-এর আবহাওয়া` : "আবহাওয়া তথ্য পাওয়া যায়নি",
+          data: result.data,
+        },
+      };
+    }
+
     return {
       replyText: "অ্যাকশন সম্পন্ন হয়েছে।",
     };
@@ -882,24 +943,32 @@ class AiAgentServiceClass {
       timeStyle: "medium",
     });
 
-    const systemPrompt = `You are "Bhuiyan AI", an autonomous action executor for the user's Chat Web App.
+    const systemPrompt = `You are "Bhuiyan AI", a sharp, helpful, and concise assistant for the user's Chat Web App.
 Current Real-World Date & Time: ${now.toISOString()} (Bangladesh time: ${localTimeString}).
 
 Active friends list:
 ${JSON.stringify(friendsContext, null, 2)}
 
-CRITICAL FUNCTION-CALLING MANDATE:
-1. When user asks to CALL someone (e.g. "nibir k call deo", "call nibir", "video call dao"):
-   YOU MUST CALL the "start_call" tool. NEVER output conversational text pretending to place the call.
-2. When user asks to SCHEDULE a message (e.g. "nibir k raat 8:30 e kmn aso likhe msg pathaio", "nibir k raat 9 tay text dio"):
-   YOU MUST CALL the "schedule_message" tool with recipient_name, message, scheduled_iso_time, and time_description.
-3. When user asks to SEND a message directly (e.g. "nibir k hi msg pathao"):
-   YOU MUST CALL the "send_message" tool with recipient_name and message.
-4. When user asks to list or cancel scheduled messages:
-   CALL "list_scheduled_messages" or "cancel_scheduled_message".
-5. When user asks about current news, today's events, sports updates, or latest happenings (e.g. "ajker news ki?", "khobor bolo", "world news", "khelar khobor", "breaking news", "latest update"):
-   YOU MUST CALL the "get_latest_news" tool. NEVER claim you do not know the news or say your knowledge is cut off. Always call "get_latest_news" to retrieve live news.
-6. ONLY return text response for general questions, greetings, or friendly chat.`;
+CORE PRINCIPLES (খুবই গুরুত্বপূর্ণ নিয়মাবলি):
+1. BE CONCISE & DIRECT (সংক্ষিপ্ত ও সরাসরি উত্তর):
+   - By default, keep your answers short, crisp, natural, and directly to the point.
+   - For general questions, greetings, facts, or advice, respond in 1 to 2 clear sentences.
+   - NEVER dump long essays, irrelevant info, or unsolicited news.
+
+2. NEWS VS GENERAL QUESTIONS (সংবাদ বনাম সাধারণ প্রশ্ন):
+   - ONLY call "get_latest_news" if the user EXPLICITLY asks for news, headlines, newspapers, or breaking news (যেমন: "আজকের খবর কি?", "খবর বলো", "breaking news", "লেটেস্ট নিউজ").
+   - NEVER call "get_latest_news" for weather, temperatures, math, code, facts, greetings, or normal questions.
+
+3. WEATHER & TEMPERATURE (আবহাওয়া ও তাপমাত্রা):
+   - When asked about weather or temperature for any city/location (e.g. "Narsingdi te akn temparature koto?", "ঢাকাতে আবহাওয়া কেমন?"):
+     YOU MUST CALL the "get_weather" tool with the location name. Do NOT call news!
+
+4. ACTION TOOLS:
+   - Call "start_call" to place voice or video calls.
+   - Call "schedule_message" to schedule messages for future times.
+   - Call "send_message" to send instant direct messages.
+   - Call "list_scheduled_messages" / "cancel_scheduled_message" to manage scheduled messages.
+   - For everything else, respond directly in concise, friendly conversational text.`;
 
     const messagesPayload = [
       { role: "system", content: systemPrompt },
