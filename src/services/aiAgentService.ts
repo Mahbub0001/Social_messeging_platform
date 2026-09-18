@@ -1,11 +1,19 @@
 import { chatService } from "./chatService";
 import { friendService } from "./friendService";
 import { scheduledMessageService, type ScheduledMessage } from "./scheduledMessageService";
+import { newsService } from "./newsService";
 import { useStore } from "../hooks/useStore";
 import type { Profile } from "./mockDb";
 
 export interface AiActionResult {
-  type: "send_message" | "start_call" | "schedule_message" | "list_scheduled" | "cancel_scheduled" | "general_reply";
+  type:
+    | "send_message"
+    | "start_call"
+    | "schedule_message"
+    | "list_scheduled"
+    | "cancel_scheduled"
+    | "latest_news"
+    | "general_reply";
   success: boolean;
   message: string;
   data?: any;
@@ -203,6 +211,30 @@ const AI_TOOLS = [
           scheduled_id: {
             type: "string",
             description: "Optional specific scheduled message ID.",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_latest_news",
+      description:
+        "Fetch the latest real-time breaking news updates, top headlines, sports results, world news, and current events from live news sources (such as Prothom Alo, BBC Bangla, and BBC News). Call this tool whenever the user asks about today's news, current affairs, breaking updates, sports scores/news, or recent happenings.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: ["bangladesh", "world", "sports", "technology", "entertainment", "general"],
+            description:
+              "Category of news. Use 'bangladesh' for general/local news, 'world' for international news, 'sports' for sports/cricket/football, 'technology' for tech/AI.",
+          },
+          query: {
+            type: "string",
+            description:
+              "Optional specific topic, keyword, person, or event to search news for (e.g. 'cricket', 'weather', 'election', 'dr yunus').",
           },
         },
       },
@@ -519,6 +551,39 @@ class AiAgentServiceClass {
       };
     }
 
+    // 5. Check LATEST NEWS / LIVE UPDATE intent
+    const isNews =
+      /\b(news|khobor|breaking|shongbad|সংবাদ|খবর|তাজা খবর|আজকের খবর|লেটেস্ট খবর|আপডেট|খেলার খবর|বিশ্ব সংবাদ)\b/i.test(
+        text
+      ) ||
+      /\b(আজকের|আজকে|লেটেস্ট|তাজা)\s+(খবর|সংবাদ|ঘটনা|আপডেট)\b/i.test(text);
+
+    if (isNews && !isMessage && !isCall && !isSchedule) {
+      let category = "bangladesh";
+      if (/\b(world|international|biddho|বিশ্ব|আন্তর্জাতিক)\b/i.test(text)) {
+        category = "world";
+      } else if (/\b(khela|sports|cricket|football|খেলা|ক্রিকেট|ফুটবল)\b/i.test(text)) {
+        category = "sports";
+      } else if (/\b(tech|technology|ai|প্রযুক্তি)\b/i.test(text)) {
+        category = "technology";
+      }
+
+      const cleanedQuery = text
+        .replace(
+          /আজকের|আজকে|লেটেস্ট|তাজা|খবর|সংবাদ|বলো|জানাও|দেখাও|দাও|কি|news|latest|update|ki|bolo|dekhao/gi,
+          ""
+        )
+        .trim();
+
+      return {
+        toolName: "get_latest_news",
+        args: {
+          category,
+          query: cleanedQuery.length > 2 ? cleanedQuery : undefined,
+        },
+      };
+    }
+
     return null;
   }
 
@@ -739,6 +804,41 @@ class AiAgentServiceClass {
       };
     }
 
+    // ==========================================
+    // ACTION 6: GET LATEST NEWS
+    // ==========================================
+    if (fnName === "get_latest_news") {
+      const category = args.category || "bangladesh";
+      const query = args.query;
+      const result = await newsService.getLatestNews(category, query);
+
+      if (!result.success || result.articles.length === 0) {
+        return {
+          replyText:
+            "দুঃখিত, এই মুহূর্তে নির্দিষ্ট বিষয়ের ওপর কোনো লাইভ সংবাদ পাওয়া যায়নি। অনুগ্রহ করে একটু পর আবার চেষ্টা করুন।",
+          actionResult: {
+            type: "latest_news",
+            success: false,
+            message: "No news found",
+            data: { articles: [] },
+          },
+        };
+      }
+
+      return {
+        replyText: result.summary,
+        actionResult: {
+          type: "latest_news",
+          success: true,
+          message: `সর্বশেষ ${result.articles.length}টি তাজা সংবাদ সংগ্রহ করা হয়েছে`,
+          data: {
+            category: result.category,
+            articles: result.articles,
+          },
+        },
+      };
+    }
+
     return {
       replyText: "অ্যাকশন সম্পন্ন হয়েছে।",
     };
@@ -797,7 +897,9 @@ CRITICAL FUNCTION-CALLING MANDATE:
    YOU MUST CALL the "send_message" tool with recipient_name and message.
 4. When user asks to list or cancel scheduled messages:
    CALL "list_scheduled_messages" or "cancel_scheduled_message".
-5. ONLY return text response for general questions, greetings, or friendly chat.`;
+5. When user asks about current news, today's events, sports updates, or latest happenings (e.g. "ajker news ki?", "khobor bolo", "world news", "khelar khobor", "breaking news", "latest update"):
+   YOU MUST CALL the "get_latest_news" tool. NEVER claim you do not know the news or say your knowledge is cut off. Always call "get_latest_news" to retrieve live news.
+6. ONLY return text response for general questions, greetings, or friendly chat.`;
 
     const messagesPayload = [
       { role: "system", content: systemPrompt },

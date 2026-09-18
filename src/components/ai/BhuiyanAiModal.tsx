@@ -13,6 +13,8 @@ import {
   Bot,
   User,
   ArrowRight,
+  ExternalLink,
+  Newspaper,
 } from "lucide-react";
 import {
   aiAgentService,
@@ -296,6 +298,12 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                 <Sparkles className="w-3 h-3 text-violet-400" /> সাজেশন:
               </span>
               <button
+                onClick={() => handleQuickPrompt("ajker latest news ki?")}
+                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-violet-950/40 text-slate-300 hover:text-violet-200 border border-slate-800 hover:border-violet-500/40 transition-all flex items-center gap-1.5"
+              >
+                <Newspaper className="w-3 h-3 text-cyan-400" /> আজকের তাজা খবর
+              </button>
+              <button
                 onClick={() => handleQuickPrompt("Nibir k 'hi' msg pathao")}
                 className="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-violet-950/40 text-slate-300 hover:text-violet-200 border border-slate-800 hover:border-violet-500/40 transition-all"
               >
@@ -391,6 +399,40 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                               চ্যাট ওপেন করুন <ArrowRight className="w-3 h-3" />
                             </button>
                           )}
+
+                          {/* Interactive News Articles List */}
+                          {m.actionResult.type === "latest_news" &&
+                            m.actionResult.data?.articles?.length > 0 && (
+                              <div className="flex flex-col gap-2 mt-1 pt-1 border-t border-slate-800/60">
+                                {m.actionResult.data.articles.map((art: any, artIdx: number) => (
+                                  <a
+                                    key={art.id || artIdx}
+                                    href={art.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group block p-2.5 rounded-xl bg-slate-950/70 hover:bg-slate-900 border border-slate-800/80 hover:border-violet-500/50 transition-all text-left"
+                                  >
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <span className="px-2 py-0.5 rounded-md bg-violet-500/20 text-violet-300 text-[10px] font-semibold border border-violet-500/30">
+                                        {art.source}
+                                      </span>
+                                      <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                                        <span>{art.pubDate}</span>
+                                        <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-violet-300 transition-colors shrink-0" />
+                                      </div>
+                                    </div>
+                                    <h4 className="text-xs font-semibold text-slate-200 group-hover:text-white line-clamp-2 leading-snug">
+                                      {art.title}
+                                    </h4>
+                                    {art.description && (
+                                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-normal">
+                                        {art.description}
+                                      </p>
+                                    )}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                         </motion.div>
                       )}
                     </div>
