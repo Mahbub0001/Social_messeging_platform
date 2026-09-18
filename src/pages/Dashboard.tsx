@@ -34,7 +34,7 @@ import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 
 export const Dashboard: React.FC = () => {
-  const { user, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations, stories, language } = useStore();
+  const { user, currentProfile, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations, stories, language } = useStore();
 
   const [showSettings, setShowSettings] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
@@ -365,8 +365,8 @@ export const Dashboard: React.FC = () => {
           {activeView === "feed" ? (
             <FeedView
               currentUserId={user?.id ?? ""}
-              currentUsername={user?.user_metadata?.username ?? "User"}
-              currentUserAvatar={(user?.user_metadata as any)?.avatar_url ?? null}
+              currentUsername={(currentProfile?.username || user?.user_metadata?.username) ?? "User"}
+              currentUserAvatar={(currentProfile?.avatar_url || (user?.user_metadata as any)?.avatar_url) ?? null}
               isAdmin={isAdmin}
             />
           ) : (

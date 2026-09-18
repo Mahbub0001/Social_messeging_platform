@@ -193,8 +193,24 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
       } else {
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
+
+        // Immediately update currentProfile and user in useStore
+        const updatedProfile = {
+          id: user.id,
+          username: data.username.trim(),
+          bio: data.bio.trim(),
+          avatar_url: data.avatar_url.trim(),
+          is_online: true,
+          last_seen: new Date().toISOString(),
+        };
+        useStore.getState().setCurrentProfile(updatedProfile);
+
+        // Fetch fresh profile from database
+        useStore.getState().fetchCurrentProfile(user.id);
         // Reload conversations to sync user avatar change
         useStore.getState().fetchConversations();
+        // Reload active stories
+        useStore.getState().fetchActiveStories();
       }
     } catch (err: any) {
       setError("Failed to update profile.");

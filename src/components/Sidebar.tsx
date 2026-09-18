@@ -47,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const {
     user,
+    currentProfile,
     conversations,
     activeConversationId,
     setActiveConversationId,
@@ -119,8 +120,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   // Avatar display
-  const avatarUrl = (user?.user_metadata as any)?.avatar_url as string | undefined;
-  const username = user?.user_metadata?.username ?? user?.email ?? "U";
+  const avatarUrl = currentProfile?.avatar_url || ((user?.user_metadata as any)?.avatar_url as string | undefined);
+  const username = currentProfile?.username || user?.user_metadata?.username || user?.email || "U";
   const avatarFallbackLetter = username.charAt(0).toUpperCase();
 
   return (

@@ -13,6 +13,9 @@ export interface UserSession {
     user_metadata?: {
       username?: string;
       role?: string;
+      avatar_url?: string;
+      bio?: string;
+      [key: string]: any;
     };
   } | null;
 }
@@ -442,6 +445,8 @@ class AuthServiceClass {
               user_metadata: {
                 ...this.currentSession!.user!.user_metadata,
                 username: updatedUser.username,
+                avatar_url: updatedUser.avatar_url,
+                bio: updatedUser.bio,
               },
             },
           };
@@ -464,6 +469,18 @@ class AuthServiceClass {
         }
         return { data: null, error };
       }
+
+      // Synchronize Supabase Auth user_metadata so current auth session retains the new avatar
+      try {
+        const metaUpdates: any = {};
+        if (data.username) metaUpdates.username = data.username;
+        if (data.avatar_url !== undefined) metaUpdates.avatar_url = data.avatar_url;
+        if (data.bio !== undefined) metaUpdates.bio = data.bio;
+        await supabase.auth.updateUser({ data: metaUpdates });
+      } catch (authErr) {
+        console.warn("Failed to sync auth user_metadata:", authErr);
+      }
+
       return { data: updatedData, error };
     }
   }

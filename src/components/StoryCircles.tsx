@@ -23,6 +23,7 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
   onUploadClick,
 }) => {
   const user = useStore((state) => state.user);
+  const currentProfile = useStore((state) => state.currentProfile);
   const stories = useStore((state) => state.stories);
   const storiesLoading = useStore((state) => state.storiesLoading);
 
@@ -32,10 +33,11 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
   const myHasUnviewed = myStories.some((s) => !s.hasViewed);
 
   const userMetadata = (user as any)?.user_metadata;
+  const rawAvatar = currentProfile?.avatar_url || userMetadata?.avatar_url || (user as any)?.avatar_url;
   const myAvatar =
-    sanitizeUrl(userMetadata?.avatar_url || (user as any)?.avatar_url) ||
+    sanitizeUrl(rawAvatar) ||
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
-      userMetadata?.username || user?.email?.split("@")[0] || "me"
+      currentProfile?.username || userMetadata?.username || user?.email?.split("@")[0] || "me"
     )}`;
 
   const otherGroups: StoryGroup[] = (() => {

@@ -16,6 +16,11 @@ interface AppState {
   setSession: (session: UserSession | null) => void;
   initializeAuth: () => () => void;
 
+  // Profile state
+  currentProfile: Profile | null;
+  setCurrentProfile: (profile: Profile | null) => void;
+  fetchCurrentProfile: (userId: string) => Promise<void>;
+
   // Conversations state
   conversations: ConversationWithDetails[];
   activeConversationId: string | null;
@@ -89,6 +94,36 @@ export const useStore = create<AppState>((set, get) => ({
   session: null,
   authLoading: true,
 
+  // Profile state
+  currentProfile: null,
+  setCurrentProfile: (profile) => {
+    set((state) => {
+      const updatedUser = state.user && profile
+        ? {
+            ...state.user,
+            user_metadata: {
+              ...state.user.user_metadata,
+              username: profile.username,
+              avatar_url: profile.avatar_url,
+              bio: profile.bio,
+            },
+          }
+        : state.user;
+      return {
+        currentProfile: profile,
+        user: updatedUser,
+      };
+    });
+  },
+
+  fetchCurrentProfile: async (userId: string) => {
+    const { authService } = await import("../services/authService");
+    const { data } = await authService.getProfile(userId);
+    if (data) {
+      get().setCurrentProfile(data);
+    }
+  },
+
   // Ban status initial state
   isBanned: false,
   bannedReason: null,
@@ -144,7 +179,8 @@ export const useStore = create<AppState>((set, get) => ({
       });
 
       if (session?.user) {
-        // Fetch conversations once logged in
+        // Fetch current profile and conversations once logged in
+        get().fetchCurrentProfile(session.user.id);
         get().fetchConversations();
         get().fetchBlockedUsers(session.user.id);
         get().fetchActiveStories();
@@ -177,7 +213,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
       } else {
         // Clear state on logout
-        set({ conversations: [], activeConversationId: null, messages: {}, stories: [] });
+        set({ conversations: [], activeConversationId: null, messages: {}, stories: [], currentProfile: null });
         get().cleanupStories();
 
         // Clean up WebRTC signaling channels
