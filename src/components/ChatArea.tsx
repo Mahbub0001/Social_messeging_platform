@@ -443,76 +443,84 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
     }
   };
 
-  // Chat Metadata
-  if (!activeChat) {
-    return (
-      <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950/60 select-none transition-colors">
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <motion.div
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            className="w-20 h-20 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-3xl flex items-center justify-center shadow-xl shadow-violet-500/20 mb-6"
-          >
-            <MessageSquare className="w-10 h-10 text-white" />
-          </motion.div>
-          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2 font-sans">কথাবার্তা চ্যাট রুম</h3>
-          <p className="max-w-xs text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans">
-            Select a conversation from the sidebar or find friends to start messaging securely.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Derived Chat Metadata & Partner details
+  const otherMember = activeChat?.members?.find((m) => m.id !== user?.id);
+  const title = activeChat
+    ? (activeChat.is_group ? activeChat.name : (otherMember?.username || "Chat"))
+    : "Chat";
+  const avatar = activeChat
+    ? (activeChat.is_group
+      ? (activeChat.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(title || "")}`)
+      : (otherMember?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(title || "")}`))
+    : "";
 
-  const otherMember = activeChat.members?.find((m) => m.id !== user?.id);
-  const title = activeChat.is_group ? activeChat.name : (otherMember?.username || "Chat");
-  const avatar = activeChat.is_group
-    ? (activeChat.avatar_url || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(title || "")}`)
-    : (otherMember?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(title || "")}`);
+  const isOnline = Boolean(activeChat && !activeChat.is_group && otherMember?.id && onlineUsers.includes(otherMember.id));
+  const activeMessages = (activeChat ? messages[activeChat.id] : null) || [];
 
-  const isOnline = !activeChat.is_group && otherMember && onlineUsers.includes(otherMember.id);
-  const activeMessages = messages[activeChat.id] || [];
+  const amIBlockingPartner = Boolean(activeChat && !activeChat.is_group && otherMember?.id && blockedUsers.includes(otherMember.id));
 
-  const amIBlockingPartner = !activeChat.is_group && otherMember && blockedUsers.includes(otherMember.id);
+  const filteredMessages = React.useMemo(() => {
+    if (!activeChat) return [];
+    return activeMessages.filter((msg) => {
+      if (!msg) return false;
+      if (amIBlockingPartner && msg.sender_id !== user?.id) return false;
+      if (!messageSearchQuery.trim()) return true;
+      return (msg.content || "").toLowerCase().includes(messageSearchQuery.toLowerCase());
+    });
+  }, [activeChat, activeMessages, amIBlockingPartner, messageSearchQuery, user?.id]);
 
-  const filteredMessages = activeMessages.filter((msg) => {
-    if (amIBlockingPartner && msg.sender_id !== user?.id) return false;
-    if (!messageSearchQuery.trim()) return true;
-    return msg.content.toLowerCase().includes(messageSearchQuery.toLowerCase());
-  });
-
-  // Identify first unread message from partner for "New Messages" banner
+  // Identify first unread message from partner for "New Messages" banner (MUST BE BEFORE EARLY RETURN)
   const firstUnreadMessageId = React.useMemo(() => {
-    if (!initialLastReadAt) return null;
+    if (!activeChat || !initialLastReadAt) return null;
     const prevTime = new Date(initialLastReadAt).getTime();
+    if (isNaN(prevTime)) return null;
     const first = filteredMessages.find(
       (m) =>
+        m &&
         m.sender_id !== user?.id &&
         new Date(m.created_at).getTime() > prevTime
     );
     return first?.id || null;
-  }, [filteredMessages, initialLastReadAt, user?.id]);
+  }, [activeChat, filteredMessages, initialLastReadAt, user?.id]);
 
-  // Identify last sent message seen by partner for Messenger-style seen avatar
+  // Identify last sent message seen by partner for Messenger-style seen avatar (MUST BE BEFORE EARLY RETURN)
   const lastSeenSentMessageId = React.useMemo(() => {
-    if (!partnerLastSeenAt) return null;
+    if (!activeChat || !partnerLastSeenAt) return null;
     const partnerSeenTime = new Date(partnerLastSeenAt).getTime();
+    if (isNaN(partnerSeenTime)) return null;
     for (let i = filteredMessages.length - 1; i >= 0; i--) {
       const m = filteredMessages[i];
-      if (m.sender_id === user?.id) {
+      if (m && m.sender_id === user?.id) {
         const msgTime = new Date(m.created_at).getTime();
-        if (msgTime <= partnerSeenTime + 1000) {
+        if (!isNaN(msgTime) && msgTime <= partnerSeenTime + 1000) {
           return m.id;
         }
       }
     }
     return null;
-  }, [filteredMessages, partnerLastSeenAt, user?.id]);
+  }, [activeChat, filteredMessages, partnerLastSeenAt, user?.id]);
+
+  // Typing status details
+  const typingList = activeChat ? (typingUsers[activeChat.id] || []) : [];
+  const otherTypingList = typingList.filter((uid) => uid !== user?.id);
+  const isTyping = otherTypingList.length > 0;
+
+  const handleToggleBlock = async () => {
+    if (!user || !otherMember?.id) return;
+    if (amIBlockingPartner) {
+      await unblockUser(user.id, otherMember.id);
+    } else {
+      if (window.confirm(`Are you sure you want to block ${otherMember.username || "this user"}?`)) {
+        await blockUser(user.id, otherMember.id);
+      }
+    }
+  };
 
   // Render WhatsApp-style tick receipts: Sent (single check), Delivered (double grey), Seen (double sky blue)
   const renderMessageTicks = (createdAt: string) => {
+    if (!activeChat) return null;
     const msgTime = new Date(createdAt).getTime();
-    const isPartnerOnline = !activeChat.is_group && otherMember && onlineUsers.includes(otherMember.id);
+    const isPartnerOnline = !activeChat.is_group && otherMember?.id && onlineUsers.includes(otherMember.id);
     const isSeen = partnerLastSeenAt
       ? msgTime <= new Date(partnerLastSeenAt).getTime() + 1000
       : false;
@@ -540,21 +548,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
     );
   };
 
-  // Typing status details
-  const typingList = typingUsers[activeChat.id] || [];
-  const otherTypingList = typingList.filter((uid) => uid !== user?.id);
-  const isTyping = otherTypingList.length > 0;
-
-  const handleToggleBlock = async () => {
-    if (!user || !otherMember) return;
-    if (amIBlockingPartner) {
-      await unblockUser(user.id, otherMember.id);
-    } else {
-      if (window.confirm(`Are you sure you want to block ${otherMember.username}?`)) {
-        await blockUser(user.id, otherMember.id);
-      }
-    }
-  };
+  // Fallback placeholder when no chat is selected (rendered AFTER all hooks have executed)
+  if (!activeChat) {
+    return (
+      <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950/60 select-none transition-colors">
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <motion.div
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            className="w-20 h-20 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-3xl flex items-center justify-center shadow-xl shadow-violet-500/20 mb-6"
+          >
+            <MessageSquare className="w-10 h-10 text-white" />
+          </motion.div>
+          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2 font-sans">কথাবার্তা চ্যাট রুম</h3>
+          <p className="max-w-xs text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans">
+            Select a conversation from the sidebar or find friends to start messaging securely.
+          </p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div
@@ -1053,7 +1066,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                   {Object.keys(reactions).length > 0 && !isDeleted && (
                     <div className="flex flex-wrap gap-1 mt-1 z-0">
                       {Object.keys(reactions).map((emoji) => {
-                        const users = reactions[emoji];
+                        const rawUsers = reactions[emoji];
+                        const users = Array.isArray(rawUsers) ? rawUsers : [];
                         const userHasReacted = users.includes(user?.id || "");
                         return (
                           <button
@@ -1079,10 +1093,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
                       <img
                         src={sanitizeUrl(
                           otherMember.avatar_url ||
-                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(otherMember.username)}`
+                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(otherMember.username || "User")}`
                         )}
-                        alt={otherMember.username}
-                        title={`Seen by ${otherMember.username}`}
+                        alt={otherMember.username || "User"}
+                        title={`Seen by ${otherMember.username || "User"}`}
                         className="w-3.5 h-3.5 rounded-full object-cover border border-white dark:border-slate-800 shadow-2xs ring-1 ring-violet-500/30"
                       />
                     </div>

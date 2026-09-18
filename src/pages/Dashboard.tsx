@@ -24,6 +24,7 @@ import CallScreen from "../components/CallScreen";
 import StoryUploadModal from "../components/StoryUploadModal";
 import StoryViewer from "../components/StoryViewer";
 import { StoryArchive } from "../components/StoryArchive";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import FeedView from "../components/feed/FeedView";
 import BhuiyanAiButton from "../components/ai/BhuiyanAiButton";
 import BhuiyanAiModal from "../components/ai/BhuiyanAiModal";
@@ -370,9 +371,11 @@ export const Dashboard: React.FC = () => {
               isAdmin={isAdmin}
             />
           ) : (
-            <ChatArea
-              onBack={() => setActiveConversationId(null)}
-            />
+            <ErrorBoundary>
+              <ChatArea
+                onBack={() => setActiveConversationId(null)}
+              />
+            </ErrorBoundary>
           )}
         </div>
       </div>
