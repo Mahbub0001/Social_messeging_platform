@@ -302,10 +302,10 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                 💬 Nibir কে "hi" পাঠাও
               </button>
               <button
-                onClick={() => handleQuickPrompt("Nuha k raat 9 tay 'kmn aso' msg pathao")}
+                onClick={() => handleQuickPrompt("Nibir k raat 9 tay 'kmn aso' msg pathao")}
                 className="shrink-0 px-2.5 py-1 rounded-full bg-slate-900 hover:bg-violet-950/40 text-slate-300 hover:text-violet-200 border border-slate-800 hover:border-violet-500/40 transition-all"
               >
-                ⏰ Nuha কে রাত ৯টায় মেসেজ দাও
+                ⏰ Nibir কে রাত ৯টায় মেসেজ দাও
               </button>
               <button
                 onClick={() => handleQuickPrompt("Nibir k voice call dao")}
@@ -470,7 +470,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                     handleSend();
                   }
                 }}
-                placeholder="যেকোনো নির্দেশ দিন (যেমন: Nuha কে রাত ৯টায় kmn aso পাঠাও)..."
+                placeholder="যেকোনো নির্দেশ দিন (যেমন: Nibir কে রাত ৯টায় kmn aso পাঠাও)..."
                 className="flex-1 bg-slate-900 border border-slate-800 focus:border-violet-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500/50"
               />
 
@@ -513,7 +513,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                 <Clock className="w-10 h-10 mx-auto mb-2 text-slate-600 opacity-50" />
                 <p>কোনো শিডিউল করা বার্তা পাওয়া যায়নি।</p>
                 <p className="mt-1 text-slate-400">
-                  AI-কে বলুন: "Nuha k raat 9 tay 'kmn aso' msg pathao"
+                  AI-কে বলুন: "Nibir k raat 9 tay 'kmn aso' msg pathao"
                 </p>
               </div>
             ) : (

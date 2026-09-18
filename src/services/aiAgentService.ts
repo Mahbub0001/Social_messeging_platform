@@ -113,7 +113,7 @@ const AI_TOOLS = [
         properties: {
           recipient_name: {
             type: "string",
-            description: "The name or username of the friend to send the message to (e.g., 'Nibir', 'Nuha').",
+            description: "The name or username of the friend to send the message to (e.g., 'Nibir').",
           },
           message: {
             type: "string",
@@ -791,7 +791,7 @@ ${JSON.stringify(friendsContext, null, 2)}
 CRITICAL FUNCTION-CALLING MANDATE:
 1. When user asks to CALL someone (e.g. "nibir k call deo", "call nibir", "video call dao"):
    YOU MUST CALL the "start_call" tool. NEVER output conversational text pretending to place the call.
-2. When user asks to SCHEDULE a message (e.g. "nibir k raat 8:30 e kmn aso likhe msg pathaio", "nuha k raat 9 tay text dio"):
+2. When user asks to SCHEDULE a message (e.g. "nibir k raat 8:30 e kmn aso likhe msg pathaio", "nibir k raat 9 tay text dio"):
    YOU MUST CALL the "schedule_message" tool with recipient_name, message, scheduled_iso_time, and time_description.
 3. When user asks to SEND a message directly (e.g. "nibir k hi msg pathao"):
    YOU MUST CALL the "send_message" tool with recipient_name and message.
