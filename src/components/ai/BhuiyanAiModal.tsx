@@ -357,7 +357,7 @@ export const BhuiyanAiModal: React.FC<BhuiyanAiModalProps> = ({ isOpen, onClose 
                     <div className="space-y-2">
                       <div
                         className={cn(
-                          "px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line shadow-sm",
+                          "px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line shadow-sm select-text cursor-text",
                           isUser
                             ? "bg-violet-600 text-white rounded-tr-none shadow-violet-950/30"
                             : "bg-slate-900/95 text-slate-100 border border-slate-800/90 rounded-tl-none shadow-md"

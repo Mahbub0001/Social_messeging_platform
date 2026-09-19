@@ -117,13 +117,13 @@ const AI_TOOLS = [
     type: "function",
     function: {
       name: "send_message",
-      description: "Send an instant direct message to a friend or contact in the chat app.",
+      description: "Send an instant direct message to one friend or to ALL friends at once. If the user says 'shob friends ke pathao', 'everyone', 'all friends', 'shobai ke', 'shob k', or similar, use recipient_name='ALL' to broadcast to everyone.",
       parameters: {
         type: "object",
         properties: {
           recipient_name: {
             type: "string",
-            description: "The name or username of the friend to send the message to (e.g., 'Nibir').",
+            description: "The name or username of the friend to message. Set to 'ALL' to send to all friends in the user's friend list (use when user says 'shob friends ke', 'everyone', 'shobai ke', 'all friends', etc.).",
           },
           message: {
             type: "string",
@@ -643,14 +643,72 @@ class AiAgentServiceClass {
     // ACTION 1: SEND MESSAGE
     // ==========================================
     if (fnName === "send_message") {
-      const targetFriend = await this.resolveFriend(args.recipient_name, currentUser.id);
+      const rawRecipient = (args.recipient_name || "").trim();
+      const isAllFriends =
+        /^(ALL|all|shobai|shob|everyone|সবাই|শবাই|all_friends|allfrds)$/i.test(rawRecipient) ||
+        /shob (friend|frnd|contact)|all friend|sobai|সব বন্ধু|সকলকে/i.test(rawRecipient);
+
+      // ── BROADCAST: send to every friend ────────────────────────────────
+      if (isAllFriends) {
+        const { data: allFriends } = await friendService.getFriends(currentUser.id);
+        if (!allFriends || allFriends.length === 0) {
+          return {
+            replyText: "আপনার ফ্রেন্ডলিস্ট খালি। কোনো বন্ধু নেই যাকে মেসেজ পাঠানো যাবে।",
+            actionResult: {
+              type: "send_message",
+              success: false,
+              message: "Friend list is empty",
+            },
+          };
+        }
+
+        const succeeded: string[] = [];
+        const failed: string[] = [];
+
+        for (const friend of allFriends) {
+          try {
+            const convId = await this.getOrCreateConversationId(currentUser.id, friend.id);
+            const result = await chatService.sendMessage(convId, currentUser.id, args.message);
+            if (result.error) {
+              failed.push(friend.username);
+            } else {
+              succeeded.push(friend.username);
+            }
+          } catch {
+            failed.push(friend.username);
+          }
+        }
+
+        const total = allFriends.length;
+        const successText =
+          succeeded.length > 0
+            ? `✅ **${succeeded.length}/${total}** জন বন্ধুকে সফলভাবে মেসেজ পাঠানো হয়েছে:\n${succeeded.map((n) => `• ${n}`).join("\n")}`
+            : "";
+        const failText =
+          failed.length > 0
+            ? `\n⚠️ পাঠানো যায়নি: ${failed.join(", ")}`
+            : "";
+
+        return {
+          replyText: `${successText}${failText}\n\n> **বার্তা:** "${args.message}"`,
+          actionResult: {
+            type: "send_message",
+            success: succeeded.length > 0,
+            message: `Broadcast sent to ${succeeded.length}/${total} friends`,
+            data: { recipients: succeeded, message: args.message },
+          },
+        };
+      }
+
+      // ── SINGLE RECIPIENT ────────────────────────────────────────────────
+      const targetFriend = await this.resolveFriend(rawRecipient, currentUser.id);
       if (!targetFriend) {
         return {
-          replyText: `দুঃখিত, '${args.recipient_name}' নামের কাউকে আপনার ফ্রেন্ডলিস্ট বা চ্যাটে পাওয়া যায়নি। অনুগ্রহ করে সঠিক নামটি বলুন।`,
+          replyText: `দুঃখিত, '${rawRecipient}' নামের কাউকে আপনার ফ্রেন্ডলিস্ট বা চ্যাটে পাওয়া যায়নি। অনুগ্রহ করে সঠিক নামটি বলুন।`,
           actionResult: {
             type: "send_message",
             success: false,
-            message: `User '${args.recipient_name}' not found`,
+            message: `User '${rawRecipient}' not found`,
           },
         };
       }
@@ -660,7 +718,7 @@ class AiAgentServiceClass {
 
       if (sendResult.error) {
         return {
-          replyText: `মেসেজ পাঠাতে সমস্যা হয়েছে: ${sendResult.error.message}`,
+          replyText: `মেসেজ পাঠাতে সমস্যা হয়েছে: ${sendResult.error.message}`,
           actionResult: {
             type: "send_message",
             success: false,
@@ -674,7 +732,7 @@ class AiAgentServiceClass {
       useStore.getState().fetchMessages(convId);
 
       return {
-        replyText: `✅ **${targetFriend.username}** কে সফলভাবে বার্তা পাঠানো হয়েছে:\n> "${args.message}"`,
+        replyText: `✅ **${targetFriend.username}** কে সফলভাবে বার্তা পাঠানো হয়েছে:\n> "${args.message}"`,
         actionResult: {
           type: "send_message",
           success: true,
@@ -967,6 +1025,7 @@ CORE PRINCIPLES (খুবই গুরুত্বপূর্ণ নিয়ম�
    - Call "start_call" to place voice or video calls.
    - Call "schedule_message" to schedule messages for future times.
    - Call "send_message" to send instant direct messages.
+     → If user says "shob friends ke pathao", "everyone", "all friends", "shobai ke", "সব বন্ধুদের পাঠাও", use recipient_name="ALL" — this broadcasts to every friend.
    - Call "list_scheduled_messages" / "cancel_scheduled_message" to manage scheduled messages.
    - For everything else, respond directly in concise, friendly conversational text.`;
 
