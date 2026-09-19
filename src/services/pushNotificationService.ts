@@ -407,10 +407,10 @@ class PushNotificationService {
                   body: JSON.stringify({
                     message: {
                       token: item.token,
-                      notification: {
-                        title: String(notificationTitle),
-                        body: String(notificationBody),
-                      },
+                      // DATA-ONLY payload — no top-level "notification" field.
+                      // This ensures Android always calls KothaBartaMessagingService.onMessageReceived()
+                      // even when the app is in background/killed, so our custom notification
+                      // with the inline RemoteInput reply button is always built correctly.
                       data: {
                         conversationId: String(params.conversationId),
                         senderId: String(params.senderId),
@@ -421,12 +421,6 @@ class PushNotificationService {
                       },
                       android: {
                         priority: "high",
-                        notification: {
-                          channel_id: "messages",
-                          sound: "default",
-                          click_action: "FCM_PLUGIN_ACTIVITY",
-                          icon: "ic_stat_notify",
-                        },
                       },
                     },
                   }),
