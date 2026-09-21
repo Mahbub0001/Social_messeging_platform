@@ -414,13 +414,47 @@ export const Dashboard: React.FC = () => {
             </ErrorBoundary>
           )}
         </div>
+
+        {/* Backdrop for sliding panels */}
+        <AnimatePresence>
+          {(showSettings || showFriends) && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => { setShowSettings(false); setShowFriends(false); }}
+              className="absolute inset-0 bg-black/60 z-20 backdrop-blur-xs cursor-pointer"
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Sliding Profile and Friends Panels */}
+        <AnimatePresence>
+          {showSettings && (
+            <ProfilePanel
+              onClose={() => setShowSettings(false)}
+              onOpenStoryArchive={() => { setShowSettings(false); setShowStoryArchive(true); }}
+            />
+          )}
+          {showFriends && (
+            <FriendsPanel
+              onClose={() => setShowFriends(false)}
+              onOpenUserProfile={setSelectedUserProfileId}
+            />
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Mobile bottom navigation bar */}
-      <div className="md:hidden flex items-center justify-around bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 py-1.5 px-3 pb-[max(0.5rem,calc(0.5rem+env(safe-area-inset-bottom,0px)))] shrink-0 transition-colors z-20 shadow-lg">
+      {/* Mobile bottom navigation bar - ALWAYS STICKY & VISIBLE */}
+      <div className="md:hidden flex items-center justify-around bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 py-1.5 px-3 pb-[max(0.5rem,calc(0.5rem+env(safe-area-inset-bottom,0px)))] shrink-0 transition-colors z-30 shadow-lg">
         <motion.button
           whileTap={{ scale: 0.92 }}
-          onClick={() => { setActiveView("chat"); setActiveConversationId(null); }}
+          onClick={() => {
+            setActiveView("chat");
+            setActiveConversationId(null);
+            setShowFriends(false);
+            setShowSettings(false);
+          }}
           className={cn(
             "relative flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors",
             activeView === "chat" && !showFriends && !showSettings
@@ -440,7 +474,11 @@ export const Dashboard: React.FC = () => {
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.92 }}
-          onClick={() => { setActiveView("feed"); setShowFriends(false); setShowSettings(false); }}
+          onClick={() => {
+            setActiveView("feed");
+            setShowFriends(false);
+            setShowSettings(false);
+          }}
           className={cn(
             "relative flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-colors",
             activeView === "feed" && !showFriends && !showSettings
@@ -499,33 +537,6 @@ export const Dashboard: React.FC = () => {
           <span className="text-[10px] font-medium">{getTranslation(language, "profile")}</span>
         </motion.button>
       </div>
-
-      <AnimatePresence>
-        {(showSettings || showFriends) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
-            exit={{ opacity: 0 }}
-            onClick={() => { setShowSettings(false); setShowFriends(false); }}
-            className="absolute inset-0 bg-black/60 z-20 backdrop-blur-xs cursor-pointer"
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showSettings && (
-          <ProfilePanel
-            onClose={() => setShowSettings(false)}
-            onOpenStoryArchive={() => { setShowSettings(false); setShowStoryArchive(true); }}
-          />
-        )}
-        {showFriends && (
-          <FriendsPanel
-            onClose={() => setShowFriends(false)}
-            onOpenUserProfile={setSelectedUserProfileId}
-          />
-        )}
-      </AnimatePresence>
 
       {showGroupModal && <GroupModal onClose={() => setShowGroupModal(false)} />}
       <CallScreen />
