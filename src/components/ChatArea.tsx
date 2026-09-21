@@ -17,7 +17,6 @@ import {
   CheckCheck,
   Loader2,
   FileText,
-  MessageSquare,
   Phone,
   Video,
   Search,
@@ -555,13 +554,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
     return (
       <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950/60 select-none transition-colors">
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <motion.div
+          <motion.img
+            src="/logo.png"
+            alt="Kotha Barta Logo"
             animate={{ y: [0, -8, 0] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            className="w-20 h-20 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-3xl flex items-center justify-center shadow-xl shadow-violet-500/20 mb-6"
-          >
-            <MessageSquare className="w-10 h-10 text-white" />
-          </motion.div>
+            className="w-20 h-20 rounded-3xl object-cover shadow-xl shadow-violet-500/20 mb-6 border border-slate-200 dark:border-slate-800"
+          />
           <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2 font-sans">কথাবার্তা চ্যাট রুম</h3>
           <p className="max-w-xs text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans">
             Select a conversation from the sidebar or find friends to start messaging securely.

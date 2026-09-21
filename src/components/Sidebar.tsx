@@ -129,10 +129,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* ── Row 1: Brand + Actions ── */}
       <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
         {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-lg shrink-0">
-            <MessageSquare className="w-4 h-4 text-white" />
-          </div>
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.png" alt="Kotha Barta Logo" className="w-8 h-8 rounded-xl object-cover shadow-xs border border-slate-200/50 dark:border-slate-800" />
           <span className="text-md font-bold tracking-wider text-slate-800 dark:text-slate-100">কথাবার্তা</span>
         </div>
 

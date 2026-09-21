@@ -10,7 +10,6 @@ import {
   Moon,
   Menu,
   X,
-  Shield,
   Loader2,
   LogOut,
   Globe,
@@ -74,9 +73,11 @@ const AdminLayoutContent: React.FC = () => {
           </button>
 
           <Link to="/admin" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center shadow-md shadow-violet-600/30">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="Kotha Barta Logo"
+              className="w-9 h-9 rounded-xl object-cover shadow-sm border border-slate-200 dark:border-slate-800"
+            />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white">কথাবার্তা</span>

@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { MessageSquare, ShieldCheck, Zap, Mic, UserCheck, Code } from "lucide-react";
+import { ShieldCheck, Zap, Mic, UserCheck, Code } from "lucide-react";
 import { useStore } from "../hooks/useStore";
 
 export const Landing: React.FC = () => {
@@ -52,9 +52,11 @@ export const Landing: React.FC = () => {
       {/* Nav bar */}
       <header className="relative max-w-7xl mx-auto px-6 py-6 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-tr from-violet-600 to-indigo-500 rounded-xl shadow-md shadow-violet-500/10">
-            <MessageSquare className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="Kotha Barta Logo"
+            className="w-10 h-10 rounded-xl object-cover shadow-md border border-slate-800"
+          />
           <span className="text-xl font-bold tracking-wider text-slate-100">কথাবার্তা</span>
         </div>
         <div>
