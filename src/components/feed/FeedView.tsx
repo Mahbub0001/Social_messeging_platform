@@ -93,6 +93,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
     loadPosts(false);
   }, [loadPosts]);
 
+  useEffect(() => {
+    const onFeedUpdated = () => {
+      loadPosts(false);
+    };
+    window.addEventListener("kb_feed_updated", onFeedUpdated);
+    return () => window.removeEventListener("kb_feed_updated", onFeedUpdated);
+  }, [loadPosts]);
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     loadPosts(false);

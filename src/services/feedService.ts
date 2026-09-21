@@ -264,61 +264,98 @@ export class FeedService {
 
   /**
    * Maps Supabase rows (supporting both camelCase and snake_case) to standard FeedPost models.
+   * Dynamically attaches live author profile details whenever joined.
    */
   private mapSupabasePosts(rows: any[]): FeedPost[] {
-    return rows.map((row) => ({
-      id: row.id,
-      userId: row.user_id || row.userId,
-      author: row.author || {
-        id: row.user_id || row.userId,
-        username: row.username || "User",
-        avatar_url: row.avatar_url || null,
-        bio: row.bio || null,
-        role: row.role || "user",
-      },
-      content: row.content || "",
-      mediaUrls: row.media_urls || row.mediaUrls || [],
-      mediaType: row.media_type || row.mediaType || "none",
-      createdAt: row.created_at || row.createdAt || new Date().toISOString(),
-      reactions: row.reactions || {},
-      userReaction: row.user_reaction || row.userReaction || null,
-      sharesCount: row.shares_count ?? row.sharesCount ?? 0,
-      repostedFrom: row.reposted_from || row.repostedFrom || null,
-      commentsCount:
-        row.comments_count ??
-        row.commentsCount ??
-        (Array.isArray(row.comments) ? row.comments.length : 0),
-      comments: row.comments || [],
-    }));
+    return rows.map((row) => {
+      const liveProfile = row.profiles;
+      const author = liveProfile
+        ? {
+            id: liveProfile.id,
+            username: liveProfile.username || row.author?.username || "User",
+            avatar_url: liveProfile.avatar_url ?? row.author?.avatar_url ?? null,
+            bio: liveProfile.bio ?? row.author?.bio ?? null,
+            role: (liveProfile.role || row.author?.role || "user") as "admin" | "user",
+          }
+        : row.author || {
+            id: row.user_id || row.userId,
+            username: row.username || "User",
+            avatar_url: row.avatar_url || null,
+            bio: row.bio || null,
+            role: row.role || "user",
+          };
+
+      let repostedFrom = row.reposted_from || row.repostedFrom || null;
+      if (repostedFrom && liveProfile && repostedFrom.userId === liveProfile.id) {
+        repostedFrom = {
+          ...repostedFrom,
+          author: {
+            ...repostedFrom.author,
+            username: liveProfile.username || repostedFrom.author?.username,
+            avatar_url: liveProfile.avatar_url ?? repostedFrom.author?.avatar_url,
+          },
+        };
+      }
+
+      return {
+        id: row.id,
+        userId: row.user_id || row.userId,
+        author,
+        content: row.content || "",
+        mediaUrls: row.media_urls || row.mediaUrls || [],
+        mediaType: row.media_type || row.mediaType || "none",
+        createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+        reactions: row.reactions || {},
+        userReaction: row.user_reaction || row.userReaction || null,
+        sharesCount: row.shares_count ?? row.sharesCount ?? 0,
+        repostedFrom,
+        commentsCount:
+          row.comments_count ??
+          row.commentsCount ??
+          (Array.isArray(row.comments) ? row.comments.length : 0),
+        comments: row.comments || [],
+      };
+    });
   }
 
   /**
-   * Resolves author metadata for a given user ID from mockDb, current session, or Supabase.
+   * Resolves author metadata for a given user ID from Supabase, mockDb, current session, or fallback.
    */
   private async getAuthorProfile(userId: string): Promise<FeedPost["author"]> {
-    const isMahbubId =
-      userId === "mahbub-admin-id" || userId.toLowerCase().includes("mahbub");
-    if (isMahbubId) {
-      return {
-        id: userId,
-        username: "Mahbub (কথাবার্তা ক্রিয়েটর)",
-        avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=mahbub0001",
-        bio: "Creator & Lead Developer of Kotha Barta (কথাবার্তা) 🚀",
-        role: "admin",
-      };
+    // 1. Look in live Supabase profiles table first if available
+    if (!isMockMode && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url, bio, role")
+          .eq("id", userId)
+          .single();
+        if (!error && data) {
+          const isMahbub = data.username?.toLowerCase().includes("mahbub") || userId.toLowerCase().includes("mahbub");
+          return {
+            id: data.id,
+            username: data.username || (isMahbub ? "Mahbub (কথাবার্তা ক্রিয়েটর)" : "User"),
+            avatar_url: data.avatar_url || null,
+            bio: data.bio || (isMahbub ? "Creator & Lead Developer of Kotha Barta (কথাবার্তা) 🚀" : null),
+            role: data.role === "admin" || isMahbub ? "admin" : "user",
+          };
+        }
+      } catch {
+        // Supabase error gracefully caught
+      }
     }
 
-    // 1. Look in mockDb profiles
+    // 2. Look in mockDb profiles
     try {
       const profiles = mockDb.getProfiles();
       const found = profiles.find((p) => p.id === userId);
       if (found) {
-        const isMahbub = found.username?.toLowerCase().includes("mahbub");
+        const isMahbub = found.username?.toLowerCase().includes("mahbub") || userId.toLowerCase().includes("mahbub");
         return {
           id: found.id,
           username: found.username,
           avatar_url: found.avatar_url || null,
-          bio: found.bio || null,
+          bio: found.bio || (isMahbub ? "Creator & Lead Developer of Kotha Barta (কথাবার্তা) 🚀" : null),
           role: isMahbub ? "admin" : "user",
         };
       }
@@ -326,14 +363,14 @@ export class FeedService {
       // Continue to next fallback
     }
 
-    // 2. Look in localStorage mock session user
+    // 3. Look in localStorage mock session user
     if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
       try {
         const savedUser = localStorage.getItem("kb_mock_user");
         if (savedUser) {
           const parsed = JSON.parse(savedUser);
           if (parsed && (parsed.id === userId || !userId)) {
-            const isMahbub = parsed.username?.toLowerCase().includes("mahbub");
+            const isMahbub = parsed.username?.toLowerCase().includes("mahbub") || userId.toLowerCase().includes("mahbub");
             return {
               id: parsed.id,
               username: parsed.username,
@@ -348,39 +385,27 @@ export class FeedService {
       }
     }
 
-    // 3. Look in Supabase profiles table if available
-    if (!isMockMode && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, username, avatar_url, bio, role")
-          .eq("id", userId)
-          .single();
-        if (!error && data) {
-          const isMahbub = data.username?.toLowerCase().includes("mahbub");
-          return {
-            id: data.id,
-            username: data.username,
-            avatar_url: data.avatar_url || null,
-            bio: data.bio || null,
-            role: data.role === "admin" || isMahbub ? "admin" : "user",
-          };
-        }
-      } catch {
-        // Supabase error gracefully caught
-      }
+    // 4. Default fallback
+    const isMahbub =
+      userId === "mahbub-admin-id" || userId.toLowerCase().includes("mahbub");
+    if (isMahbub) {
+      return {
+        id: userId,
+        username: "Mahbub (কথাবার্তা ক্রিয়েটর)",
+        avatar_url: "https://api.dicebear.com/7.x/avataaars/svg?seed=mahbub0001",
+        bio: "Creator & Lead Developer of Kotha Barta (কথাবার্তা) 🚀",
+        role: "admin",
+      };
     }
 
-    // 4. Default fallback
-    const isMahbub = userId.toLowerCase().includes("mahbub");
     return {
       id: userId,
-      username: isMahbub ? "Mahbub" : "ব্যবহারকারী",
+      username: "ব্যবহারকারী",
       avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
         userId
       )}`,
-      bio: isMahbub ? "কথাবার্তা ক্রিয়েটর" : null,
-      role: isMahbub ? "admin" : "user",
+      bio: null,
+      role: "user",
     };
   }
 
@@ -393,16 +418,106 @@ export class FeedService {
   ): Promise<{ data: FeedPost[]; error: any }> {
     let posts = this.readFromCache();
 
-    // Try fetching from live Supabase feed_posts if available
+    // In mock mode, enrich cached posts with fresh profiles from mockDb
+    if (isMockMode) {
+      try {
+        const mockProfiles = mockDb.getProfiles();
+        const profileMap = new Map(mockProfiles.map((p) => [p.id, p]));
+        posts = posts.map((post) => {
+          const p = profileMap.get(post.userId);
+          const author = p
+            ? {
+                ...post.author,
+                username: p.username || post.author.username,
+                avatar_url: p.avatar_url ?? post.author.avatar_url,
+                bio: p.bio ?? post.author.bio,
+              }
+            : post.author;
+
+          const comments = (post.comments || []).map((c) => {
+            const cp = profileMap.get(c.userId);
+            return cp
+              ? {
+                  ...c,
+                  author: {
+                    ...c.author,
+                    username: cp.username || c.author.username,
+                    avatar_url: cp.avatar_url ?? c.author.avatar_url,
+                  },
+                }
+              : c;
+          });
+
+          return { ...post, author, comments };
+        });
+      } catch (mockErr) {
+        console.warn("feedService: error enriching mock posts", mockErr);
+      }
+    }
+
+    // Try fetching from live Supabase feed_posts joining profiles
     if (!isMockMode && supabase) {
       try {
         const { data, error } = await supabase
           .from("feed_posts")
-          .select("*")
+          .select(`
+            *,
+            profiles:user_id (
+              id,
+              username,
+              avatar_url,
+              bio,
+              role
+            )
+          `)
           .order("created_at", { ascending: false });
 
         if (!error && Array.isArray(data) && data.length > 0) {
           posts = this.mapSupabasePosts(data);
+
+          // Enrich comment authors with live profiles if any comments exist
+          const commentAuthorIds = Array.from(
+            new Set(
+              posts
+                .flatMap((p) => p.comments || [])
+                .map((c) => c.userId)
+                .filter(Boolean)
+            )
+          );
+
+          if (commentAuthorIds.length > 0) {
+            try {
+              const { data: cProfiles } = await supabase
+                .from("profiles")
+                .select("id, username, avatar_url")
+                .in("id", commentAuthorIds);
+
+              if (cProfiles && cProfiles.length > 0) {
+                const profileMap = new Map<string, any>(cProfiles.map((cp: any) => [cp.id, cp]));
+                posts = posts.map((post) => {
+                  if (!post.comments || post.comments.length === 0) return post;
+                  const updatedComments = post.comments.map((comment) => {
+                    const matched = profileMap.get(comment.userId);
+                    if (matched) {
+                      return {
+                        ...comment,
+                        author: {
+                          ...comment.author,
+                          username: matched.username || comment.author.username,
+                          avatar_url: matched.avatar_url ?? comment.author.avatar_url,
+                        },
+                      };
+                    }
+                    return comment;
+                  });
+                  return { ...post, comments: updatedComments };
+                });
+              }
+            } catch (cErr) {
+              console.warn("feedService: error enriching comment authors", cErr);
+            }
+          }
+
           this.saveToCache(posts);
         }
       } catch (err) {

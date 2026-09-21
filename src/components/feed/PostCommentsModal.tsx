@@ -88,18 +88,22 @@ function UserAvatar({
 
 // ---------------------------------------------------------------------------
 function CommentItem({ comment }: { comment: FeedComment }) {
-  const { language } = useStore();
+  const { language, currentProfile } = useStore();
+  const isMe = comment.userId === currentProfile?.id;
+  const avatar = (isMe && currentProfile?.avatar_url) ? currentProfile.avatar_url : comment.author.avatar_url;
+  const username = (isMe && currentProfile?.username) ? currentProfile.username : comment.author.username;
+
   return (
     <div className="flex items-start gap-3 py-3">
       <UserAvatar
-        avatar={comment.author.avatar_url}
-        username={comment.author.username}
+        avatar={avatar}
+        username={username}
         size={34}
       />
       <div className="flex-1 min-w-0">
         <div className="bg-slate-100 dark:bg-slate-800/60 rounded-2xl rounded-tl-sm px-3 py-2">
           <p className="font-semibold text-xs text-slate-800 dark:text-slate-200 mb-0.5">
-            {comment.author.username}
+            {username}
           </p>
           <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
             {comment.content}

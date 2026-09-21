@@ -453,6 +453,60 @@ class AuthServiceClass {
         }
       }
 
+      // Synchronize local feed cache immediately in mock mode
+      if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+        try {
+          const rawFeed = localStorage.getItem("kb_feed_posts_v1");
+          if (rawFeed) {
+            const posts = JSON.parse(rawFeed);
+            if (Array.isArray(posts)) {
+              let changed = false;
+              const updatedPosts = posts.map((post: any) => {
+                let postChanged = false;
+                let author = post.author;
+                if (post.userId === userId && author) {
+                  author = {
+                    ...author,
+                    ...(data.username ? { username: data.username } : {}),
+                    ...(data.avatar_url !== undefined ? { avatar_url: data.avatar_url } : {}),
+                    ...(data.bio !== undefined ? { bio: data.bio } : {}),
+                  };
+                  postChanged = true;
+                }
+                let comments = post.comments;
+                if (Array.isArray(comments)) {
+                  comments = comments.map((c: any) => {
+                    if (c.userId === userId && c.author) {
+                      postChanged = true;
+                      return {
+                        ...c,
+                        author: {
+                          ...c.author,
+                          ...(data.username ? { username: data.username } : {}),
+                          ...(data.avatar_url !== undefined ? { avatar_url: data.avatar_url } : {}),
+                        },
+                      };
+                    }
+                    return c;
+                  });
+                }
+                if (postChanged) {
+                  changed = true;
+                  return { ...post, author, comments };
+                }
+                return post;
+              });
+              if (changed) {
+                localStorage.setItem("kb_feed_posts_v1", JSON.stringify(updatedPosts));
+              }
+            }
+          }
+          window.dispatchEvent(new CustomEvent("kb_feed_updated", { detail: { userId } }));
+        } catch (cacheErr) {
+          console.warn("Failed to update local feed cache in mock updateProfile:", cacheErr);
+        }
+      }
+
       this.notifyListeners();
       return { data: profiles[profileIndex], error: null };
     } else {
@@ -479,6 +533,77 @@ class AuthServiceClass {
         await supabase.auth.updateUser({ data: metaUpdates });
       } catch (authErr) {
         console.warn("Failed to sync auth user_metadata:", authErr);
+      }
+
+      // Explicitly update feed_posts table to guarantee immediate persistence
+      try {
+        const authorPatch = {
+          id: userId,
+          username: updatedData?.username || data.username,
+          avatar_url: updatedData?.avatar_url ?? data.avatar_url ?? null,
+          bio: updatedData?.bio ?? data.bio ?? null,
+          role: updatedData?.role || "user",
+        };
+        await supabase
+          .from("feed_posts")
+          .update({ author: authorPatch })
+          .eq("user_id", userId);
+      } catch (feedErr) {
+        console.warn("Failed to update feed_posts in authService:", feedErr);
+      }
+
+      // Synchronize local feed cache immediately
+      if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+        try {
+          const rawFeed = localStorage.getItem("kb_feed_posts_v1");
+          if (rawFeed) {
+            const posts = JSON.parse(rawFeed);
+            if (Array.isArray(posts)) {
+              let changed = false;
+              const updatedPosts = posts.map((post: any) => {
+                let postChanged = false;
+                let author = post.author;
+                if (post.userId === userId && author) {
+                  author = {
+                    ...author,
+                    ...(data.username ? { username: data.username } : {}),
+                    ...(data.avatar_url !== undefined ? { avatar_url: data.avatar_url } : {}),
+                    ...(data.bio !== undefined ? { bio: data.bio } : {}),
+                  };
+                  postChanged = true;
+                }
+                let comments = post.comments;
+                if (Array.isArray(comments)) {
+                  comments = comments.map((c: any) => {
+                    if (c.userId === userId && c.author) {
+                      postChanged = true;
+                      return {
+                        ...c,
+                        author: {
+                          ...c.author,
+                          ...(data.username ? { username: data.username } : {}),
+                          ...(data.avatar_url !== undefined ? { avatar_url: data.avatar_url } : {}),
+                        },
+                      };
+                    }
+                    return c;
+                  });
+                }
+                if (postChanged) {
+                  changed = true;
+                  return { ...post, author, comments };
+                }
+                return post;
+              });
+              if (changed) {
+                localStorage.setItem("kb_feed_posts_v1", JSON.stringify(updatedPosts));
+              }
+            }
+          }
+          window.dispatchEvent(new CustomEvent("kb_feed_updated", { detail: { userId } }));
+        } catch (cacheErr) {
+          console.warn("Failed to update local feed cache on profile update:", cacheErr);
+        }
       }
 
       return { data: updatedData, error };

@@ -403,7 +403,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onOpenComments,
   onDeletePost,
 }) => {
-  const { language } = useStore();
+  const { language, currentProfile } = useStore();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // Compute total reactions count & userReaction
@@ -428,6 +428,19 @@ export const PostCard: React.FC<PostCardProps> = ({
   const displayPost = post.repostedFrom ?? post;
   const isRepost = Boolean(post.repostedFrom);
 
+  const isCurrentAuthor = displayPost.userId === currentUserId;
+  const authorAvatar = (isCurrentAuthor && currentProfile?.avatar_url)
+    ? currentProfile.avatar_url
+    : displayPost.author.avatar_url;
+  const authorUsername = (isCurrentAuthor && currentProfile?.username)
+    ? currentProfile.username
+    : displayPost.author.username;
+
+  const isCurrentReposter = post.userId === currentUserId;
+  const reposterUsername = (isCurrentReposter && currentProfile?.username)
+    ? currentProfile.username
+    : post.author.username;
+
   return (
     <>
       <motion.article
@@ -442,7 +455,7 @@ export const PostCard: React.FC<PostCardProps> = ({
             <Repeat2 className="w-3.5 h-3.5 flex-shrink-0" />
             <span>
               <span className="font-medium text-slate-700 dark:text-slate-300">
-                {post.author.username}
+                {reposterUsername}
               </span>{" "}
               {getTranslation(language, "reposted")}
             </span>
@@ -454,14 +467,14 @@ export const PostCard: React.FC<PostCardProps> = ({
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3 min-w-0">
               <UserAvatar
-                avatar={displayPost.author.avatar_url}
-                username={displayPost.author.username}
+                avatar={authorAvatar}
+                username={authorUsername}
                 size={40}
               />
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
-                    {displayPost.author.username}
+                    {authorUsername}
                   </span>
                   {displayPost.author.role === "admin" && (
                     <span
