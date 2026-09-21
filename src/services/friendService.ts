@@ -2,6 +2,7 @@ import { supabase, isMockMode } from "../lib/supabase";
 import { mockDb } from "./mockDb";
 import type { FriendRequest, Profile } from "./mockDb";
 import { chatService } from "./chatService";
+import { pushNotificationService } from "./pushNotificationService";
 
 export interface FriendRequestWithProfiles extends FriendRequest {
   sender?: Profile;
@@ -9,6 +10,68 @@ export interface FriendRequestWithProfiles extends FriendRequest {
 }
 
 class FriendServiceClass {
+  private async notifyReceiverOfFriendRequest(senderId: string, receiverId: string) {
+    try {
+      if (isMockMode || !supabase) return;
+      const { data: senderProfile } = await supabase
+        .from("profiles")
+        .select("username, full_name")
+        .eq("id", senderId)
+        .single();
+
+      const senderName = senderProfile?.username || senderProfile?.full_name || "Someone";
+      const title = "New Friend Request";
+      const content = `${senderName} has sent you a friend request.`;
+
+      await supabase.from("user_notifications").insert({
+        user_id: receiverId,
+        title,
+        content,
+        type: "friend_request",
+      });
+
+      await pushNotificationService.sendDirectUserPush(
+        receiverId,
+        title,
+        content,
+        { type: "friend_request", senderId }
+      );
+    } catch (err) {
+      console.warn("Failed to send friend request notification:", err);
+    }
+  }
+
+  private async notifySenderOfFriendAccept(responderId: string, senderId: string) {
+    try {
+      if (isMockMode || !supabase) return;
+      const { data: responderProfile } = await supabase
+        .from("profiles")
+        .select("username, full_name")
+        .eq("id", responderId)
+        .single();
+
+      const responderName = responderProfile?.username || responderProfile?.full_name || "Someone";
+      const title = "Friend Request Accepted";
+      const content = `${responderName} accepted your friend request.`;
+
+      await supabase.from("user_notifications").insert({
+        user_id: senderId,
+        title,
+        content,
+        type: "friend_accept",
+      });
+
+      await pushNotificationService.sendDirectUserPush(
+        senderId,
+        title,
+        content,
+        { type: "friend_accept", responderId }
+      );
+    } catch (err) {
+      console.warn("Failed to send friend accept notification:", err);
+    }
+  }
+
   public async getFriends(userId: string): Promise<{ data: Profile[]; error: any }> {
     if (isMockMode) {
       const requests = mockDb.getFriendRequests();
@@ -165,6 +228,10 @@ class FriendServiceClass {
         .select()
         .single();
 
+      if (!error && data) {
+        this.notifyReceiverOfFriendRequest(senderId, profile.id);
+      }
+
       return { data, error };
     }
   }
@@ -217,6 +284,7 @@ class FriendServiceClass {
       if (status === "accepted") {
         // Create conversation
         await chatService.createConversation([request.sender_id, request.receiver_id], null, false);
+        this.notifySenderOfFriendAccept(request.receiver_id, request.sender_id);
       }
 
       return { error: null };
@@ -299,6 +367,10 @@ class FriendServiceClass {
         .insert({ sender_id: senderId, receiver_id: receiverId })
         .select()
         .single();
+
+      if (!error && data) {
+        this.notifyReceiverOfFriendRequest(senderId, receiverId);
+      }
 
       return { data, error };
     }
