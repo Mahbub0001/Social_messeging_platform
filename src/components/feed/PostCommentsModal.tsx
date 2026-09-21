@@ -325,7 +325,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
                       ? "bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-sm"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed"
                   )}
-                  aria-label="মন্তব্য পাঠান"
+                  aria-label={getTranslation(language, "sendComment")}
                 >
                   {isSubmitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

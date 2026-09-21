@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Repeat2, MessageCircle, Link2, Loader2, Check } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -7,6 +7,7 @@ import type { FeedPost } from "../../services/feedService";
 import { chatService } from "../../services/chatService";
 import type { ConversationWithDetails } from "../../services/chatService";
 import { useStore } from "../../hooks/useStore";
+import { getTranslation } from "../../utils/translations";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -66,11 +67,12 @@ function UserAvatar({
 // ---------------------------------------------------------------------------
 function conversationDisplayName(
   conv: ConversationWithDetails,
-  currentUserId: string
+  currentUserId: string,
+  lang: "bn" | "en" = "bn"
 ): string {
-  if (conv.is_group) return conv.name ?? "গ্রুপ";
+  if (conv.is_group) return conv.name ?? (lang === "bn" ? "গ্রুপ" : "Group");
   const other = (conv.members ?? []).find((m) => m.id !== currentUserId);
-  return other?.username ?? conv.name ?? "কথোপকথন";
+  return other?.username ?? conv.name ?? (lang === "bn" ? "কথোপকথন" : "Conversation");
 }
 
 function conversationAvatar(
@@ -92,6 +94,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   currentUserId,
   onReposted,
 }) => {
+  const language = useStore((s) => s.language);
   const [repostLoading, setRepostLoading] = useState(false);
   const [repostSuccess, setRepostSuccess] = useState(false);
   const [repostError, setRepostError] = useState<string | null>(null);
@@ -141,7 +144,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const { error } = await feedService.repost(post.id, currentUserId);
     setRepostLoading(false);
     if (error) {
-      setRepostError("রিশেয়ার ব্যর্থ হয়েছে। আবার চেষ্টা করুন।");
+      setRepostError(getTranslation(language, "repostFailed"));
     } else {
       setRepostSuccess(true);
       onReposted?.();
@@ -153,7 +156,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     if (sentToConvId) return;
     const link = `${window.location.origin}/feed/${post.id}`;
     const displayPost = post.repostedFrom ?? post;
-    const preview = `🔗 পোস্ট শেয়ার: "${displayPost.content?.slice(0, 80) ?? ""}"\n${link}`;
+    const preview = `🔗 ${getTranslation(language, "postSharedLink")}: "${displayPost.content?.slice(0, 80) ?? ""}"\n${link}`;
     await chatService.sendMessage(conv.id, currentUserId, preview);
     setSentToConvId(conv.id);
   };
@@ -207,16 +210,13 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             {/* Header */}
             <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
               <h2 className="font-semibold text-gray-900 dark:text-gray-100 text-base">
-                শেয়ার করুন{" "}
-                <span className="text-xs font-normal text-gray-400 dark:text-gray-500">
-                  (Share)
-                </span>
+                {getTranslation(language, "sharePostTitle")}
               </h2>
               <button
                 type="button"
                 onClick={onClose}
                 className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                aria-label="বন্ধ করুন"
+                aria-label={getTranslation(language, "close")}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -279,10 +279,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                           : "text-gray-800 dark:text-gray-200"
                       )}
                     >
-                      {repostSuccess ? "রিশেয়ার করা হয়েছে! ✓" : "🔄 ফিডে রিশেয়ার (Repost to Feed)"}
+                      {repostSuccess ? getTranslation(language, "reposted") : `🔄 ${getTranslation(language, "repostToFeed")}`}
                     </p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      {repostSuccess ? "" : "আপনার ফিডে শেয়ার করুন"}
+                      {repostSuccess ? "" : getTranslation(language, "repostFeedDesc")}
                     </p>
                   </div>
                 </button>
@@ -312,10 +312,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">
-                      💬 ইনবক্সে পাঠান (Send to Chat)
+                      💬 {getTranslation(language, "sendToChat")}
                     </p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      কোনো কথোপকথনে পাঠান
+                      {getTranslation(language, "sendToChatDesc")}
                     </p>
                   </div>
                   <motion.span
@@ -342,12 +342,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                         </div>
                       ) : conversations.length === 0 ? (
                         <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-4">
-                          কোনো কথোপকথন পাওয়া যায়নি
+                          {getTranslation(language, "noConversationsFound")}
                         </p>
                       ) : (
                         <div className="max-h-48 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800">
                           {conversations.map((conv) => {
-                            const name = conversationDisplayName(conv, currentUserId);
+                            const name = conversationDisplayName(conv, currentUserId, language);
                             const avatar = conversationAvatar(conv, currentUserId);
                             const sent = sentToConvId === conv.id;
                             return (
@@ -372,7 +372,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                                       : "text-gray-800 dark:text-gray-200"
                                   )}
                                 >
-                                  {sent ? "পাঠানো হয়েছে ✓" : name}
+                                  {sent ? getTranslation(language, "sentCheck") : name}
                                 </span>
                               </button>
                             );
@@ -419,10 +419,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                           : "text-gray-800 dark:text-gray-200"
                       )}
                     >
-                      {linkCopied ? "কপি করা হয়েছে! ✓" : "🔗 লিংক কপি করুন (Copy Link)"}
+                      {linkCopied ? getTranslation(language, "linkCopied") : `🔗 ${getTranslation(language, "copyLink")}`}
                     </p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      {linkCopied ? "" : "পোস্টের লিংক ক্লিপবোর্ডে কপি করুন"}
+                      {linkCopied ? "" : getTranslation(language, "copyLinkDesc")}
                     </p>
                   </div>
                 </button>

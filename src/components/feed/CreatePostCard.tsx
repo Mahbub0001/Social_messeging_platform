@@ -354,7 +354,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
                     type="button"
                     onClick={() => removeImage(idx)}
                     className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
-                    aria-label="ছবি সরান"
+                    aria-label={getTranslation(language, "removePhoto")}
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -382,7 +382,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
                 type="button"
                 onClick={removeVideo}
                 className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
-                aria-label="ভিডিও সরান"
+                aria-label={getTranslation(language, "removeVideo")}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -437,10 +437,10 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
                 ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
                 : "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
             )}
-            title="ছবি যোগ করুন"
+            title={getTranslation(language, "addPhoto")}
           >
             <Image className="w-4 h-4" />
-            <span className="hidden sm:inline">ছবি</span>
+            <span className="hidden sm:inline">{getTranslation(language, "photo")}</span>
           </button>
 
           {/* Video */}
@@ -462,10 +462,10 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
                 ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
                 : "text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30"
             )}
-            title="ভিডিও যোগ করুন"
+            title={getTranslation(language, "addVideo")}
           >
             <Video className="w-4 h-4" />
-            <span className="hidden sm:inline">ভিডিও</span>
+            <span className="hidden sm:inline">{getTranslation(language, "video")}</span>
           </button>
 
           {/* Emoji */}
@@ -475,10 +475,10 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
               onClick={() => setShowEmojiPicker((v) => !v)}
               disabled={isUploading}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
-              title="ইমোজি"
+              title={getTranslation(language, "emoji")}
             >
               <Smile className="w-4 h-4" />
-              <span className="hidden sm:inline">ইমোজি</span>
+              <span className="hidden sm:inline">{getTranslation(language, "emoji")}</span>
             </button>
 
             <AnimatePresence>
@@ -491,7 +491,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
                   className="absolute left-0 bottom-full mb-2 z-50 w-64 p-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700"
                 >
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 px-1 mb-1.5 font-medium">
-                    ইমোজি বেছে নিন
+                    {getTranslation(language, "chooseEmoji")}
                   </p>
                   <div className="grid grid-cols-8 gap-1">
                     {COMMON_EMOJIS.map((emoji) => (

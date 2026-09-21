@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useStore } from "../../hooks/useStore";
+import { getTranslation } from "../../utils/translations";
 
 export type ReactionType = "love" | "haha" | "wow" | "sad" | "angry" | "like";
 
@@ -295,6 +297,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
     onToggleDefault();
   };
 
+  const language = useStore((s) => s.language);
   const activeConfig = currentReaction ? REACTIONS_CONFIG[currentReaction] : null;
 
   return (
@@ -361,7 +364,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
                         ? item.bg
                         : "hover:bg-slate-100 dark:hover:bg-slate-800/70"
                     )}
-                    aria-label={item.label}
+                    aria-label={getTranslation(language, item.type)}
                   >
                     <span className="text-2xl leading-none select-none block filter drop-shadow-sm">
                       {item.emoji}
@@ -388,7 +391,7 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
             ? cn(activeConfig.bg, "font-semibold")
             : "text-slate-600 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80"
         )}
-        aria-label={activeConfig ? activeConfig.label : "Reaction"}
+        aria-label={activeConfig ? getTranslation(language, activeConfig.type) : getTranslation(language, "react")}
       >
         {activeConfig ? (
           <span className="text-base leading-none select-none">
