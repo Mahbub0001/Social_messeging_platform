@@ -4,7 +4,7 @@ import { mockDb } from "./mockDb";
 export interface FeedReaction {
   userId: string;
   username: string;
-  reactionType: "love" | "wow" | "sad" | "angry" | "like";
+  reactionType: "love" | "haha" | "wow" | "sad" | "angry" | "like";
   createdAt: string;
 }
 
@@ -36,7 +36,7 @@ export interface FeedPost {
   mediaType: "none" | "image" | "video";
   createdAt: string;
   reactions: Record<string, FeedReaction[]>;
-  userReaction?: "love" | "wow" | "sad" | "angry" | "like" | null;
+  userReaction?: "love" | "haha" | "wow" | "sad" | "angry" | "like" | null;
   sharesCount: number;
   repostedFrom?: FeedPost | null;
   commentsCount: number;
@@ -516,7 +516,7 @@ export class FeedService {
   async toggleReaction(
     postId: string,
     userId: string,
-    reactionType: "love" | "wow" | "sad" | "angry" | "like"
+    reactionType: "love" | "haha" | "wow" | "sad" | "angry" | "like"
   ): Promise<{ data: FeedPost | null; error: any }> {
     try {
       const posts = this.readFromCache();

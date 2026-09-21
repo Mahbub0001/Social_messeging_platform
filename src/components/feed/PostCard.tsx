@@ -29,7 +29,7 @@ export interface PostCardProps {
   currentUserId?: string;
   onReaction: (
     postId: string,
-    reaction: "love" | "wow" | "sad" | "angry" | "like"
+    reaction: ReactionType
   ) => void;
   onShare: (post: FeedPost) => void;
   onOpenComments: (post: FeedPost) => void;

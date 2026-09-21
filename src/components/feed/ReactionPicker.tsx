@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Heart } from "lucide-react";
 import { cn } from "../../lib/utils";
 
-export type ReactionType = "love" | "wow" | "sad" | "angry" | "like";
+export type ReactionType = "love" | "haha" | "wow" | "sad" | "angry" | "like";
 
 export interface ReactionPickerProps {
   currentReaction?: ReactionType | null;
@@ -28,6 +28,13 @@ export const REACTIONS_CONFIG: Record<ReactionType, ReactionConfig> = {
     label: "ভালোবাসা",
     color: "text-rose-500",
     bg: "bg-rose-500/15",
+  },
+  haha: {
+    type: "haha",
+    emoji: "😆",
+    label: "হা হা",
+    color: "text-amber-500",
+    bg: "bg-amber-500/15",
   },
   wow: {
     type: "wow",
@@ -61,6 +68,7 @@ export const REACTIONS_CONFIG: Record<ReactionType, ReactionConfig> = {
 
 export const ORDERED_REACTIONS: ReactionType[] = [
   "love",
+  "haha",
   "wow",
   "sad",
   "angry",
@@ -125,9 +133,12 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
       clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current);
+    }
     openTimerRef.current = setTimeout(() => {
       setIsDockOpen(true);
-    }, 150);
+    }, 120);
   }, []);
 
   const handleMouseLeave = useCallback(() => {
@@ -135,10 +146,13 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
       clearTimeout(openTimerRef.current);
       openTimerRef.current = null;
     }
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+    }
     closeTimerRef.current = setTimeout(() => {
       setIsDockOpen(false);
       setHoveredEmoji(null);
-    }, 250);
+    }, 450);
   }, []);
 
   // Mobile Touch handlers
@@ -293,7 +307,13 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
       {/* Floating Reaction Dock */}
       <AnimatePresence>
         {isDockOpen && (
-          <div className="absolute bottom-full left-0 mb-1 pb-2 z-50 pointer-events-auto">
+          <div
+            className="absolute bottom-full left-0 pb-3 -mb-1.5 z-50 pointer-events-auto"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            {/* Invisible hover bridge to eliminate any gap between button and dock */}
+            <div className="absolute -bottom-2 left-0 right-0 h-4 pointer-events-auto" />
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -325,7 +345,13 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
                       setIsDockOpen(false);
                       setHoveredEmoji(null);
                     }}
-                    onMouseEnter={() => setHoveredEmoji(item.type)}
+                    onMouseEnter={() => {
+                      if (closeTimerRef.current) {
+                        clearTimeout(closeTimerRef.current);
+                        closeTimerRef.current = null;
+                      }
+                      setHoveredEmoji(item.type);
+                    }}
                     onMouseLeave={() =>
                       setHoveredEmoji((prev) => (prev === item.type ? null : prev))
                     }
@@ -352,8 +378,6 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
       <button
         type="button"
         onClick={handleMainButtonClick}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}

@@ -138,8 +138,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
 
     // Capture previous read timestamp to show the "New Messages / নতুন বার্তা" divider line
     if (user?.id) {
-      const prevReadAt = chatService.getLastReadTimestamp(activeConversationId, user.id);
-      setInitialLastReadAt(prevReadAt);
+      const myMem = activeChat?.members?.find((m) => m.id === user.id);
+      const prevReadAt = chatService.getLastReadTimestamp(activeConversationId, user.id) || myMem?.last_read_at;
+      setInitialLastReadAt(prevReadAt || null);
       useStore.getState().markConversationAsRead(activeConversationId);
     }
 
@@ -148,8 +149,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
 
     // Fetch partner's initial last seen timestamp
     const otherMember = activeChat?.members?.find((m) => m.id !== user?.id);
-    const initialSeen = chatService.getPartnerLastSeen(activeConversationId, otherMember?.id);
-    setPartnerLastSeenAt(initialSeen);
+    const initialSeen = chatService.getPartnerLastSeen(activeConversationId, otherMember?.id) || otherMember?.last_read_at;
+    setPartnerLastSeenAt(initialSeen || null);
 
     // Listen to real-time message events
     const unsubscribe = chatService.subscribeToMessages(
@@ -193,7 +194,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
     if (!activeConversationId) return;
     const partner = activeChat?.members?.find((m) => m.id !== user?.id);
     if (partner) {
-      const seen = chatService.getPartnerLastSeen(activeConversationId, partner.id);
+      const seen = chatService.getPartnerLastSeen(activeConversationId, partner.id) || partner.last_read_at;
       if (seen) {
         setPartnerLastSeenAt(seen);
       }

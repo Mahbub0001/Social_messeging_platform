@@ -22,6 +22,7 @@ export interface ConversationMember {
   user_id: string;
   role: 'admin' | 'member';
   joined_at: string;
+  last_read_at?: string;
 }
 
 export interface Message {

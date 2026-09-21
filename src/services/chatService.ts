@@ -13,6 +13,7 @@ export interface MessageWithSender extends Message {
 
 export interface ProfileWithRole extends Profile {
   role?: "admin" | "member";
+  last_read_at?: string;
 }
 
 export interface ConversationWithDetails extends Conversation {
@@ -128,11 +129,23 @@ class ChatServiceClass {
           
           const last_message = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1] : null;
 
-          const lastReadAt = this.getLastReadTimestamp(conv.id, userId);
+          const myMember = allMembers.find((mem) => mem.conversation_id === conv.id && mem.user_id === userId);
+          const dbReadAt = myMember?.last_read_at;
+          const localReadAt = this.getLastReadTimestamp(conv.id, userId);
+          let lastReadAt = localReadAt;
+          if (dbReadAt) {
+            if (!lastReadAt || new Date(dbReadAt).getTime() > new Date(lastReadAt).getTime()) {
+              lastReadAt = dbReadAt;
+              this.setLocalReadTimestamp(conv.id, userId, dbReadAt);
+            }
+          }
+          if (!lastReadAt) {
+            lastReadAt = myMember?.joined_at || conv.created_at;
+          }
+
           const unread_count = chatMessages.filter((msg) => {
             if (msg.sender_id === userId) return false;
-            if (!lastReadAt) return true;
-            return new Date(msg.created_at).getTime() > new Date(lastReadAt).getTime();
+            return new Date(msg.created_at).getTime() > new Date(lastReadAt!).getTime();
           }).length;
 
           return {
@@ -172,6 +185,9 @@ class ChatServiceClass {
           *,
           conversation_members (
             user_id,
+            role,
+            joined_at,
+            last_read_at,
             profiles (*)
           ),
           messages (
@@ -191,7 +207,8 @@ class ChatServiceClass {
         // Map members
         const members = conv.conversation_members.map((m: any) => ({
           ...m.profiles,
-          role: m.role
+          role: m.role,
+          last_read_at: m.last_read_at,
         }));
         // Get last message (sorted in JS or DB)
         const sortedMsgs = (conv.messages || []).sort(
@@ -199,11 +216,24 @@ class ChatServiceClass {
         );
         const last_message = sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null;
 
-        const lastReadAt = this.getLastReadTimestamp(conv.id, userId);
+        const myMember = conv.conversation_members?.find((m: any) => m.user_id === userId);
+        const dbReadAt = myMember?.last_read_at;
+        const localReadAt = this.getLastReadTimestamp(conv.id, userId);
+
+        let lastReadAt = localReadAt;
+        if (dbReadAt) {
+          if (!lastReadAt || new Date(dbReadAt).getTime() > new Date(lastReadAt).getTime()) {
+            lastReadAt = dbReadAt;
+            this.setLocalReadTimestamp(conv.id, userId, dbReadAt);
+          }
+        }
+        if (!lastReadAt) {
+          lastReadAt = myMember?.joined_at || conv.created_at;
+        }
+
         const unread_count = sortedMsgs.filter((m: any) => {
           if (m.sender_id === userId) return false;
-          if (!lastReadAt) return true;
-          return new Date(m.created_at).getTime() > new Date(lastReadAt).getTime();
+          return new Date(m.created_at).getTime() > new Date(lastReadAt!).getTime();
         }).length;
 
         return {
@@ -1203,7 +1233,7 @@ class ChatServiceClass {
   // READ RECEIPTS & SEEN TRACKING
   // ----------------------------------------------------
   public getLastReadTimestamp(conversationId: string, userId: string): string | null {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined" || !userId) return null;
     try {
       const stored = localStorage.getItem(`kb_read_timestamps_${userId}`);
       if (!stored) return null;
@@ -1212,6 +1242,16 @@ class ChatServiceClass {
     } catch (e) {
       return null;
     }
+  }
+
+  public setLocalReadTimestamp(conversationId: string, userId: string, timestamp: string): void {
+    if (typeof window === "undefined" || !userId) return;
+    try {
+      const key = `kb_read_timestamps_${userId}`;
+      const stored = JSON.parse(localStorage.getItem(key) || "{}");
+      stored[conversationId] = timestamp;
+      localStorage.setItem(key, JSON.stringify(stored));
+    } catch (e) {}
   }
 
   public getPartnerLastSeen(conversationId: string, partnerId?: string): string | null {
@@ -1240,31 +1280,49 @@ class ChatServiceClass {
     lastMessageId?: string,
     lastMessageCreatedAt?: string
   ): Promise<{ error: any }> {
-    if (typeof window === "undefined") return { error: null };
+    if (typeof window === "undefined" || !userId) return { error: null };
     const nowIso = lastMessageCreatedAt || new Date().toISOString();
 
     try {
-      // 1. Save user's own read timestamp
-      const key = `kb_read_timestamps_${userId}`;
-      const stored = JSON.parse(localStorage.getItem(key) || "{}");
-      stored[conversationId] = nowIso;
-      localStorage.setItem(key, JSON.stringify(stored));
+      // 1. Save user's own read timestamp locally
+      this.setLocalReadTimestamp(conversationId, userId, nowIso);
 
-      // 2. Save conversation seen receipt (for partner to read)
-      const receipt = { readerId: userId, seenAt: nowIso, lastMessageId };
-      localStorage.setItem(`kb_conversation_seen_${conversationId}`, JSON.stringify(receipt));
-      if (userId) {
-        localStorage.setItem(`kb_partner_seen_${conversationId}_${userId}`, nowIso);
+      // 2. Persist to backend database (conversation_members.last_read_at)
+      if (isMockMode) {
+        const allMembers = mockDb.getConversationMembers();
+        const myMem = allMembers.find(
+          (m) => m.conversation_id === conversationId && m.user_id === userId
+        );
+        if (myMem) {
+          myMem.last_read_at = nowIso;
+          mockDb.saveConversationMembers(allMembers);
+        }
+      } else if (supabase) {
+        supabase
+          .from("conversation_members")
+          .update({ last_read_at: nowIso })
+          .eq("conversation_id", conversationId)
+          .eq("user_id", userId)
+          .then(({ error }: any) => {
+            if (error) {
+              console.warn("Failed to persist last_read_at to Supabase:", error.message);
+            }
+          });
       }
 
-      // 3. Dispatch local event for instant UI reaction across components/tabs
+      // 3. Save conversation seen receipt (for partner to read)
+      const receipt = { readerId: userId, seenAt: nowIso, lastMessageId };
+      localStorage.setItem(`kb_conversation_seen_${conversationId}`, JSON.stringify(receipt));
+      localStorage.setItem(`kb_partner_seen_${conversationId}_${userId}`, nowIso);
+
+      // 4. Dispatch local event for instant UI reaction across components/tabs
       window.dispatchEvent(
         new CustomEvent("kb_message_seen", {
           detail: { conversationId, readerId: userId, seenAt: nowIso, lastMessageId },
         })
       );
 
-      // 4. In Supabase mode, broadcast via Realtime channel
+      // 5. In Supabase mode, broadcast via Realtime channel
       if (!isMockMode) {
         const channel = supabase.channel(`conversation-seen:${conversationId}`);
         channel.subscribe((status: string) => {
