@@ -72,6 +72,36 @@ class FriendServiceClass {
     }
   }
 
+  public async getSentRequests(userId: string): Promise<{ data: FriendRequestWithProfiles[]; error: any }> {
+    if (isMockMode) {
+      const requests = mockDb.getFriendRequests();
+      const profiles = mockDb.getProfiles();
+
+      const sent = requests
+        .filter((r) => r.status === "pending" && r.sender_id === userId)
+        .map((r) => ({
+          ...r,
+          sender: profiles.find((p) => p.id === r.sender_id),
+          receiver: profiles.find((p) => p.id === r.receiver_id),
+        }));
+
+      return { data: sent, error: null };
+    } else {
+      const { data, error } = await supabase
+        .from("friend_requests")
+        .select(`
+          *,
+          sender:profiles!friend_requests_sender_id_fkey (*),
+          receiver:profiles!friend_requests_receiver_id_fkey (*)
+        `)
+        .eq("sender_id", userId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+
+      return { data: data || [], error };
+    }
+  }
+
   public async sendFriendRequest(senderId: string, receiverUsername: string): Promise<{ data: any; error: any }> {
     if (isMockMode) {
       const profiles = mockDb.getProfiles();

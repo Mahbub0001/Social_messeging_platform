@@ -115,6 +115,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       const res = await friendService.sendFriendRequestById(currentUserId, userId);
       if (!res.error) {
         setFriendshipStatus("pending_sent");
+        if (res.data?.id) {
+          setPendingRequestId(res.data.id);
+        }
       }
     } catch (e) {
       console.error("Error adding friend:", e);

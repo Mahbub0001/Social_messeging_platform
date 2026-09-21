@@ -85,6 +85,10 @@ export const translations = {
     unfriend: "আনফ্রেন্ড করুন",
     friendsCheck: "ফ্রেন্ডস ✓",
     message: "বার্তা পাঠান",
+    sentRequestsTitle: "পাঠানো রিকোয়েস্ট",
+    receivedRequestsTitle: "পেন্ডিং রিকোয়েস্ট",
+    noSentRequests: "কোনো পেন্ডিং রিকোয়েস্ট পাঠানো নেই।",
+    noReceivedRequests: "কোনো পেন্ডিং রিকোয়েস্ট নেই।",
 
     // Time
     justNow: "এইমাত্র",
@@ -126,6 +130,10 @@ export const translations = {
     unfriend: "Unfriend",
     friendsCheck: "Friends ✓",
     message: "Message",
+    sentRequestsTitle: "Sent Requests",
+    receivedRequestsTitle: "Pending Requests",
+    noSentRequests: "No pending sent requests.",
+    noReceivedRequests: "No pending invitations.",
     createPostPlaceholder: "What's on your mind, {name}? Share something...",
     post: "Post",
     posting: "Posting...",
