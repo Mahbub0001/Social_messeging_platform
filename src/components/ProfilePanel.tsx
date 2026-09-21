@@ -6,7 +6,7 @@ import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
 import { motion } from "framer-motion";
 import { sanitizeUrl } from "../utils/security";
-import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock, Globe, Music, Play, Square, Bell, Zap } from "lucide-react";
+import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock, Globe, Music, Play, Square, Bell, Zap, Lock } from "lucide-react";
 import { storageService } from "../services/storageService";
 import { getTranslation } from "../utils/translations";
 import { RINGTONE_OPTIONS, audioSynthesizer } from "../utils/audio";
@@ -34,6 +34,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   const [profileData, setProfileData] = useState<{
     username: string;
@@ -132,6 +133,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
             bio: data.bio || "",
             avatar_url: data.avatar_url || "",
           });
+          setIsLocked(Boolean(data.is_locked));
         }
       });
     }
@@ -186,6 +188,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
         username: data.username.trim(),
         bio: data.bio.trim(),
         avatar_url: data.avatar_url.trim() || undefined,
+        is_locked: isLocked,
       });
 
       if (updateError) {
@@ -200,6 +203,7 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
           username: data.username.trim(),
           bio: data.bio.trim(),
           avatar_url: data.avatar_url.trim(),
+          is_locked: isLocked,
           is_online: true,
           last_seen: new Date().toISOString(),
         };
@@ -352,6 +356,47 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
               {errors.avatar_url && (
                 <p className="mt-1 text-[10px] text-red-400">{errors.avatar_url.message}</p>
               )}
+            </div>
+
+            {/* Profile Lock Section (Facebook-style) */}
+            <div className="bg-slate-850 border border-slate-750 rounded-xl p-3.5 space-y-2 bg-gradient-to-r from-slate-800/80 to-indigo-950/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-200 font-semibold">
+                  <div className={`p-1.5 rounded-lg ${isLocked ? "bg-amber-500/20 text-amber-400" : "bg-slate-700/50 text-slate-400"}`}>
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-sm">{getTranslation(language, "lockProfile")}</span>
+                    {isLocked && (
+                      <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        {language === "bn" ? "লক করা" : "Locked"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Toggle Switch */}
+                <button
+                  type="button"
+                  onClick={() => setIsLocked((prev) => !prev)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isLocked ? "bg-amber-500" : "bg-slate-700"
+                  }`}
+                  role="switch"
+                  aria-checked={isLocked}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      isLocked ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                {language === "bn"
+                  ? "প্রোফাইল লক থাকলে শুধুমাত্র আপনার ফ্রেন্ডরা আপনার প্রোফাইলের বিস্তারিত ও টাইমলাইন পোস্ট দেখতে পারবেন। অপরিচিতদের কাছে সবকিছু লক থাকবে।"
+                  : "When your profile is locked, strangers cannot view your timeline posts or detailed info. Only confirmed friends can see them."}
+              </p>
             </div>
 
             {/* Language Switcher Section */}

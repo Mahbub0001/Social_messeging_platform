@@ -9,6 +9,7 @@ import { PostCard } from "./PostCard";
 import { CreatePostCard } from "./CreatePostCard";
 import { ShareModal } from "./ShareModal";
 import { PostCommentsModal } from "./PostCommentsModal";
+import { UserProfileModal } from "../profile/UserProfileModal";
 import { useStore } from "../../hooks/useStore";
 import { getTranslation } from "../../utils/translations";
 
@@ -25,7 +26,7 @@ export interface FeedViewProps {
 // ---------------------------------------------------------------------------
 // Filter type
 // ---------------------------------------------------------------------------
-type FeedFilter = "all" | "my";
+type FeedFilter = "all" | "friends" | "my";
 
 // ---------------------------------------------------------------------------
 // Skeleton loader card
@@ -70,9 +71,11 @@ export const FeedView: React.FC<FeedViewProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedPostForShare, setSelectedPostForShare] = useState<FeedPost | null>(null);
   const [selectedPostForComments, setSelectedPostForComments] = useState<FeedPost | null>(null);
+  const [selectedUserProfileId, setSelectedUserProfileId] = useState<string | null>(null);
 
   const filterTabs: { key: FeedFilter; label: string }[] = [
     { key: "all", label: `🌐 ${getTranslation(language, "allPosts")}` },
+    { key: "friends", label: `👥 ${getTranslation(language, "friendsFeed")}` },
     { key: "my", label: `👤 ${getTranslation(language, "myPosts")}` },
   ];
 
@@ -259,6 +262,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 onShare={setSelectedPostForShare}
                 onOpenComments={setSelectedPostForComments}
                 onDeletePost={handleDeletePost}
+                onOpenUserProfile={setSelectedUserProfileId}
               />
             ))
           )}
@@ -283,6 +287,12 @@ export const FeedView: React.FC<FeedViewProps> = ({
         currentUserId={currentUserId}
         currentUsername={currentUsername}
         currentUserAvatar={currentUserAvatar}
+        onOpenUserProfile={setSelectedUserProfileId}
+      />
+      <UserProfileModal
+        userId={selectedUserProfileId}
+        isOpen={selectedUserProfileId !== null}
+        onClose={() => setSelectedUserProfileId(null)}
       />
     </div>
   );

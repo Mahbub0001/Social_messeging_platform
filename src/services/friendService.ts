@@ -273,6 +273,105 @@ class FriendServiceClass {
       return { data, error };
     }
   }
+
+  public async checkFriendshipStatus(
+    currentUserId: string,
+    targetUserId: string
+  ): Promise<{
+    status: "none" | "friends" | "pending_sent" | "pending_received" | "self";
+    requestId?: string;
+  }> {
+    if (currentUserId === targetUserId) {
+      return { status: "self" };
+    }
+
+    if (isMockMode) {
+      const requests = mockDb.getFriendRequests();
+      const req = requests.find(
+        (r) =>
+          (r.sender_id === currentUserId && r.receiver_id === targetUserId) ||
+          (r.sender_id === targetUserId && r.receiver_id === currentUserId)
+      );
+
+      if (!req) return { status: "none" };
+      if (req.status === "accepted") return { status: "friends", requestId: req.id };
+      if (req.status === "pending") {
+        if (req.sender_id === currentUserId) {
+          return { status: "pending_sent", requestId: req.id };
+        } else {
+          return { status: "pending_received", requestId: req.id };
+        }
+      }
+      return { status: "none" };
+    } else {
+      const { data, error } = await supabase
+        .from("friend_requests")
+        .select("id, sender_id, receiver_id, status")
+        .or(
+          `and(sender_id.eq.${currentUserId},receiver_id.eq.${targetUserId}),and(sender_id.eq.${targetUserId},receiver_id.eq.${currentUserId})`
+        )
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error || !data || data.length === 0) {
+        return { status: "none" };
+      }
+
+      const req = data[0];
+      if (req.status === "accepted") return { status: "friends", requestId: req.id };
+      if (req.status === "pending") {
+        if (req.sender_id === currentUserId) {
+          return { status: "pending_sent", requestId: req.id };
+        } else {
+          return { status: "pending_received", requestId: req.id };
+        }
+      }
+      return { status: "none" };
+    }
+  }
+
+  public async cancelFriendRequest(requestId: string): Promise<{ error: any }> {
+    if (isMockMode) {
+      const requests = mockDb.getFriendRequests();
+      mockDb.saveFriendRequests(requests.filter((r) => r.id !== requestId));
+      return { error: null };
+    } else {
+      const { error } = await supabase
+        .from("friend_requests")
+        .delete()
+        .eq("id", requestId);
+      return { error };
+    }
+  }
+
+  public async removeFriend(userId1: string, userId2: string): Promise<{ error: any }> {
+    if (isMockMode) {
+      const requests = mockDb.getFriendRequests();
+      mockDb.saveFriendRequests(
+        requests.filter(
+          (r) =>
+            !(
+              (r.sender_id === userId1 && r.receiver_id === userId2) ||
+              (r.sender_id === userId2 && r.receiver_id === userId1)
+            )
+        )
+      );
+      return { error: null };
+    } else {
+      const { error } = await supabase
+        .from("friend_requests")
+        .delete()
+        .or(
+          `and(sender_id.eq.${userId1},receiver_id.eq.${userId2}),and(sender_id.eq.${userId2},receiver_id.eq.${userId1})`
+        );
+      return { error };
+    }
+  }
+
+  public async getFriendsCount(userId: string): Promise<number> {
+    const { data } = await this.getFriends(userId);
+    return (data || []).length;
+  }
 }
 
 export const friendService = new FriendServiceClass();

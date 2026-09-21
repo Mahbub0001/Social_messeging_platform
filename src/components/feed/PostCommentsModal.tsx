@@ -20,6 +20,7 @@ export interface PostCommentsModalProps {
   currentUserId: string;
   currentUsername: string;
   currentUserAvatar?: string | null;
+  onOpenUserProfile?: (userId: string) => void;
 }
 
 import { useStore } from "../../hooks/useStore";
@@ -87,7 +88,13 @@ function UserAvatar({
 }
 
 // ---------------------------------------------------------------------------
-function CommentItem({ comment }: { comment: FeedComment }) {
+function CommentItem({
+  comment,
+  onOpenUserProfile,
+}: {
+  comment: FeedComment;
+  onOpenUserProfile?: (userId: string) => void;
+}) {
   const { language, currentProfile } = useStore();
   const isMe = comment.userId === currentProfile?.id;
   const avatar = (isMe && currentProfile?.avatar_url) ? currentProfile.avatar_url : comment.author.avatar_url;
@@ -95,16 +102,26 @@ function CommentItem({ comment }: { comment: FeedComment }) {
 
   return (
     <div className="flex items-start gap-3 py-3">
-      <UserAvatar
-        avatar={avatar}
-        username={username}
-        size={34}
-      />
+      <button
+        type="button"
+        onClick={() => onOpenUserProfile?.(comment.userId)}
+        className="rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/40 cursor-pointer"
+      >
+        <UserAvatar
+          avatar={avatar}
+          username={username}
+          size={34}
+        />
+      </button>
       <div className="flex-1 min-w-0">
         <div className="bg-slate-100 dark:bg-slate-800/60 rounded-2xl rounded-tl-sm px-3 py-2">
-          <p className="font-semibold text-xs text-slate-800 dark:text-slate-200 mb-0.5">
+          <button
+            type="button"
+            onClick={() => onOpenUserProfile?.(comment.userId)}
+            className="font-semibold text-xs text-slate-800 dark:text-slate-200 mb-0.5 hover:underline text-left cursor-pointer focus:outline-none"
+          >
             {username}
-          </p>
+          </button>
           <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap break-words">
             {comment.content}
           </p>
@@ -127,6 +144,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
   currentUserId,
   currentUsername,
   currentUserAvatar,
+  onOpenUserProfile,
 }) => {
   const { language } = useStore();
   const [comments, setComments] = useState<FeedComment[]>([]);
@@ -291,7 +309,11 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
                 <>
                   <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
                     {comments.map((comment) => (
-                      <CommentItem key={comment.id} comment={comment} />
+                      <CommentItem
+                        key={comment.id}
+                        comment={comment}
+                        onOpenUserProfile={onOpenUserProfile}
+                      />
                     ))}
                   </div>
                   <div ref={commentsBottomRef} className="h-2" />

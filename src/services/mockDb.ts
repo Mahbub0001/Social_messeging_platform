@@ -5,6 +5,8 @@ export interface Profile {
   bio: string;
   is_online: boolean;
   last_seen: string;
+  role?: "admin" | "member" | "user" | string;
+  is_locked?: boolean;
 }
 
 export interface Conversation {

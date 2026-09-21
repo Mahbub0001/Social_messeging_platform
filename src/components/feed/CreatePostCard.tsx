@@ -6,7 +6,7 @@ import React, {
 } from "react";
 import type { ChangeEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Image, Video, Smile, X, Loader2, Send } from "lucide-react";
+import { Image, Video, Smile, X, Loader2, Send, Globe2, Users } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { feedService } from "../../services/feedService";
 import type { FeedPost } from "../../services/feedService";
@@ -92,6 +92,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [privacy, setPrivacy] = useState<"public" | "friends">("public");
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -255,6 +256,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
         content: content.trim(),
         mediaUrls,
         mediaType,
+        privacy,
       });
 
       if (error || !newPost) {
@@ -289,6 +291,7 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
     imageFiles,
     videoFile,
     content,
+    privacy,
     currentUserId,
     imagePreviews,
     videoPreview,
@@ -314,6 +317,41 @@ export const CreatePostCard: React.FC<CreatePostCardProps> = ({
             size={40}
           />
           <div className="flex-1 min-w-0">
+            {/* User & Privacy selector */}
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                {currentUsername}
+              </span>
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-0.5 text-[11px] font-medium border border-slate-200 dark:border-slate-700/80 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setPrivacy("public")}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-0.5 rounded-full transition-all",
+                    privacy === "public"
+                      ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-2xs font-semibold"
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  )}
+                >
+                  <Globe2 className="w-3 h-3" />
+                  <span>{getTranslation(language, "privacyPublic")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrivacy("friends")}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-0.5 rounded-full transition-all",
+                    privacy === "friends"
+                      ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-2xs font-semibold"
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  )}
+                >
+                  <Users className="w-3 h-3" />
+                  <span>{getTranslation(language, "privacyFriends")}</span>
+                </button>
+              </div>
+            </div>
+
             <textarea
               ref={textareaRef}
               value={content}

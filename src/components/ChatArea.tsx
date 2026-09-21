@@ -33,6 +33,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatAreaProps {
   onBack: () => void;
+  onOpenUserProfile?: (userId: string) => void;
 }
 
 const isSameDay = (d1: Date, d2: Date) => {
@@ -85,7 +86,7 @@ const formatMessageTimestamp = (dateStr: string) => {
   return `${datePart}, ${time}`;
 };
 
-export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
+export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile }) => {
   const {
     user,
     activeConversationId,
@@ -622,15 +623,23 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack }) => {
             </button>
 
             {/* Avatar */}
-            <div className="relative select-none">
-              <img src={sanitizeUrl(avatar)} alt={title || "Chat avatar"} className="w-10 h-10 rounded-full object-cover bg-slate-200 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60" />
+            <div 
+              onClick={() => !activeChat.is_group && otherMember?.id && onOpenUserProfile?.(otherMember.id)}
+              className={cn("relative select-none", !activeChat.is_group && "cursor-pointer hover:opacity-90 transition-opacity")}
+              title={!activeChat.is_group ? "View Profile" : undefined}
+            >
+              <img src={sanitizeUrl(avatar)} alt={title || "Chat avatar"} className="w-10 h-10 rounded-full object-cover bg-slate-200 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 hover:ring-2 hover:ring-violet-500/50 transition-all" />
               {isOnline && (
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-100 dark:border-slate-900 rounded-full ring-1 ring-emerald-500/30"></div>
               )}
             </div>
 
-            <div>
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</h3>
+            <div
+              onClick={() => !activeChat.is_group && otherMember?.id && onOpenUserProfile?.(otherMember.id)}
+              className={cn(!activeChat.is_group && "cursor-pointer group")}
+              title={!activeChat.is_group ? "View Profile" : undefined}
+            >
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-violet-500 transition-colors">{title}</h3>
               {activeChat.is_group ? (
                 <p className="text-2xs text-slate-500 dark:text-slate-400 font-sans">
                   {activeChat.members?.length || 0} members

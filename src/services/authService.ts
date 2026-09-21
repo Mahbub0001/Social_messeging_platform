@@ -407,7 +407,7 @@ class AuthServiceClass {
     }
   }
 
-  public async updateProfile(userId: string, data: { username?: string; bio?: string; avatar_url?: string }): Promise<{ data: any; error: any }> {
+  public async updateProfile(userId: string, data: { username?: string; bio?: string; avatar_url?: string; is_locked?: boolean }): Promise<{ data: any; error: any }> {
     if (isMockMode) {
       const profiles = mockDb.getProfiles();
 

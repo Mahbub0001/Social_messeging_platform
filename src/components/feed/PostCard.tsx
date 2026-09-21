@@ -7,6 +7,8 @@ import {
   Trash2,
   Link2,
   ShieldCheck,
+  Globe2,
+  Users,
   X,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -34,6 +36,7 @@ export interface PostCardProps {
   onShare: (post: FeedPost) => void;
   onOpenComments: (post: FeedPost) => void;
   onDeletePost?: (postId: string) => void;
+  onOpenUserProfile?: (userId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -402,6 +405,7 @@ export const PostCard: React.FC<PostCardProps> = ({
   onShare,
   onOpenComments,
   onDeletePost,
+  onOpenUserProfile,
 }) => {
   const { language, currentProfile } = useStore();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -454,9 +458,13 @@ export const PostCard: React.FC<PostCardProps> = ({
           <div className="flex items-center gap-2 px-4 pt-3 pb-0 text-xs text-slate-500 dark:text-slate-400">
             <Repeat2 className="w-3.5 h-3.5 flex-shrink-0" />
             <span>
-              <span className="font-medium text-slate-700 dark:text-slate-300">
+              <button
+                type="button"
+                onClick={() => onOpenUserProfile?.(post.userId)}
+                className="font-medium text-slate-700 dark:text-slate-300 hover:underline text-left cursor-pointer"
+              >
                 {reposterUsername}
-              </span>{" "}
+              </button>{" "}
               {getTranslation(language, "reposted")}
             </span>
           </div>
@@ -466,16 +474,26 @@ export const PostCard: React.FC<PostCardProps> = ({
           {/* Author row */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3 min-w-0">
-              <UserAvatar
-                avatar={authorAvatar}
-                username={authorUsername}
-                size={40}
-              />
+              <button
+                type="button"
+                onClick={() => onOpenUserProfile?.(displayPost.userId)}
+                className="rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/40 cursor-pointer"
+              >
+                <UserAvatar
+                  avatar={authorAvatar}
+                  username={authorUsername}
+                  size={40}
+                />
+              </button>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
+                  <button
+                    type="button"
+                    onClick={() => onOpenUserProfile?.(displayPost.userId)}
+                    className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate hover:underline text-left cursor-pointer focus:outline-none"
+                  >
                     {authorUsername}
-                  </span>
+                  </button>
                   {displayPost.author.role === "admin" && (
                     <span
                       className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300"
@@ -486,9 +504,27 @@ export const PostCard: React.FC<PostCardProps> = ({
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                  {getRelativeTime(displayPost.createdAt, language)}
-                </p>
+                <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  <span>{getRelativeTime(displayPost.createdAt, language)}</span>
+                  <span>•</span>
+                  {displayPost.privacy === "friends" ? (
+                    <span
+                      className="inline-flex items-center gap-1 text-indigo-500 dark:text-indigo-400 font-medium"
+                      title={getTranslation(language, "privacyFriends")}
+                    >
+                      <Users className="w-3 h-3" />
+                      <span className="text-[10px]">{getTranslation(language, "privacyFriends")}</span>
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex items-center gap-1 text-slate-400"
+                      title={getTranslation(language, "privacyPublic")}
+                    >
+                      <Globe2 className="w-3 h-3" />
+                      <span className="text-[10px]">{getTranslation(language, "privacyPublic")}</span>
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 

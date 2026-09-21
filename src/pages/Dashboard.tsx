@@ -26,6 +26,7 @@ import StoryViewer from "../components/StoryViewer";
 import { StoryArchive } from "../components/StoryArchive";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import FeedView from "../components/feed/FeedView";
+import { UserProfileModal } from "../components/profile/UserProfileModal";
 import BhuiyanAiButton from "../components/ai/BhuiyanAiButton";
 import BhuiyanAiModal from "../components/ai/BhuiyanAiModal";
 import { scheduledMessageService } from "../services/scheduledMessageService";
@@ -35,7 +36,7 @@ import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 
 export const Dashboard: React.FC = () => {
-  const { user, currentProfile, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations, stories, language } = useStore();
+  const { user, currentProfile, conversations, activeConversationId, setActiveConversationId, setOnlineUsers, fetchConversations, stories, language } = useStore();
 
   const [showSettings, setShowSettings] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
@@ -50,6 +51,40 @@ export const Dashboard: React.FC = () => {
   const [userNotification, setUserNotification] = useState<{ id: string; title: string; content: string; type: string } | null>(null);
   const [activeView, setActiveView] = useState<"chat" | "feed">("chat");
   const [showBhuiyanAi, setShowBhuiyanAi] = useState(false);
+  const [selectedUserProfileId, setSelectedUserProfileId] = useState<string | null>(null);
+
+  const handleOpenChatWithUser = async (targetUserId: string) => {
+    if (!user?.id) return;
+    const existing = conversations.find(
+      (c) =>
+        !c.is_group &&
+        c.members &&
+        c.members.some((m) => m.id === targetUserId) &&
+        c.members.some((m) => m.id === user.id)
+    );
+
+    if (existing) {
+      setActiveConversationId(existing.id);
+      setActiveView("chat");
+      setSelectedUserProfileId(null);
+    } else {
+      try {
+        const { data, error } = await chatService.createConversation(
+          [user.id, targetUserId],
+          null,
+          false
+        );
+        if (!error && data) {
+          await fetchConversations();
+          setActiveConversationId(data.id);
+          setActiveView("chat");
+          setSelectedUserProfileId(null);
+        }
+      } catch (err) {
+        console.error("Failed to start conversation:", err);
+      }
+    }
+  };
 
   // Initialize Bhuiyan AI scheduled messages daemon
   useEffect(() => {
@@ -374,6 +409,7 @@ export const Dashboard: React.FC = () => {
             <ErrorBoundary>
               <ChatArea
                 onBack={() => setActiveConversationId(null)}
+                onOpenUserProfile={setSelectedUserProfileId}
               />
             </ErrorBoundary>
           )}
@@ -483,7 +519,12 @@ export const Dashboard: React.FC = () => {
             onOpenStoryArchive={() => { setShowSettings(false); setShowStoryArchive(true); }}
           />
         )}
-        {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} />}
+        {showFriends && (
+          <FriendsPanel
+            onClose={() => setShowFriends(false)}
+            onOpenUserProfile={setSelectedUserProfileId}
+          />
+        )}
       </AnimatePresence>
 
       {showGroupModal && <GroupModal onClose={() => setShowGroupModal(false)} />}
@@ -514,6 +555,18 @@ export const Dashboard: React.FC = () => {
       <BhuiyanAiModal
         isOpen={showBhuiyanAi}
         onClose={() => setShowBhuiyanAi(false)}
+      />
+
+      {/* Global User Profile Modal */}
+      <UserProfileModal
+        userId={selectedUserProfileId}
+        isOpen={selectedUserProfileId !== null}
+        onClose={() => setSelectedUserProfileId(null)}
+        onOpenChat={handleOpenChatWithUser}
+        onOpenEditProfile={() => {
+          setSelectedUserProfileId(null);
+          setShowSettings(true);
+        }}
       />
     </div>
   );

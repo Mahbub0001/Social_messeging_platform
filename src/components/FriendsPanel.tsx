@@ -10,9 +10,10 @@ import { X, UserPlus, Users, Loader2, Check, Ban, AlertCircle } from "lucide-rea
 
 interface FriendsPanelProps {
   onClose: () => void;
+  onOpenUserProfile?: (userId: string) => void;
 }
 
-export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
+export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose, onOpenUserProfile }) => {
   const { user, onlineUsers, conversations, setActiveConversationId, fetchConversations } = useStore();
   const [friends, setFriends] = useState<Profile[]>([]);
   const [pendingRequests, setPendingRequests] = useState<FriendRequestWithProfiles[]>([]);
@@ -215,13 +216,16 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
                     exit={{ opacity: 0, y: -10 }}
                     className="flex items-center justify-between p-2.5 bg-slate-950/50 border border-slate-850 rounded-xl"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div 
+                      className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+                      onClick={() => req.sender?.id && onOpenUserProfile?.(req.sender.id)}
+                    >
                       <img
                         src={sanitizeUrl(req.sender?.avatar_url)}
                         alt="Avatar"
-                        className="w-8 h-8 rounded-full object-cover shrink-0"
+                        className="w-8 h-8 rounded-full object-cover shrink-0 group-hover:ring-2 group-hover:ring-violet-500 transition-all"
                       />
-                      <span className="text-xs text-slate-200 truncate font-sans">
+                      <span className="text-xs text-slate-200 truncate font-sans group-hover:text-violet-400 transition-colors">
                         {req.sender?.username}
                       </span>
                     </div>
@@ -272,14 +276,17 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="flex items-center justify-between p-2.5 bg-slate-950/40 border border-slate-850 hover:border-slate-800 rounded-xl transition-all font-sans"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div 
+                      className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+                      onClick={() => onOpenUserProfile?.(item.id)}
+                    >
                       <img
                         src={sanitizeUrl(item.avatar_url)}
                         alt="Avatar"
-                        className="w-8 h-8 rounded-full object-cover shrink-0"
+                        className="w-8 h-8 rounded-full object-cover shrink-0 group-hover:ring-2 group-hover:ring-violet-500 transition-all"
                       />
                       <div className="min-w-0 flex-1">
-                        <h5 className="text-xs font-semibold text-slate-200 truncate">
+                        <h5 className="text-xs font-semibold text-slate-200 truncate group-hover:text-violet-400 transition-colors">
                           {item.username}
                         </h5>
                         <p className="text-[9px] text-slate-500 truncate max-w-[180px]">
@@ -319,18 +326,25 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
               {friends.map((friend) => {
                 const isOnline = onlineUsers.includes(friend.id);
                 return (
-                  <button
+                  <div
                     key={friend.id}
-                    onClick={() => handleStartChat(friend)}
-                    className="w-full flex items-center justify-between p-2.5 hover:bg-slate-800/40 rounded-xl transition-all text-left group"
+                    className="w-full flex items-center justify-between p-2.5 hover:bg-slate-800/40 rounded-xl transition-all group"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div 
+                      className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer"
+                      onClick={() => handleStartChat(friend)}
+                    >
                       <img
                         src={sanitizeUrl(friend.avatar_url)}
                         alt="Avatar"
-                        className="w-8.5 h-8.5 rounded-full object-cover shrink-0 group-hover:scale-105 transition-transform"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenUserProfile?.(friend.id);
+                        }}
+                        className="w-8.5 h-8.5 rounded-full object-cover shrink-0 hover:ring-2 hover:ring-violet-500 transition-all"
+                        title="View Profile"
                       />
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 text-left">
                         <h5 className="text-xs font-bold text-slate-200 truncate group-hover:text-violet-400 transition-colors">
                           {friend.username}
                         </h5>
@@ -339,12 +353,24 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose }) => {
                         </p>
                       </div>
                     </div>
-                    {isOnline ? (
-                      <span className="text-[10px] text-emerald-400 font-semibold shrink-0">Online</span>
-                    ) : (
-                      <span className="text-[10px] text-slate-500 shrink-0">Offline</span>
-                    )}
-                  </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isOnline ? (
+                        <span className="text-[10px] text-emerald-400 font-semibold">Online</span>
+                      ) : (
+                        <span className="text-[10px] text-slate-500">Offline</span>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenUserProfile?.(friend.id);
+                        }}
+                        className="px-2 py-1 bg-slate-800/80 hover:bg-violet-600/30 hover:text-violet-300 text-slate-400 rounded-lg text-2xs font-semibold transition-colors"
+                        title="View Profile"
+                      >
+                        Profile
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>

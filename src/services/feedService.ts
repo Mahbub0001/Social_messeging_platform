@@ -1,5 +1,6 @@
 import { supabase, isMockMode } from "../lib/supabase";
 import { mockDb } from "./mockDb";
+import { friendService } from "./friendService";
 
 export interface FeedReaction {
   userId: string;
@@ -34,6 +35,7 @@ export interface FeedPost {
   content: string;
   mediaUrls: string[];
   mediaType: "none" | "image" | "video";
+  privacy?: "public" | "friends";
   createdAt: string;
   reactions: Record<string, FeedReaction[]>;
   userReaction?: "love" | "haha" | "wow" | "sad" | "angry" | "like" | null;
@@ -304,6 +306,7 @@ export class FeedService {
         content: row.content || "",
         mediaUrls: row.media_urls || row.mediaUrls || [],
         mediaType: row.media_type || row.mediaType || "none",
+        privacy: (row.privacy as "public" | "friends") || "public",
         createdAt: row.created_at || row.createdAt || new Date().toISOString(),
         reactions: row.reactions || {},
         userReaction: row.user_reaction || row.userReaction || null,
@@ -410,10 +413,11 @@ export class FeedService {
   }
 
   /**
-   * Fetch posts with optional filter ('all' | 'my' | 'media') and contextual user reaction.
+   * Fetch posts with optional filter ('all' | 'friends' | 'my' | 'media') and contextual user reaction.
+   * Respects post privacy (friends-only posts are only shown to author and author's friends).
    */
   async getPosts(
-    filter: "all" | "my" | "media" = "all",
+    filter: "all" | "friends" | "my" | "media" = "all",
     currentUserId?: string
   ): Promise<{ data: FeedPost[]; error: any }> {
     let posts = this.readFromCache();
@@ -525,6 +529,17 @@ export class FeedService {
       }
     }
 
+    // Fetch current user's friend IDs for privacy and friends filter
+    let friendIds: string[] = [];
+    if (currentUserId) {
+      try {
+        const { data: friends } = await friendService.getFriends(currentUserId);
+        friendIds = (friends || []).map((f) => f.id);
+      } catch (err) {
+        console.warn("feedService: error fetching friends for feed filter", err);
+      }
+    }
+
     // Attach current user's reaction to each post
     const postsWithUserReaction = posts.map((post) => {
       let userReaction: FeedReaction["reactionType"] | null = null;
@@ -548,10 +563,42 @@ export class FeedService {
       filteredPosts = filteredPosts.filter(
         (p) => p.userId === currentUserId || (p.repostedFrom && p.userId === currentUserId)
       );
+    } else if (filter === "friends" && currentUserId) {
+      filteredPosts = filteredPosts.filter((p) => {
+        const isMine = p.userId === currentUserId || (p.repostedFrom && p.userId === currentUserId);
+        const isFriend =
+          friendIds.includes(p.userId) ||
+          (p.repostedFrom && friendIds.includes(p.repostedFrom.userId));
+        return isMine || isFriend;
+      });
     } else if (filter === "media") {
-      filteredPosts = filteredPosts.filter(
-        (p) => p.mediaType !== "none" && p.mediaUrls && p.mediaUrls.length > 0
-      );
+      filteredPosts = filteredPosts.filter((p) => {
+        const hasMedia = p.mediaType !== "none" && p.mediaUrls && p.mediaUrls.length > 0;
+        if (!hasMedia) return false;
+        if (p.privacy === "friends") {
+          if (!currentUserId) return false;
+          const isMine = p.userId === currentUserId || (p.repostedFrom && p.userId === currentUserId);
+          const isFriend =
+            friendIds.includes(p.userId) ||
+            (p.repostedFrom && friendIds.includes(p.repostedFrom.userId));
+          return isMine || isFriend;
+        }
+        return true;
+      });
+    } else {
+      // "all" filter:
+      // If a post is friends-only, only show if current user is author or friends with author!
+      filteredPosts = filteredPosts.filter((p) => {
+        if (p.privacy === "friends") {
+          if (!currentUserId) return false;
+          const isMine = p.userId === currentUserId || (p.repostedFrom && p.userId === currentUserId);
+          const isFriend =
+            friendIds.includes(p.userId) ||
+            (p.repostedFrom && friendIds.includes(p.repostedFrom.userId));
+          return isMine || isFriend;
+        }
+        return true;
+      });
     }
 
     // Ensure newest first
@@ -563,6 +610,63 @@ export class FeedService {
   }
 
   /**
+   * Fetch timeline posts for a specific user profile.
+   * Respects target user's profile lock (if locked and not friends, returns isLocked: true and empty posts)
+   * and post privacy (friends-only posts hidden from non-friends).
+   */
+  async getUserPosts(
+    targetUserId: string,
+    currentUserId?: string
+  ): Promise<{ data: FeedPost[]; isLocked: boolean; error: any }> {
+    try {
+      const isSelf = Boolean(currentUserId && currentUserId === targetUserId);
+      let isFriend = false;
+
+      if (currentUserId && !isSelf) {
+        const { status } = await friendService.checkFriendshipStatus(currentUserId, targetUserId);
+        isFriend = status === "friends";
+      }
+
+      // Check if target user profile is locked
+      let targetProfileLocked = false;
+      if (!isMockMode && supabase) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("is_locked")
+          .eq("id", targetUserId)
+          .single();
+        targetProfileLocked = Boolean(prof?.is_locked);
+      } else {
+        const profiles = mockDb.getProfiles();
+        const p = profiles.find((prof) => prof.id === targetUserId);
+        targetProfileLocked = Boolean(p?.is_locked);
+      }
+
+      // If profile is locked and viewer is neither self nor friend, gate content!
+      if (targetProfileLocked && !isSelf && !isFriend) {
+        return { data: [], isLocked: true, error: null };
+      }
+
+      // Fetch all posts
+      const { data: allPosts } = await this.getPosts("all", currentUserId);
+      const userPosts = (allPosts || []).filter((p) => {
+        const isPostByTarget = p.userId === targetUserId || (p.repostedFrom && p.userId === targetUserId);
+        if (!isPostByTarget) return false;
+        // If not friends and not self, do not show friends-only posts
+        if (!isSelf && !isFriend && p.privacy === "friends") {
+          return false;
+        }
+        return true;
+      });
+
+      return { data: userPosts, isLocked: false, error: null };
+    } catch (err) {
+      console.error("feedService: getUserPosts error", err);
+      return { data: [], isLocked: false, error: err };
+    }
+  }
+
+  /**
    * Create a new post. Saves to localStorage cache and syncs to Supabase.
    */
   async createPost(params: {
@@ -570,12 +674,14 @@ export class FeedService {
     content: string;
     mediaUrls?: string[];
     mediaType?: "none" | "image" | "video";
+    privacy?: "public" | "friends";
   }): Promise<{ data: FeedPost | null; error: any }> {
     try {
       const author = await this.getAuthorProfile(params.userId);
       const mediaUrls = params.mediaUrls || [];
       const mediaType =
         params.mediaType || (mediaUrls.length > 0 ? "image" : "none");
+      const privacy = params.privacy || "public";
 
       const newPost: FeedPost = {
         id: "post-" + Date.now() + "-" + Math.random().toString(36).substring(2, 8),
@@ -584,6 +690,7 @@ export class FeedService {
         content: params.content,
         mediaUrls,
         mediaType,
+        privacy,
         createdAt: new Date().toISOString(),
         reactions: {},
         userReaction: null,
@@ -607,6 +714,7 @@ export class FeedService {
             content: newPost.content,
             media_urls: newPost.mediaUrls,
             media_type: newPost.mediaType,
+            privacy: newPost.privacy,
             created_at: newPost.createdAt,
             reactions: newPost.reactions,
             shares_count: 0,
