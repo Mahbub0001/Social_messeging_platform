@@ -3,6 +3,7 @@ import { useStore } from "../hooks/useStore";
 import { audioSynthesizer } from "../utils/audio";
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Camera, Loader2 } from "lucide-react";
 import { isMockMode } from "../lib/supabase";
+import { chatService } from "../services/chatService";
 
 export const CallScreen: React.FC = () => {
   const { callState, callType, callPartner, acceptCall, endCall, localStream, remoteStream } = useStore();
@@ -109,8 +110,15 @@ export const CallScreen: React.FC = () => {
         audioSynthesizer.stopRingtone();
       };
     } else if (callState === "receiving") {
-      const selectedRingtone = localStorage.getItem("kb_ringtone") || "classic";
-      audioSynthesizer.startIncomingRingtone(selectedRingtone);
+      const currentUserId = useStore.getState().user?.id;
+      const convs = useStore.getState().conversations;
+      const partnerConv = callPartner ? convs.find((c) => !c.is_group && c.members?.some((m) => m.id === callPartner.id)) : null;
+      const isMuted = currentUserId && partnerConv ? chatService.isConversationMuted(currentUserId, partnerConv.id, "call") : false;
+
+      if (!isMuted) {
+        const selectedRingtone = localStorage.getItem("kb_ringtone") || "classic";
+        audioSynthesizer.startIncomingRingtone(selectedRingtone);
+      }
       return () => {
         audioSynthesizer.stopRingtone();
       };

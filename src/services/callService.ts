@@ -212,6 +212,10 @@ class CallServiceClass {
       }
     });
 
+    const partnerConv = useStore.getState().conversations.find(
+      (c) => !c.is_group && c.members?.some((m) => m.id === partner.id)
+    );
+
     // Send high-priority FCM call push notification to wake up device / screen if sleeping or app closed
     pushNotificationService.sendCallPush({
       callId: this.callId,
@@ -220,6 +224,7 @@ class CallServiceClass {
       callerAvatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${myUser.id}`,
       callType: useStore.getState().callType || type,
       receiverId: partner.id,
+      conversationId: partnerConv?.id,
     }).catch((err) => {
       console.warn("[CallService] Error sending call push notification:", err);
     });

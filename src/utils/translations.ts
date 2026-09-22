@@ -114,7 +114,36 @@ export const translations = {
     justNow: "এইমাত্র",
     minsAgo: "{n} মিনিট আগে",
     hoursAgo: "{n} ঘণ্টা আগে",
-    yesterday: "গতকাল"
+    yesterday: "গতকাল",
+
+    // Chat Actions (Long press)
+    mute: "মিউট করুন",
+    unmute: "আনমিউট করুন",
+    muteNotifications: "নোটিফিকেশন মিউট করুন",
+    unmuteNotifications: "নোটিফিকেশন আনমিউট করুন",
+    muteChatTitle: "মিউট করার বিকল্প",
+    muteScopeTitle: "কী কী মিউট করতে চান?",
+    muteMessagesAndCalls: "বার্তা ও কল উভয়ই",
+    muteMessagesAndCallsDesc: "বার্তা নোটিফিকেশন এবং ইনকামিং কল রিং মিউট থাকবে",
+    muteMessagesOnly: "শুধুমাত্র বার্তা",
+    muteMessagesOnlyDesc: "বার্তা মিউট থাকবে, কিন্তু কল আসলে রিং হবে",
+    muteDurationTitle: "কত সময় পর্যন্ত মিউট রাখবেন?",
+    oneHour: "১ ঘণ্টা",
+    fiveHours: "৫ ঘণ্টা",
+    twelveHours: "১২ ঘণ্টা",
+    untilIChange: "আমি পরিবর্তন না করা পর্যন্ত",
+    archive: "আর্কাইভ করুন",
+    unarchive: "আন-আর্কাইভ করুন",
+    archiveChat: "চ্যাট আর্কাইভ করুন",
+    unarchiveChat: "চ্যাট আন-আর্কাইভ করুন",
+    deleteChat: "চ্যাট মুছে ফেলুন",
+    deleteChatConfirmTitle: "চ্যাট মুছে ফেলবেন?",
+    deleteChatConfirmDesc: "এই কথোপকথনটি এবং এর বার্তাগুলো আপনার চ্যাট তালিকা থেকে স্থায়ীভাবে মুছে ফেলা হবে।",
+    archivedChats: "আর্কাইভকৃত চ্যাটসমূহ",
+    noArchivedChats: "কোনো আর্কাইভকৃত চ্যাট নেই",
+    archivedCount: "{n}টি চ্যাট আর্কাইভ করা আছে",
+    cancel: "বাতিল",
+    confirm: "নিশ্চিত করুন"
   },
   en: {
     // Nav & Sidebar
@@ -229,7 +258,36 @@ export const translations = {
     justNow: "Just now",
     minsAgo: "{n}m ago",
     hoursAgo: "{n}h ago",
-    yesterday: "Yesterday"
+    yesterday: "Yesterday",
+
+    // Chat Actions (Long press)
+    mute: "Mute",
+    unmute: "Unmute",
+    muteNotifications: "Mute Notifications",
+    unmuteNotifications: "Unmute Notifications",
+    muteChatTitle: "Mute Options",
+    muteScopeTitle: "What would you like to mute?",
+    muteMessagesAndCalls: "Messages and Calls",
+    muteMessagesAndCallsDesc: "Message notifications and incoming call ringing will be muted",
+    muteMessagesOnly: "Messages only",
+    muteMessagesOnlyDesc: "Messages will be muted, but incoming calls will still ring",
+    muteDurationTitle: "Mute for how long?",
+    oneHour: "1 hour",
+    fiveHours: "5 hours",
+    twelveHours: "12 hours",
+    untilIChange: "Until I change it",
+    archive: "Archive",
+    unarchive: "Unarchive",
+    archiveChat: "Archive Chat",
+    unarchiveChat: "Unarchive Chat",
+    deleteChat: "Delete Chat",
+    deleteChatConfirmTitle: "Delete Chat?",
+    deleteChatConfirmDesc: "This conversation and its history will be removed from your chat list.",
+    archivedChats: "Archived Chats",
+    noArchivedChats: "No archived chats yet",
+    archivedCount: "{n} archived chat(s)",
+    cancel: "Cancel",
+    confirm: "Confirm"
   }
 };
 

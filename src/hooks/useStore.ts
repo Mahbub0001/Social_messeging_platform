@@ -345,9 +345,14 @@ export const useStore = create<AppState>((set, get) => ({
         return curr;
       }
 
-      // Play sound ping if message from someone else
+      // Play sound ping if message from someone else and conversation not muted
       if (!isSelf) {
-        audioSynthesizer.playMessageNotification();
+        const isMuted = state.user?.id
+          ? chatService.isConversationMuted(state.user.id, conversationId, "message")
+          : false;
+        if (!isMuted) {
+          audioSynthesizer.playMessageNotification();
+        }
       }
 
       return {

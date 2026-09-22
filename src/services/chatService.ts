@@ -20,6 +20,11 @@ export interface ConversationWithDetails extends Conversation {
   unread_count?: number;
   last_message?: Message | null;
   members?: ProfileWithRole[];
+  is_muted?: boolean;
+  mute_until?: string | null;
+  mute_type?: "all" | "messages_only";
+  is_archived?: boolean;
+  is_deleted?: boolean;
 }
 
 type MessageSubscriptionCallback = (event: {
@@ -99,6 +104,254 @@ class ChatServiceClass {
   }
 
   // ----------------------------------------------------
+  // CONVERSATION PREFERENCES (Mute, Archive, Delete)
+  // ----------------------------------------------------
+  public getLocalConversationPrefs(userId: string): Record<string, {
+    is_muted: boolean;
+    mute_until: string | null;
+    mute_type: "all" | "messages_only";
+    is_archived: boolean;
+    is_deleted: boolean;
+  }> {
+    if (typeof window === "undefined" || !userId) return {};
+    try {
+      const raw = localStorage.getItem(`kb_conv_prefs_${userId}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  public saveLocalConversationPrefs(
+    userId: string,
+    prefs: Record<string, {
+      is_muted: boolean;
+      mute_until: string | null;
+      mute_type: "all" | "messages_only";
+      is_archived: boolean;
+      is_deleted: boolean;
+    }>
+  ): void {
+    if (typeof window === "undefined" || !userId) return;
+    try {
+      localStorage.setItem(`kb_conv_prefs_${userId}`, JSON.stringify(prefs));
+      window.dispatchEvent(new CustomEvent("kb_conv_prefs_updated", { detail: { userId, prefs } }));
+    } catch (e) {}
+  }
+
+  public isConversationMuted(
+    userId: string,
+    conversationId: string,
+    checkType: "message" | "call" = "message"
+  ): boolean {
+    if (!userId || !conversationId) return false;
+    const prefs = this.getLocalConversationPrefs(userId);
+    const pref = prefs[conversationId];
+    if (!pref || !pref.is_muted) return false;
+
+    if (pref.mute_until) {
+      const expiresAt = new Date(pref.mute_until).getTime();
+      if (expiresAt <= Date.now()) {
+        return false;
+      }
+    }
+
+    if (checkType === "call") {
+      return pref.mute_type === "all";
+    }
+    return true;
+  }
+
+  public async muteConversation(
+    userId: string,
+    conversationId: string,
+    muteType: "all" | "messages_only",
+    duration: "1h" | "5h" | "12h" | "always" | "indefinite"
+  ): Promise<{ error: any }> {
+    let mute_until: string | null = null;
+    const now = Date.now();
+    if (duration === "1h") {
+      mute_until = new Date(now + 1 * 60 * 60 * 1000).toISOString();
+    } else if (duration === "5h") {
+      mute_until = new Date(now + 5 * 60 * 60 * 1000).toISOString();
+    } else if (duration === "12h") {
+      mute_until = new Date(now + 12 * 60 * 60 * 1000).toISOString();
+    }
+
+    // 1. Update local cache
+    const currentPrefs = this.getLocalConversationPrefs(userId);
+    currentPrefs[conversationId] = {
+      ...(currentPrefs[conversationId] || { is_archived: false, is_deleted: false }),
+      is_muted: true,
+      mute_until,
+      mute_type: muteType,
+    };
+    this.saveLocalConversationPrefs(userId, currentPrefs);
+
+    // 2. Persist to mockDb or Supabase
+    if (isMockMode) {
+      const mockPrefs = mockDb.getUserConversationPrefs();
+      const existingIdx = mockPrefs.findIndex(p => p.user_id === userId && p.conversation_id === conversationId);
+      const updatedItem = {
+        id: existingIdx !== -1 ? mockPrefs[existingIdx].id : "ucp-" + Math.random().toString(36).substr(2, 9),
+        user_id: userId,
+        conversation_id: conversationId,
+        is_muted: true,
+        mute_until,
+        mute_type: muteType,
+        is_archived: currentPrefs[conversationId]?.is_archived || false,
+        archived_at: currentPrefs[conversationId]?.is_archived ? new Date().toISOString() : null,
+        is_deleted: currentPrefs[conversationId]?.is_deleted || false,
+        deleted_at: null,
+      };
+      if (existingIdx !== -1) {
+        mockPrefs[existingIdx] = updatedItem;
+      } else {
+        mockPrefs.push(updatedItem);
+      }
+      mockDb.saveUserConversationPrefs(mockPrefs);
+      return { error: null };
+    } else {
+      const { error } = await supabase
+        .from("user_conversation_prefs")
+        .upsert({
+          user_id: userId,
+          conversation_id: conversationId,
+          is_muted: true,
+          mute_until,
+          mute_type: muteType,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id,conversation_id" });
+      return { error };
+    }
+  }
+
+  public async unmuteConversation(userId: string, conversationId: string): Promise<{ error: any }> {
+    // 1. Update local cache
+    const currentPrefs = this.getLocalConversationPrefs(userId);
+    if (currentPrefs[conversationId]) {
+      currentPrefs[conversationId].is_muted = false;
+      currentPrefs[conversationId].mute_until = null;
+      this.saveLocalConversationPrefs(userId, currentPrefs);
+    }
+
+    // 2. Persist to mockDb or Supabase
+    if (isMockMode) {
+      const mockPrefs = mockDb.getUserConversationPrefs();
+      const item = mockPrefs.find(p => p.user_id === userId && p.conversation_id === conversationId);
+      if (item) {
+        item.is_muted = false;
+        item.mute_until = null;
+        mockDb.saveUserConversationPrefs(mockPrefs);
+      }
+      return { error: null };
+    } else {
+      const { error } = await supabase
+        .from("user_conversation_prefs")
+        .upsert({
+          user_id: userId,
+          conversation_id: conversationId,
+          is_muted: false,
+          mute_until: null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id,conversation_id" });
+      return { error };
+    }
+  }
+
+  public async archiveConversation(userId: string, conversationId: string, isArchived = true): Promise<{ error: any }> {
+    // 1. Update local cache
+    const currentPrefs = this.getLocalConversationPrefs(userId);
+    currentPrefs[conversationId] = {
+      ...(currentPrefs[conversationId] || { is_muted: false, mute_until: null, mute_type: "all", is_deleted: false }),
+      is_archived: isArchived,
+    };
+    this.saveLocalConversationPrefs(userId, currentPrefs);
+
+    // 2. Persist to mockDb or Supabase
+    if (isMockMode) {
+      const mockPrefs = mockDb.getUserConversationPrefs();
+      const existingIdx = mockPrefs.findIndex(p => p.user_id === userId && p.conversation_id === conversationId);
+      const updatedItem = {
+        id: existingIdx !== -1 ? mockPrefs[existingIdx].id : "ucp-" + Math.random().toString(36).substr(2, 9),
+        user_id: userId,
+        conversation_id: conversationId,
+        is_muted: currentPrefs[conversationId]?.is_muted || false,
+        mute_until: currentPrefs[conversationId]?.mute_until || null,
+        mute_type: currentPrefs[conversationId]?.mute_type || "all",
+        is_archived: isArchived,
+        archived_at: isArchived ? new Date().toISOString() : null,
+        is_deleted: currentPrefs[conversationId]?.is_deleted || false,
+        deleted_at: null,
+      };
+      if (existingIdx !== -1) {
+        mockPrefs[existingIdx] = updatedItem;
+      } else {
+        mockPrefs.push(updatedItem);
+      }
+      mockDb.saveUserConversationPrefs(mockPrefs);
+      return { error: null };
+    } else {
+      const { error } = await supabase
+        .from("user_conversation_prefs")
+        .upsert({
+          user_id: userId,
+          conversation_id: conversationId,
+          is_archived: isArchived,
+          archived_at: isArchived ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id,conversation_id" });
+      return { error };
+    }
+  }
+
+  public async deleteConversation(userId: string, conversationId: string): Promise<{ error: any }> {
+    // 1. Update local cache
+    const currentPrefs = this.getLocalConversationPrefs(userId);
+    currentPrefs[conversationId] = {
+      ...(currentPrefs[conversationId] || { is_muted: false, mute_until: null, mute_type: "all", is_archived: false }),
+      is_deleted: true,
+    };
+    this.saveLocalConversationPrefs(userId, currentPrefs);
+
+    // 2. Persist to mockDb or Supabase
+    if (isMockMode) {
+      const mockPrefs = mockDb.getUserConversationPrefs();
+      const existingIdx = mockPrefs.findIndex(p => p.user_id === userId && p.conversation_id === conversationId);
+      const updatedItem = {
+        id: existingIdx !== -1 ? mockPrefs[existingIdx].id : "ucp-" + Math.random().toString(36).substr(2, 9),
+        user_id: userId,
+        conversation_id: conversationId,
+        is_muted: currentPrefs[conversationId]?.is_muted || false,
+        mute_until: currentPrefs[conversationId]?.mute_until || null,
+        mute_type: currentPrefs[conversationId]?.mute_type || "all",
+        is_archived: currentPrefs[conversationId]?.is_archived || false,
+        archived_at: null,
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+      };
+      if (existingIdx !== -1) {
+        mockPrefs[existingIdx] = updatedItem;
+      } else {
+        mockPrefs.push(updatedItem);
+      }
+      mockDb.saveUserConversationPrefs(mockPrefs);
+      return { error: null };
+    } else {
+      const { error } = await supabase
+        .from("user_conversation_prefs")
+        .upsert({
+          user_id: userId,
+          conversation_id: conversationId,
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id,conversation_id" });
+      return { error };
+    }
+  }
+
+  // ----------------------------------------------------
   // CONVERSATIONS
   // ----------------------------------------------------
   public async getConversations(userId: string): Promise<{ data: ConversationWithDetails[]; error: any }> {
@@ -108,12 +361,34 @@ class ChatServiceClass {
       const allMessages = mockDb.getMessages();
       const profiles = mockDb.getProfiles();
 
+      const userPrefs = this.getLocalConversationPrefs(userId);
+      const mockPrefs = mockDb.getUserConversationPrefs().filter((p) => p.user_id === userId);
+      mockPrefs.forEach((p) => {
+        userPrefs[p.conversation_id] = {
+          is_muted: p.is_muted,
+          mute_until: p.mute_until,
+          mute_type: p.mute_type,
+          is_archived: p.is_archived,
+          is_deleted: p.is_deleted,
+        };
+      });
+
       // Find conversations this user belongs to
       const userConversations = allMembers
         .filter((m) => m.user_id === userId)
         .map((m) => {
           const conv = allConversations.find((c) => c.id === m.conversation_id);
           if (!conv) return null;
+
+          const pref = userPrefs[conv.id];
+          if (pref?.is_deleted) return null;
+
+          let isMuted = Boolean(pref?.is_muted);
+          if (isMuted && pref?.mute_until) {
+            if (new Date(pref.mute_until).getTime() <= Date.now()) {
+              isMuted = false;
+            }
+          }
 
           // Find other members
           const memberIds = allMembers
@@ -153,6 +428,11 @@ class ChatServiceClass {
             members,
             last_message,
             unread_count,
+            is_muted: isMuted,
+            mute_until: pref?.mute_until || null,
+            mute_type: pref?.mute_type || "all",
+            is_archived: Boolean(pref?.is_archived),
+            is_deleted: Boolean(pref?.is_deleted),
           } as ConversationWithDetails;
         })
         .filter(Boolean) as ConversationWithDetails[];
@@ -177,6 +457,27 @@ class ChatServiceClass {
       if (!memberships || memberships.length === 0) return { data: [], error: null };
 
       const conversationIds = memberships.map((m: any) => m.conversation_id);
+
+      // Fetch user conversation preferences
+      const userPrefs = this.getLocalConversationPrefs(userId);
+      try {
+        const { data: dbPrefs } = await supabase
+          .from("user_conversation_prefs")
+          .select("*")
+          .eq("user_id", userId);
+        if (dbPrefs && dbPrefs.length > 0) {
+          dbPrefs.forEach((p: any) => {
+            userPrefs[p.conversation_id] = {
+              is_muted: p.is_muted,
+              mute_until: p.mute_until,
+              mute_type: p.mute_type || "all",
+              is_archived: p.is_archived,
+              is_deleted: p.is_deleted,
+            };
+          });
+          this.saveLocalConversationPrefs(userId, userPrefs);
+        }
+      } catch (ignored) {}
 
       // Fetch conversations
       const { data: conversations, error: convError } = await supabase
@@ -203,51 +504,68 @@ class ChatServiceClass {
 
       if (convError) return { data: [], error: convError };
 
-      const conversationsWithDetails = (conversations || []).map((conv: any) => {
-        // Map members
-        const members = conv.conversation_members.map((m: any) => ({
-          ...m.profiles,
-          role: m.role,
-          last_read_at: m.last_read_at,
-        }));
-        // Get last message (sorted in JS or DB)
-        const sortedMsgs = (conv.messages || []).sort(
-          (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
-        const last_message = sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null;
+      const conversationsWithDetails = (conversations || [])
+        .map((conv: any) => {
+          const pref = userPrefs[conv.id];
+          if (pref?.is_deleted) return null;
 
-        const myMember = conv.conversation_members?.find((m: any) => m.user_id === userId);
-        const dbReadAt = myMember?.last_read_at;
-        const localReadAt = this.getLastReadTimestamp(conv.id, userId);
-
-        let lastReadAt = localReadAt;
-        if (dbReadAt) {
-          if (!lastReadAt || new Date(dbReadAt).getTime() > new Date(lastReadAt).getTime()) {
-            lastReadAt = dbReadAt;
-            this.setLocalReadTimestamp(conv.id, userId, dbReadAt);
+          let isMuted = Boolean(pref?.is_muted);
+          if (isMuted && pref?.mute_until) {
+            if (new Date(pref.mute_until).getTime() <= Date.now()) {
+              isMuted = false;
+            }
           }
-        }
-        if (!lastReadAt) {
-          lastReadAt = myMember?.joined_at || conv.created_at;
-        }
 
-        const unread_count = sortedMsgs.filter((m: any) => {
-          if (m.sender_id === userId) return false;
-          return new Date(m.created_at).getTime() > new Date(lastReadAt!).getTime();
-        }).length;
+          // Map members
+          const members = conv.conversation_members.map((m: any) => ({
+            ...m.profiles,
+            role: m.role,
+            last_read_at: m.last_read_at,
+          }));
+          // Get last message (sorted in JS or DB)
+          const sortedMsgs = (conv.messages || []).sort(
+            (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+          const last_message = sortedMsgs.length > 0 ? sortedMsgs[sortedMsgs.length - 1] : null;
 
-        return {
-          id: conv.id,
-          name: conv.name,
-          avatar_url: conv.avatar_url,
-          is_group: conv.is_group,
-          created_at: conv.created_at,
-          updated_at: conv.updated_at,
-          members,
-          last_message,
-          unread_count,
-        };
-      });
+          const myMember = conv.conversation_members?.find((m: any) => m.user_id === userId);
+          const dbReadAt = myMember?.last_read_at;
+          const localReadAt = this.getLastReadTimestamp(conv.id, userId);
+
+          let lastReadAt = localReadAt;
+          if (dbReadAt) {
+            if (!lastReadAt || new Date(dbReadAt).getTime() > new Date(lastReadAt).getTime()) {
+              lastReadAt = dbReadAt;
+              this.setLocalReadTimestamp(conv.id, userId, dbReadAt);
+            }
+          }
+          if (!lastReadAt) {
+            lastReadAt = myMember?.joined_at || conv.created_at;
+          }
+
+          const unread_count = sortedMsgs.filter((m: any) => {
+            if (m.sender_id === userId) return false;
+            return new Date(m.created_at).getTime() > new Date(lastReadAt!).getTime();
+          }).length;
+
+          return {
+            id: conv.id,
+            name: conv.name,
+            avatar_url: conv.avatar_url,
+            is_group: conv.is_group,
+            created_at: conv.created_at,
+            updated_at: conv.updated_at,
+            members,
+            last_message,
+            unread_count,
+            is_muted: isMuted,
+            mute_until: pref?.mute_until || null,
+            mute_type: pref?.mute_type || "all",
+            is_archived: Boolean(pref?.is_archived),
+            is_deleted: Boolean(pref?.is_deleted),
+          };
+        })
+        .filter(Boolean) as ConversationWithDetails[];
 
       // Sort conversations by last message or creation date descending
       conversationsWithDetails.sort((a: any, b: any) => {
@@ -258,6 +576,12 @@ class ChatServiceClass {
 
       return { data: conversationsWithDetails, error: null };
     }
+  }
+
+  public async getArchivedConversations(userId: string): Promise<{ data: ConversationWithDetails[]; error: any }> {
+    const res = await this.getConversations(userId);
+    if (res.error) return res;
+    return { data: res.data.filter((c) => c.is_archived), error: null };
   }
 
   public async updateConversation(

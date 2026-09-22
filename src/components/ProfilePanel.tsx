@@ -6,11 +6,12 @@ import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
 import { motion } from "framer-motion";
 import { sanitizeUrl } from "../utils/security";
-import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock, Globe, Music, Play, Square, Bell, Zap, Lock } from "lucide-react";
+import { X, User, FileText, ImageIcon, Loader2, Check, Upload, Clock, Globe, Music, Play, Square, Bell, Zap, Lock, Archive, ChevronRight } from "lucide-react";
 import { storageService } from "../services/storageService";
 import { getTranslation } from "../utils/translations";
 import { RINGTONE_OPTIONS, audioSynthesizer } from "../utils/audio";
 import { pushNotificationService } from "../services/pushNotificationService";
+import { ArchivedChatsModal } from "./chat/ArchivedChatsModal";
 
 interface ProfilePanelProps {
   onClose: () => void;
@@ -29,12 +30,13 @@ const profileSchema = z.object({
 type ProfileFormInputs = z.infer<typeof profileSchema>;
 
 export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStoryArchive }) => {
-  const { user, language, setLanguage } = useStore();
+  const { user, language, setLanguage, conversations } = useStore();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [showArchivedChats, setShowArchivedChats] = useState(false);
 
   const [profileData, setProfileData] = useState<{
     username: string;
@@ -576,6 +578,26 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
               )}
             </button>
 
+            {/* Archived Chats Section */}
+            <button
+              type="button"
+              onClick={() => setShowArchivedChats(true)}
+              className="w-full flex items-center justify-between p-3 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 rounded-xl transition-all group active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-2.5 text-slate-200 font-semibold text-xs sm:text-sm">
+                <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 group-hover:scale-105 transition-transform">
+                  <Archive className="w-4 h-4" />
+                </div>
+                <span>{getTranslation(language, "archivedChats")}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-900/90 text-indigo-400 font-bold border border-slate-700/80">
+                  {conversations.filter((c) => Boolean(c.is_archived)).length}
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </button>
+
             {onOpenStoryArchive && (
               <button
                 type="button"
@@ -593,6 +615,18 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
           </div>
         )}
       </div>
+
+      {/* Archived Chats Modal */}
+      <ArchivedChatsModal
+        isOpen={showArchivedChats}
+        onClose={() => setShowArchivedChats(false)}
+        language={language}
+        onSelectConversation={(convId) => {
+          setShowArchivedChats(false);
+          useStore.getState().setActiveConversationId(convId);
+          onClose();
+        }}
+      />
     </motion.div>
   );
 };

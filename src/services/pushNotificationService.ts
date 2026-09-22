@@ -374,7 +374,31 @@ class PushNotificationService {
           .eq("blocked_id", params.senderId);
 
         const blockerIds = new Set((blocks || []).map((b: any) => b.blocker_id));
-        const activeRecipients = recipientUserIds.filter((id: string) => !blockerIds.has(id));
+        let activeRecipients = recipientUserIds.filter((id: string) => !blockerIds.has(id));
+
+        // Filter out recipients who muted this conversation
+        if (activeRecipients.length > 0) {
+          try {
+            const { data: mutePrefs } = await supabase
+              .from("user_conversation_prefs")
+              .select("user_id, is_muted, mute_until")
+              .eq("conversation_id", params.conversationId)
+              .in("user_id", activeRecipients)
+              .eq("is_muted", true);
+
+            if (mutePrefs && mutePrefs.length > 0) {
+              const nowTime = Date.now();
+              const mutedUserIds = new Set(
+                mutePrefs
+                  .filter((p: any) => !p.mute_until || new Date(p.mute_until).getTime() > nowTime)
+                  .map((p: any) => p.user_id)
+              );
+              activeRecipients = activeRecipients.filter((id: string) => !mutedUserIds.has(id));
+            }
+          } catch (muteErr) {
+            console.warn("[PushNotification] Could not verify mute prefs:", muteErr);
+          }
+        }
 
         if (activeRecipients.length > 0) {
           // 3. Fetch active device tokens
@@ -618,10 +642,55 @@ class PushNotificationService {
     callerAvatar?: string;
     callType: "voice" | "video";
     receiverId: string;
+    conversationId?: string;
   }): Promise<void> {
     if (isMockMode || !supabase) return;
 
     try {
+      // Check if receiver muted calls for this conversation / caller
+      try {
+        let conversationId = params.conversationId;
+        if (!conversationId) {
+          // Check if there is a 1-on-1 conversation
+          const { data: myMemberships } = await supabase
+            .from("conversation_members")
+            .select("conversation_id")
+            .eq("user_id", params.receiverId);
+
+          if (myMemberships && myMemberships.length > 0) {
+            const convIds = myMemberships.map((m: any) => m.conversation_id);
+            const { data: callerMemberships } = await supabase
+              .from("conversation_members")
+              .select("conversation_id")
+              .in("conversation_id", convIds)
+              .eq("user_id", params.callerId)
+              .limit(1);
+
+            if (callerMemberships && callerMemberships.length > 0) {
+              conversationId = callerMemberships[0].conversation_id;
+            }
+          }
+        }
+
+        if (conversationId) {
+          const { data: pref } = await supabase
+            .from("user_conversation_prefs")
+            .select("is_muted, mute_until, mute_type")
+            .eq("user_id", params.receiverId)
+            .eq("conversation_id", conversationId)
+            .maybeSingle();
+
+          if (pref && pref.is_muted && pref.mute_type === "all") {
+            if (!pref.mute_until || new Date(pref.mute_until).getTime() > Date.now()) {
+              console.log("[PushNotification] Call push suppressed: receiver muted calls for this conversation");
+              return;
+            }
+          }
+        }
+      } catch (muteCheckErr) {
+        console.warn("[PushNotification] Error checking call mute pref:", muteCheckErr);
+      }
+
       // 1. Fetch active device tokens for the receiver
       const { data: tokens, error } = await supabase
         .from("user_push_tokens")

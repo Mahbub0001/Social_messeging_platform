@@ -17,12 +17,18 @@ import {
   Settings,
   Rss,
   X,
+  BellOff,
+  MoreVertical,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { sanitizeUrl } from "../utils/security";
 import { getTranslation } from "../utils/translations";
 import StoryCircles from "./StoryCircles";
+import { chatService, type ConversationWithDetails } from "../services/chatService";
+import { ChatActionSheet } from "./chat/ChatActionSheet";
+import { MuteOptionsModal } from "./chat/MuteOptionsModal";
+import { DeleteChatConfirmModal } from "./chat/DeleteChatConfirmModal";
 
 interface SidebarProps {
   onToggleSettings: () => void;
@@ -103,8 +109,88 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  // Filter conversations
+  const [actionConv, setActionConv] = useState<ConversationWithDetails | null>(null);
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
+  const [isMuteModalOpen, setIsMuteModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  const longPressTimerRef = useRef<number | null>(null);
+  const isLongPressRef = useRef(false);
+  const touchStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const handleTouchStart = (conv: ConversationWithDetails, e: React.TouchEvent) => {
+    isLongPressRef.current = false;
+    touchStartPosRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+    longPressTimerRef.current = window.setTimeout(() => {
+      isLongPressRef.current = true;
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        try {
+          navigator.vibrate(40);
+        } catch (ignored) {}
+      }
+      setActionConv(conv);
+      setIsActionSheetOpen(true);
+    }, 500);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const moveX = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
+    const moveY = Math.abs(e.touches[0].clientY - touchStartPosRef.current.y);
+    if (moveX > 10 || moveY > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleConfirmMute = async (
+    duration: "1h" | "5h" | "12h" | "indefinite",
+    muteType: "all" | "messages_only"
+  ) => {
+    if (!user || !actionConv) return;
+    await chatService.muteConversation(user.id, actionConv.id, muteType, duration);
+    await useStore.getState().fetchConversations();
+  };
+
+  const handleUnmute = async () => {
+    if (!user || !actionConv) return;
+    await chatService.unmuteConversation(user.id, actionConv.id);
+    await useStore.getState().fetchConversations();
+  };
+
+  const handleArchiveToggle = async () => {
+    if (!user || !actionConv) return;
+    const newArchived = !actionConv.is_archived;
+    await chatService.archiveConversation(user.id, actionConv.id, newArchived);
+    if (newArchived && activeConversationId === actionConv.id) {
+      setActiveConversationId(null);
+    }
+    await useStore.getState().fetchConversations();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!user || !actionConv) return;
+    await chatService.deleteConversation(user.id, actionConv.id);
+    if (activeConversationId === actionConv.id) {
+      setActiveConversationId(null);
+    }
+    await useStore.getState().fetchConversations();
+  };
+
+  // Filter conversations (excluding archived and deleted)
   const filteredConversations = conversations.filter((conv) => {
+    if (conv.is_archived || conv.is_deleted) return false;
     if (filter === "direct" && conv.is_group) return false;
     if (filter === "groups" && !conv.is_group) return false;
 
@@ -425,12 +511,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const hasUnread = unreadCount > 0;
 
                 return (
-                  <motion.button
+                  <motion.div
                     key={conv.id}
+                    role="button"
+                    tabIndex={0}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setActiveConversationId(conv.id)}
+                    onTouchStart={(e) => handleTouchStart(conv, e)}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setActionConv(conv);
+                      setIsActionSheetOpen(true);
+                    }}
+                    onClick={(e) => {
+                      if (isLongPressRef.current) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        isLongPressRef.current = false;
+                        return;
+                      }
+                      setActiveConversationId(conv.id);
+                    }}
                     className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left",
+                      "w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group cursor-pointer select-none",
                       isSelected
                         ? "bg-violet-500/10 dark:bg-violet-600/15 border border-violet-500/30 dark:border-violet-500/20 shadow-xs"
                         : "hover:bg-slate-200/60 dark:hover:bg-slate-800/50 border border-transparent",
@@ -464,14 +568,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}>
                           {title}
                         </h4>
-                        <span className={cn(
-                          "text-2xs shrink-0 font-sans transition-colors",
-                          hasUnread
-                            ? "text-violet-600 dark:text-violet-400 font-bold"
-                            : "text-slate-400 dark:text-slate-500 font-normal"
-                        )}>
-                          {timeStr}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {conv.is_muted && (
+                            <BellOff className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                          )}
+                          <span className={cn(
+                            "text-2xs font-sans transition-colors",
+                            hasUnread
+                              ? "text-violet-600 dark:text-violet-400 font-bold"
+                              : "text-slate-400 dark:text-slate-500 font-normal"
+                          )}>
+                            {timeStr}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActionConv(conv);
+                              setIsActionSheetOpen(true);
+                            }}
+                            title="More options"
+                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-slate-300/60 dark:hover:bg-slate-700/60 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-opacity hidden sm:block ml-0.5"
+                          >
+                            <MoreVertical className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                       <div className="flex items-center justify-between gap-1">
                         {isTyping ? (
@@ -500,13 +621,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}
                       </div>
                     </div>
-                  </motion.button>
+                  </motion.div>
                 );
               })
             )}
           </div>
         </>
       )}
+
+      {/* Action Modals */}
+      <ChatActionSheet
+        isOpen={isActionSheetOpen}
+        conversation={actionConv}
+        onClose={() => setIsActionSheetOpen(false)}
+        onMuteClick={() => setIsMuteModalOpen(true)}
+        onUnmuteClick={handleUnmute}
+        onArchiveToggle={handleArchiveToggle}
+        onDeleteClick={() => setIsDeleteModalOpen(true)}
+        language={language}
+      />
+
+      <MuteOptionsModal
+        isOpen={isMuteModalOpen}
+        conversationName={actionConv?.name || "Chat"}
+        onClose={() => setIsMuteModalOpen(false)}
+        onConfirm={handleConfirmMute}
+        language={language}
+      />
+
+      <DeleteChatConfirmModal
+        isOpen={isDeleteModalOpen}
+        conversationName={actionConv?.name || "Chat"}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        language={language}
+      />
     </div>
   );
 };

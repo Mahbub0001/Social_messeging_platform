@@ -791,5 +791,47 @@ create policy "Banned users cannot post stories"
     not exists (select 1 from public.profiles where id = auth.uid() and is_banned = true)
   );
 
+-- ========================================================
+-- USER CONVERSATION PREFERENCES (Mute, Archive, Delete)
+-- ========================================================
+create table if not exists public.user_conversation_prefs (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  conversation_id uuid references public.conversations(id) on delete cascade not null,
+  is_muted boolean default false not null,
+  mute_until timestamp with time zone,
+  mute_type text check (mute_type in ('all', 'messages_only')) default 'all' not null,
+  is_archived boolean default false not null,
+  archived_at timestamp with time zone,
+  is_deleted boolean default false not null,
+  deleted_at timestamp with time zone,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(user_id, conversation_id)
+);
 
+create index if not exists idx_user_conv_prefs_user_id on public.user_conversation_prefs(user_id);
+create index if not exists idx_user_conv_prefs_conv_id on public.user_conversation_prefs(conversation_id);
+create index if not exists idx_user_conv_prefs_archived on public.user_conversation_prefs(user_id, is_archived);
 
+alter table public.user_conversation_prefs enable row level security;
+
+drop policy if exists "Users can view own conversation preferences" on public.user_conversation_prefs;
+create policy "Users can view own conversation preferences" on public.user_conversation_prefs
+  for select to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own conversation preferences" on public.user_conversation_prefs;
+create policy "Users can insert own conversation preferences" on public.user_conversation_prefs
+  for insert to authenticated
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own conversation preferences" on public.user_conversation_prefs;
+create policy "Users can update own conversation preferences" on public.user_conversation_prefs
+  for update to authenticated
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own conversation preferences" on public.user_conversation_prefs;
+create policy "Users can delete own conversation preferences" on public.user_conversation_prefs
+  for delete to authenticated
+  using (auth.uid() = user_id);

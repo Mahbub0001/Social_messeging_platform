@@ -79,6 +79,21 @@ export interface MockStoryView {
   viewed_at: string;
 }
 
+export interface UserConversationPref {
+  id: string;
+  user_id: string;
+  conversation_id: string;
+  is_muted: boolean;
+  mute_until: string | null;
+  mute_type: "all" | "messages_only";
+  is_archived: boolean;
+  archived_at: string | null;
+  is_deleted: boolean;
+  deleted_at: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Initial data to seed if LocalStorage is empty
 const SEED_PROFILES: Profile[] = [
   {
@@ -416,6 +431,15 @@ class MockDatabase {
 
   public saveFeedPosts<T = any>(posts: T[]): void {
     this.setStorageItem("feed_posts_v1", posts);
+  }
+
+  // Conversation preferences (Mute, Archive, Delete)
+  public getUserConversationPrefs(): UserConversationPref[] {
+    return this.getStorageItem<UserConversationPref[]>("user_conversation_prefs_v1", []);
+  }
+
+  public saveUserConversationPrefs(prefs: UserConversationPref[]): void {
+    this.setStorageItem("user_conversation_prefs_v1", prefs);
   }
 }
 
