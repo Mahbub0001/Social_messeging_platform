@@ -296,6 +296,21 @@ public class MainActivity extends BridgeActivity {
         }
 
         @JavascriptInterface
+        public void setConversationMuted(String convId, boolean isMuted, long muteUntilMillis, String muteType) {
+            if (convId == null || convId.isEmpty()) return;
+            try {
+                SharedPreferences prefs = getSharedPreferences("kb_muted_convs", Context.MODE_PRIVATE);
+                if (isMuted) {
+                    prefs.edit().putString(convId, isMuted + ":" + muteUntilMillis + ":" + (muteType != null ? muteType : "all")).apply();
+                } else {
+                    prefs.edit().remove(convId).apply();
+                }
+            } catch (Exception e) {
+                Log.w("KBNativeBridge", "Error setting muted conv: " + e.getMessage());
+            }
+        }
+
+        @JavascriptInterface
         public void syncUserAuth(String userId, String userName, String accessToken) {
             SharedPreferences prefs = getSharedPreferences("kb_native_prefs", Context.MODE_PRIVATE);
             prefs.edit()

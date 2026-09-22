@@ -114,6 +114,10 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
 
         // Handle incoming call with high-priority full-screen intent & ringing
         if ("incoming_call".equals(type)) {
+            if (conversationId != null && isConversationMutedLocally(conversationId, type)) {
+                Log.d(TAG, "Incoming call for muted conversation " + conversationId + ". Suppressing call alert.");
+                return;
+            }
             Log.d(TAG, "Incoming call push notification received. Triggering full-screen call alert.");
             showIncomingCallNotification(data);
             return;
@@ -144,7 +148,43 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
             return;
         }
 
+        // If conversation is muted locally on this device, suppress notification
+        if (conversationId != null && isConversationMutedLocally(conversationId, "message")) {
+            Log.d(TAG, "Conversation " + conversationId + " is muted locally on this device. Suppressing notification.");
+            return;
+        }
+
         showNotification(conversationId, senderId, senderName, title, body, type);
+    }
+
+    private boolean isConversationMutedLocally(String conversationId, String type) {
+        if (conversationId == null || conversationId.isEmpty()) return false;
+        try {
+            android.content.SharedPreferences prefs = getSharedPreferences("kb_muted_convs", Context.MODE_PRIVATE);
+            String val = prefs.getString(conversationId, null);
+            if (val == null || val.isEmpty()) return false;
+
+            String[] parts = val.split(":");
+            boolean isMuted = Boolean.parseBoolean(parts[0]);
+            if (!isMuted) return false;
+
+            if (parts.length > 1) {
+                long until = Long.parseLong(parts[1]);
+                if (until > 0 && System.currentTimeMillis() >= until) {
+                    prefs.edit().remove(conversationId).apply();
+                    return false;
+                }
+            }
+
+            String muteType = parts.length > 2 ? parts[2] : "all";
+            if ("incoming_call".equals(type)) {
+                return "all".equals(muteType);
+            }
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "Error checking muted conv locally: " + e.getMessage());
+            return false;
+        }
     }
 
     @SuppressLint("MissingPermission")

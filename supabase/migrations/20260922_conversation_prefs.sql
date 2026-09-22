@@ -23,10 +23,17 @@ CREATE INDEX IF NOT EXISTS idx_user_conv_prefs_archived ON public.user_conversat
 
 ALTER TABLE public.user_conversation_prefs ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users can view own conversation preferences" ON public.user_conversation_prefs;
-CREATE POLICY "Users can view own conversation preferences" ON public.user_conversation_prefs
+DROP POLICY IF EXISTS "Users and conversation peers can view conversation preferences" ON public.user_conversation_prefs;
+CREATE POLICY "Users and conversation peers can view conversation preferences" ON public.user_conversation_prefs
   FOR SELECT TO authenticated
-  USING (auth.uid() = user_id);
+  USING (
+    auth.uid() = user_id
+    OR EXISTS (
+      SELECT 1 FROM public.conversation_members cm
+      WHERE cm.conversation_id = user_conversation_prefs.conversation_id
+      AND cm.user_id = auth.uid()
+    )
+  );
 
 DROP POLICY IF EXISTS "Users can insert own conversation preferences" ON public.user_conversation_prefs;
 CREATE POLICY "Users can insert own conversation preferences" ON public.user_conversation_prefs

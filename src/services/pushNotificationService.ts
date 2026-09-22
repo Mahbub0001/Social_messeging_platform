@@ -158,6 +158,7 @@ class PushNotificationService {
 
     // 1. Sync session to native Android SharedPreferences
     this.syncAuthWithNative(userId);
+    this.syncMutedConversationsWithNative(userId);
 
     // 2. Check if token already exists in localStorage and sync to database
     try {
@@ -243,6 +244,28 @@ class PushNotificationService {
       }
     } catch (e) {
       console.warn("Error syncing auth with native:", e);
+    }
+  }
+
+  public syncMutedConversationsWithNative(userId: string): void {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      if (typeof (window as any).KBNativeBridge?.setConversationMuted === "function") {
+        const raw = localStorage.getItem(`kb_conv_prefs_${userId}`);
+        if (raw) {
+          const prefs = JSON.parse(raw);
+          Object.entries(prefs).forEach(([cId, p]: [string, any]) => {
+            if (p?.is_muted) {
+              const untilMs = p.mute_until ? new Date(p.mute_until).getTime() : 0;
+              if (untilMs === 0 || untilMs > Date.now()) {
+                (window as any).KBNativeBridge.setConversationMuted(cId, true, untilMs, p.mute_type || "all");
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Error syncing muted convs with native:", e);
     }
   }
 
@@ -400,95 +423,106 @@ class PushNotificationService {
           }
         }
 
-        if (activeRecipients.length > 0) {
-          // 3. Fetch active device tokens
-          console.log("[PushNotification] Active recipients for push notification:", activeRecipients);
-          const { data: pushTokens, error: tokenErr } = await supabase
-            .from("user_push_tokens")
-            .select("id, token")
-            .in("user_id", activeRecipients);
+        if (activeRecipients.length === 0) {
+          console.log("[PushNotification] All recipients in conversation " + params.conversationId + " are muted or blocked. Suppressing push entirely.");
+          return;
+        }
 
-          if (tokenErr) {
-            console.error("[PushNotification] Error fetching user_push_tokens:", tokenErr.message);
-          }
-          console.log("[PushNotification] Tokens found for recipients:", pushTokens?.length || 0);
+        // 3. Fetch active device tokens
+        console.log("[PushNotification] Active recipients for push notification:", activeRecipients);
+        const { data: pushTokens, error: tokenErr } = await supabase
+          .from("user_push_tokens")
+          .select("id, token")
+          .in("user_id", activeRecipients);
 
-          if (pushTokens && pushTokens.length > 0) {
-            // 4. Get Google OAuth2 Access Token
-            const accessToken = await getGoogleAccessToken();
-            const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${fcmConfig.projectId}/messages:send`;
+        if (tokenErr) {
+          console.error("[PushNotification] Error fetching user_push_tokens:", tokenErr.message);
+        }
+        console.log("[PushNotification] Tokens found for recipients:", pushTokens?.length || 0);
 
-            // 5. Send FCM message to each token
-            const staleIds: string[] = [];
-            for (const item of pushTokens) {
-              try {
-                const res = await fetch(fcmEndpoint, {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    message: {
-                      token: item.token,
-                      // DATA-ONLY payload — no top-level "notification" field.
-                      // This ensures Android always calls KothaBartaMessagingService.onMessageReceived()
-                      // even when the app is in background/killed, so our custom notification
-                      // with the inline RemoteInput reply button is always built correctly.
-                      data: {
-                        conversationId: String(params.conversationId),
-                        senderId: String(params.senderId),
-                        senderName: String(params.senderName || "Someone"),
-                        title: String(notificationTitle),
-                        body: String(notificationBody),
-                        type: "chat_message",
-                      },
-                      android: {
-                        priority: "high",
-                      },
+        let directSendSucceeded = false;
+
+        if (pushTokens && pushTokens.length > 0) {
+          // 4. Get Google OAuth2 Access Token
+          const accessToken = await getGoogleAccessToken();
+          const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${fcmConfig.projectId}/messages:send`;
+
+          // 5. Send FCM message to each token
+          const staleIds: string[] = [];
+          for (const item of pushTokens) {
+            try {
+              const res = await fetch(fcmEndpoint, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  message: {
+                    token: item.token,
+                    // DATA-ONLY payload — no top-level "notification" field.
+                    // This ensures Android always calls KothaBartaMessagingService.onMessageReceived()
+                    // even when the app is in background/killed, so our custom notification
+                    // with the inline RemoteInput reply button is always built correctly.
+                    data: {
+                      conversationId: String(params.conversationId),
+                      senderId: String(params.senderId),
+                      senderName: String(params.senderName || "Someone"),
+                      title: String(notificationTitle),
+                      body: String(notificationBody),
+                      type: "chat_message",
                     },
-                  }),
-                });
+                    android: {
+                      priority: "high",
+                    },
+                  },
+                }),
+              });
 
-                if (res.status === 404 || res.status === 400) {
-                  const errBody = await res.json().catch(() => ({}));
-                  if (
-                    res.status === 404 ||
-                    errBody.error?.message?.includes("UNREGISTERED") ||
-                    errBody.error?.details?.some((d: any) => d.errorCode === "UNREGISTERED")
-                  ) {
-                    staleIds.push(item.id);
-                  }
-                }
-              } catch (e) {
-                console.warn("FCM send error for token:", e);
+              if (res.ok) {
+                directSendSucceeded = true;
               }
-            }
 
-            // Cleanup stale tokens
-            if (staleIds.length > 0) {
-              await supabase.from("user_push_tokens").delete().in("id", staleIds);
+              if (res.status === 404 || res.status === 400) {
+                const errBody = await res.json().catch(() => ({}));
+                if (
+                  res.status === 404 ||
+                  errBody.error?.message?.includes("UNREGISTERED") ||
+                  errBody.error?.details?.some((d: any) => d.errorCode === "UNREGISTERED")
+                ) {
+                  staleIds.push(item.id);
+                }
+              }
+            } catch (e) {
+              console.warn("FCM send error for token:", e);
             }
+          }
+
+          // Cleanup stale tokens
+          if (staleIds.length > 0) {
+            await supabase.from("user_push_tokens").delete().in("id", staleIds);
+          }
+        }
+
+        // Path 2: Fallback to Edge Function ONLY if direct FCM was not sent and we have active unmuted recipients
+        if (!directSendSucceeded && activeRecipients.length > 0) {
+          try {
+            await supabase.functions.invoke("send-push-notification", {
+              body: {
+                conversationId: params.conversationId,
+                senderId: params.senderId,
+                senderName: params.senderName,
+                content: notificationBody,
+                mediaType: params.mediaType || null,
+              },
+            });
+          } catch (edgeErr) {
+            console.warn("[PushNotification] Edge function fallback error:", edgeErr);
           }
         }
       }
     } catch (err) {
       console.warn("Direct FCM dispatch error:", err);
-    }
-
-    // Path 2: Also trigger Edge Function if available
-    try {
-      await supabase.functions.invoke("send-push-notification", {
-        body: {
-          conversationId: params.conversationId,
-          senderId: params.senderId,
-          senderName: params.senderName,
-          content: notificationBody,
-          mediaType: params.mediaType || null,
-        },
-      });
-    } catch {
-      // Ignored since direct FCM handled it
     }
   }
 

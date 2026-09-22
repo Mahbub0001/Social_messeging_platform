@@ -188,6 +188,16 @@ class ChatServiceClass {
     };
     this.saveLocalConversationPrefs(userId, currentPrefs);
 
+    // Sync to Native Android SharedPreferences bridge immediately
+    try {
+      if (typeof (window as any).KBNativeBridge?.setConversationMuted === "function") {
+        const untilMs = mute_until ? new Date(mute_until).getTime() : 0;
+        (window as any).KBNativeBridge.setConversationMuted(conversationId, true, untilMs, muteType);
+      }
+    } catch (bridgeErr) {
+      console.warn("Could not sync mute to native bridge:", bridgeErr);
+    }
+
     // 2. Persist to mockDb or Supabase
     if (isMockMode) {
       const mockPrefs = mockDb.getUserConversationPrefs();
@@ -233,6 +243,15 @@ class ChatServiceClass {
       currentPrefs[conversationId].is_muted = false;
       currentPrefs[conversationId].mute_until = null;
       this.saveLocalConversationPrefs(userId, currentPrefs);
+    }
+
+    // Sync to Native Android SharedPreferences bridge immediately
+    try {
+      if (typeof (window as any).KBNativeBridge?.setConversationMuted === "function") {
+        (window as any).KBNativeBridge.setConversationMuted(conversationId, false, 0, "all");
+      }
+    } catch (bridgeErr) {
+      console.warn("Could not sync unmute to native bridge:", bridgeErr);
     }
 
     // 2. Persist to mockDb or Supabase

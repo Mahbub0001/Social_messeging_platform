@@ -128,11 +128,35 @@ Deno.serve(async (req: Request) => {
       .eq("blocked_id", senderId);
 
     const blockerIds = new Set((blocks || []).map((b) => b.blocker_id));
-    const activeRecipientIds = recipientUserIds.filter((id) => !blockerIds.has(id));
+    let activeRecipientIds = recipientUserIds.filter((id) => !blockerIds.has(id));
+
+    // Filter out recipients who muted this conversation
+    if (activeRecipientIds.length > 0) {
+      try {
+        const { data: mutePrefs } = await supabase
+          .from("user_conversation_prefs")
+          .select("user_id, is_muted, mute_until")
+          .eq("conversation_id", conversationId)
+          .in("user_id", activeRecipientIds)
+          .eq("is_muted", true);
+
+        if (mutePrefs && mutePrefs.length > 0) {
+          const nowTime = Date.now();
+          const mutedUserIds = new Set(
+            mutePrefs
+              .filter((p: any) => !p.mute_until || new Date(p.mute_until).getTime() > nowTime)
+              .map((p: any) => p.user_id)
+          );
+          activeRecipientIds = activeRecipientIds.filter((id: string) => !mutedUserIds.has(id));
+        }
+      } catch (muteErr) {
+        console.warn("Could not check user_conversation_prefs:", muteErr);
+      }
+    }
 
     if (activeRecipientIds.length === 0) {
       return new Response(
-        JSON.stringify({ message: "All recipients have blocked the sender" }),
+        JSON.stringify({ message: "All recipients have blocked sender or muted conversation" }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
