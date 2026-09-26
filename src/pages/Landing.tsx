@@ -165,8 +165,8 @@ export const Landing: React.FC = () => {
         </section>
 
         {/* Footer */}
-        <footer className="mt-36 border-t border-slate-900 pt-8 w-full text-slate-500 text-xs">
-          <p>© {new Date().getFullYear()} Kotha Barta. Portfolio project by Sajeeb Rahman.</p>
+        <footer className="mt-36 border-t border-slate-900 pt-8 pb-6 w-full text-slate-500 text-xs">
+          <p>© {new Date().getFullYear()} কথাবার্তা (Kotha Barta). Developed by <span className="text-slate-300 font-medium">Mahbub Ul Alam Bhuiyan (Nibir)</span>.</p>
         </footer>
       </main>
     </div>
