@@ -77,6 +77,7 @@ export interface MockStoryView {
   story_id: string;
   viewer_id: string;
   viewed_at: string;
+  reaction?: string;
 }
 
 export interface UserConversationPref {
@@ -408,11 +409,29 @@ class MockDatabase {
     }
   }
 
+  public reactToStory(storyId: string, viewerId: string, emoji: string): void {
+    const views = this.getStoryViews();
+    const existing = views.find((v) => v.story_id === storyId && v.viewer_id === viewerId);
+    if (existing) {
+      existing.reaction = emoji;
+    } else {
+      views.push({
+        id: "sv-" + Math.random().toString(36).substr(2, 9),
+        story_id: storyId,
+        viewer_id: viewerId,
+        viewed_at: new Date().toISOString(),
+        reaction: emoji,
+      });
+    }
+    this.saveStoryViews(views);
+  }
+
   public getStoryViewers(storyId: string): any[] {
     const views = this.getStoryViews().filter(v => v.story_id === storyId);
     const profiles = this.getProfiles();
     return views.map(v => ({
       ...v,
+      reaction: v.reaction || null,
       user: profiles.find(p => p.id === v.viewer_id) || null,
     }));
   }

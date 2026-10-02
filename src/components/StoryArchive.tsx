@@ -215,16 +215,21 @@ export const StoryArchive: React.FC<StoryArchiveProps> = ({ onClose }) => {
                   </h4>
                   <div className="space-y-1.5 max-h-28 overflow-y-auto">
                     {viewers.map((view: any) => (
-                      <div key={view.viewer_id} className="flex items-center gap-2 p-2 bg-slate-800/50 rounded-lg">
-                        <img
-                          src={view.user?.avatar_url}
-                          alt=""
-                          className="w-7 h-7 rounded-full object-cover"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-white truncate">{view.user?.username}</p>
-                          <p className="text-[10px] text-slate-500">{formatTimeAgo(view.viewed_at)}</p>
+                      <div key={view.viewer_id} className="flex items-center justify-between p-2 bg-slate-800/50 rounded-lg">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img
+                            src={view.user?.avatar_url}
+                            alt=""
+                            className="w-7 h-7 rounded-full object-cover"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-white truncate">{view.user?.username}</p>
+                            <p className="text-[10px] text-slate-500">{formatTimeAgo(view.viewed_at)}</p>
+                          </div>
                         </div>
+                        {view.reaction && (
+                          <span className="text-base leading-none p-1 bg-white/10 rounded-full">{view.reaction}</span>
+                        )}
                       </div>
                     ))}
                   </div>

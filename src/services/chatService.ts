@@ -992,6 +992,16 @@ class ChatServiceClass {
 
       if (error) return { data: null, error };
 
+      let reply_to: MessageWithSender | null = null;
+      if (replyToMessageId) {
+        const { data: parent } = await supabase
+          .from("messages")
+          .select("*, sender:profiles(*)")
+          .eq("id", replyToMessageId)
+          .maybeSingle();
+        reply_to = parent as MessageWithSender | null;
+      }
+
       // Dispatch push notification to recipients asynchronously
       const senderName = data?.sender?.username || "Someone";
       pushNotificationService.sendPushNotification({
@@ -1002,7 +1012,7 @@ class ChatServiceClass {
         mediaType,
       }).catch(() => {});
 
-      return { data: { ...data, reactions: {} }, error: null };
+      return { data: { ...data, reply_to, reactions: {} }, error: null };
     }
   }
 

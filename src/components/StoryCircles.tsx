@@ -30,7 +30,6 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
   // Separate user's own stories and friends' stories
   const myStories = user ? stories.filter((s) => s.user_id === user.id) : [];
   const hasMyStory = myStories.length > 0;
-  const myHasUnviewed = myStories.some((s) => !s.hasViewed);
 
   const userMetadata = (user as any)?.user_metadata;
   const rawAvatar = currentProfile?.avatar_url || userMetadata?.avatar_url || (user as any)?.avatar_url;
@@ -80,9 +79,7 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
             <div
               className={`w-[52px] h-[52px] rounded-full p-[2px] transition-all group-hover:scale-105 ${
                 hasMyStory
-                  ? myHasUnviewed
-                    ? "bg-gradient-to-tr from-violet-500 via-fuchsia-500 to-amber-400 shadow-sm shadow-violet-500/25"
-                    : "bg-slate-700"
+                  ? "bg-gradient-to-tr from-violet-500 via-fuchsia-500 to-amber-400 shadow-sm shadow-violet-500/25"
                   : "border border-dashed border-slate-600 group-hover:border-violet-400 p-[1.5px]"
               }`}
             >
@@ -108,9 +105,12 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
             <Plus size={12} strokeWidth={3} />
           </button>
         </div>
-        <span className="text-[11px] font-medium text-slate-300 group-hover:text-violet-400 transition-colors max-w-[58px] truncate text-center">
+        <button
+          onClick={hasMyStory ? () => onStoryClick(user!.id) : onUploadClick}
+          className="text-[11px] font-medium text-slate-300 group-hover:text-violet-400 transition-colors max-w-[58px] truncate text-center focus:outline-none"
+        >
           My Story
-        </span>
+        </button>
       </div>
 
       {/* 2. Loading Skeletons */}

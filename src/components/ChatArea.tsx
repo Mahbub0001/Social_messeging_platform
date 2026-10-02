@@ -245,6 +245,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
 
     const textToSend = inputText;
     const replyId = replyingTo?.id || null;
+    const currentReply = replyingTo;
 
     // Clean inputs
     setInputText("");
@@ -268,6 +269,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
         replyId
       );
       if (newMsg) {
+        if (!newMsg.reply_to && currentReply) {
+          newMsg.reply_to = currentReply;
+        }
         addMessage(activeConversationId, newMsg);
       }
     }
@@ -736,6 +740,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
             const isSelf = msg.sender_id === user?.id;
             const isDeleted = msg.content === "This message was deleted";
             const reactions = msg.reactions || {};
+            const quotedMsg = msg.reply_to || (msg.reply_to_message_id ? activeMessages.find((m) => m.id === msg.reply_to_message_id) : null);
 
             const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
             const showDateDivider =
@@ -762,6 +767,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
                   </div>
                 )}
                 <motion.div
+                  id={`msg-${msg.id}`}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.18, ease: "easeOut" }}
@@ -769,15 +775,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
                   onMouseLeave={() => setHoveredMessageId(null)}
                   className={cn("flex flex-col max-w-[78%] md:max-w-[70%] relative group/msg", isSelf ? "ml-auto items-end" : "mr-auto items-start")}
                 >
-                  {/* Quoted Reply context */}
-                  {msg.reply_to && !isDeleted && (
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-200/80 dark:bg-slate-900 border-l-2 border-violet-500 rounded-t-xl text-2xs text-slate-600 dark:text-slate-400 mb-0.5 select-none shrink-0">
-                      <span className="font-semibold text-violet-600 dark:text-violet-300">
-                        {msg.reply_to.sender_id === user?.id ? "You" : msg.reply_to.sender?.username}:
-                      </span>
-                      <span className="truncate max-w-[120px]">{msg.reply_to.content}</span>
-                    </div>
-                  )}
 
                   {/* Message Bubble Container */}
                   <div className="flex items-center gap-2 group">
@@ -1010,6 +1007,36 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
                             : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans border border-slate-200/90 dark:border-slate-800/90 rounded-2xl rounded-tl-xs shadow-2xs"
                         )}
                       >
+                        {/* Quoted Message Card (Inside Bubble) */}
+                        {quotedMsg && !isDeleted && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const targetEl = document.getElementById(`msg-${quotedMsg.id}`);
+                              if (targetEl) {
+                                targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                                targetEl.classList.add("ring-2", "ring-violet-400", "transition-all");
+                                setTimeout(() => targetEl.classList.remove("ring-2", "ring-violet-400"), 1800);
+                              }
+                            }}
+                            className={cn(
+                              "mb-2 p-2 rounded-xl text-left border-l-[3.5px] text-2xs cursor-pointer select-none transition-all",
+                              isSelf
+                                ? "bg-black/20 hover:bg-black/30 border-white/90 text-white"
+                                : "bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200/80 dark:hover:bg-slate-800 border-violet-500 text-slate-700 dark:text-slate-200"
+                            )}
+                          >
+                            <p className={cn("font-bold text-[11px] truncate leading-tight", isSelf ? "text-violet-200" : "text-violet-600 dark:text-violet-400")}>
+                              {quotedMsg.sender_id === user?.id ? "You" : quotedMsg.sender?.username || "Friend"}
+                            </p>
+                            <p className="truncate text-[11px] opacity-85 mt-0.5 leading-snug">
+                              {quotedMsg.media_type === "image" ? "📷 Photo" :
+                               quotedMsg.media_type === "audio" ? "🎵 Voice message" :
+                               quotedMsg.media_type === "file" ? "📁 Document" :
+                               quotedMsg.content}
+                            </p>
+                          </div>
+                        )}
                         {/* Media Render */}
                         {!isDeleted && msg.media_url && (
                           <div className="mb-2 max-w-[220px] overflow-hidden rounded-xl">

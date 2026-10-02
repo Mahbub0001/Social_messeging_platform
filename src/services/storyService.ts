@@ -25,6 +25,8 @@ export interface StoryView {
   story_id: string;
   viewer_id: string;
   viewed_at: string;
+  reaction?: string | null;
+  user?: Profile;
 }
 
 const STORY_EXPIRATION_HOURS = 24;
@@ -74,7 +76,7 @@ class StoryService {
 
       const filtered = stories.filter(
         (s: any) =>
-          friendIds.includes(s.user_id) &&
+          (friendIds.includes(s.user_id) || s.user_id === userId) &&
           !blockedIds.includes(s.user_id)
       );
 
@@ -225,6 +227,18 @@ class StoryService {
         return { data: null, error: null };
       }
 
+      // Check if already viewed to prevent duplicate insert errors
+      const { data: existing } = await supabase
+        .from("story_views")
+        .select("id")
+        .eq("story_id", storyId)
+        .eq("viewer_id", viewerId)
+        .maybeSingle();
+
+      if (existing) {
+        return { error: null };
+      }
+
       const { error } = await supabase.from("story_views").insert([
         {
           story_id: storyId,
@@ -241,6 +255,68 @@ class StoryService {
     } catch (err) {
       console.error("Error in recordStoryView:", err);
       return { error: err };
+    }
+  }
+
+  async reactToStory(storyId: string, userId: string, emoji: string) {
+    try {
+      if (isMockMode) {
+        mockDb.reactToStory(storyId, userId, emoji);
+        return { data: null, error: null };
+      }
+
+      const { data: existingView } = await supabase
+        .from("story_views")
+        .select("id")
+        .eq("story_id", storyId)
+        .eq("viewer_id", userId)
+        .maybeSingle();
+
+      if (existingView) {
+        const { error } = await supabase
+          .from("story_views")
+          .update({ reaction: emoji })
+          .eq("id", existingView.id);
+        return { error };
+      } else {
+        const { error } = await supabase.from("story_views").insert([
+          {
+            story_id: storyId,
+            viewer_id: userId,
+            reaction: emoji,
+          },
+        ]);
+        return { error };
+      }
+    } catch (err) {
+      console.error("Error in reactToStory:", err);
+      return { error: err };
+    }
+  }
+
+  async getMyReaction(storyId: string, userId: string) {
+    try {
+      if (isMockMode) {
+        const viewers = mockDb.getStoryViewers(storyId);
+        const myView = viewers.find((v: any) => v.viewer_id === userId);
+        return { data: myView?.reaction || null, error: null };
+      }
+
+      const { data, error } = await supabase
+        .from("story_views")
+        .select("reaction")
+        .eq("story_id", storyId)
+        .eq("viewer_id", userId)
+        .maybeSingle();
+
+      if (error) {
+        return { data: null, error };
+      }
+
+      return { data: data?.reaction || null, error: null };
+    } catch (err) {
+      console.error("Error in getMyReaction:", err);
+      return { data: null, error: err };
     }
   }
 
@@ -265,6 +341,7 @@ class StoryService {
         .select(`
           viewer_id,
           viewed_at,
+          reaction,
           user:viewer_id(id, username, avatar_url, bio)
         `)
         .eq("story_id", storyId)
