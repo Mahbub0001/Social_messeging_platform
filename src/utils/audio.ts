@@ -323,6 +323,18 @@ class AudioSynthesizer {
       playTone(523.25, 0.2); // C5
     } catch (e) {}
   }
+
+  /**
+   * Unlock Web Audio context on user gesture
+   */
+  public unlockAudio() {
+    try {
+      const context = this.getContext();
+      if (context && context.state === "suspended") {
+        context.resume();
+      }
+    } catch (e) {}
+  }
 }
 
 export const audioSynthesizer = new AudioSynthesizer();

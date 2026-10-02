@@ -15,12 +15,14 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.PermissionRequest;
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
 import com.google.firebase.messaging.FirebaseMessaging;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.json.JSONObject;
 
@@ -80,6 +82,35 @@ public class MainActivity extends BridgeActivity {
 
             // Register Javascript interface for native notifications bridge
             getBridge().getWebView().addJavascriptInterface(new KBNativeBridge(), "KBNativeBridge");
+
+            // Enhance WebChromeClient for instant WebRTC camera/audio permission grant
+            getBridge().getWebView().setWebChromeClient(new com.getcapacitor.BridgeWebChromeClient(getBridge()) {
+                @Override
+                public void onPermissionRequest(final PermissionRequest request) {
+                    if (request == null) return;
+                    boolean hasCamera = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+                    boolean hasAudio = ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+
+                    boolean needsCamera = false;
+                    boolean needsAudio = false;
+                    for (String res : request.getResources()) {
+                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(res)) needsCamera = true;
+                        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(res)) needsAudio = true;
+                    }
+
+                    if ((!needsCamera || hasCamera) && (!needsAudio || hasAudio)) {
+                        runOnUiThread(() -> {
+                            try {
+                                request.grant(request.getResources());
+                            } catch (Exception e) {
+                                Log.e("MainActivity", "Error granting WebRTC permissions: " + e.getMessage());
+                            }
+                        });
+                        return;
+                    }
+                    super.onPermissionRequest(request);
+                }
+            });
         }
     }
 
