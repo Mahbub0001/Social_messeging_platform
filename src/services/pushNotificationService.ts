@@ -91,6 +91,33 @@ class PushNotificationService {
   private currentToken: string | null = null;
   private onConversationClickCallback: ((conversationId: string) => void) | null = null;
 
+  /**
+   * A native FCM notification can arrive even if the Supabase Realtime socket was
+   * briefly disconnected. Refresh the authoritative conversation list whenever
+   * that happens, so a notification and the in-app chat state never diverge.
+   */
+  private async syncIncomingConversation(data: Record<string, unknown> | undefined): Promise<void> {
+    const rawConversationId = data?.conversationId ?? data?.conversation_id;
+    const conversationId = typeof rawConversationId === "string" ? rawConversationId : "";
+
+    if (!conversationId) return;
+
+    try {
+      const { useStore } = await import("../hooks/useStore");
+      const state = useStore.getState();
+
+      await state.fetchConversations();
+
+      // Keep an open conversation current as well. The store de-duplicates the
+      // same message when the Realtime subscription also delivers it.
+      if (state.activeConversationId === conversationId) {
+        await state.fetchMessages(conversationId);
+      }
+    } catch (error) {
+      console.warn("[PushNotification] Could not sync incoming conversation:", error);
+    }
+  }
+
   public isReady(): boolean {
     return this.isInitialized;
   }
@@ -291,6 +318,7 @@ class PushNotificationService {
     // Foreground push notification
     PushNotifications.addListener("pushNotificationReceived", (notification: PushNotificationSchema) => {
       console.log("Foreground push notification received:", notification);
+      void this.syncIncomingConversation(notification.data);
     });
 
     // User tapped notification -> Deep link to chat

@@ -133,6 +133,7 @@ export const App: React.FC = () => {
   const theme = useStore((state) => state.theme);
   const user = useStore((state) => state.user);
   const setActiveConversationId = useStore((state) => state.setActiveConversationId);
+  const fetchConversations = useStore((state) => state.fetchConversations);
 
   useEffect(() => {
     // Start session state observer
@@ -152,6 +153,23 @@ export const App: React.FC = () => {
       });
     }
   }, [user?.id, setActiveConversationId]);
+
+  // FCM is handled by Android while the WebView is backgrounded. Reconcile with
+  // Supabase as soon as the app becomes active so messages received in that
+  // interval are always visible, even if a Realtime event was missed.
+  useEffect(() => {
+    if (!user?.id || !Capacitor.isNativePlatform()) return;
+
+    const listenerPromise = CapApp.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) {
+        void fetchConversations();
+      }
+    });
+
+    return () => {
+      void listenerPromise.then((listener) => listener.remove());
+    };
+  }, [user?.id, fetchConversations]);
 
   useEffect(() => {
     const root = window.document.documentElement;
