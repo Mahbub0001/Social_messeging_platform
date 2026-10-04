@@ -388,6 +388,7 @@ class CallServiceClass {
       pushNotificationService.sendCallCancelledPush({
         callId: this.callId,
         receiverId: this.partnerId,
+        conversationId: this.conversationId || undefined,
       }).catch((err) => {
         console.warn("[CallService] Error sending call cancel push notification:", err);
       });

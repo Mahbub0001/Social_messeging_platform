@@ -78,7 +78,7 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
             if (mainActivity != null && mainActivity.getBridge() != null && mainActivity.getBridge().getWebView() != null) {
                 mainActivity.runOnUiThread(() -> {
                     try {
-                        String script = String.format("window.handleNativeFcmToken && window.handleNativeFcmToken('%s');", token);
+                        String script = "window.handleNativeFcmToken && window.handleNativeFcmToken(" + JSONObject.quote(token) + ");";
                         mainActivity.getBridge().getWebView().evaluateJavascript(script, null);
                     } catch (Exception ignored) {}
                 });

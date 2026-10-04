@@ -218,16 +218,13 @@ public class MainActivity extends BridgeActivity {
         runOnUiThread(() -> {
             try {
                 if (getBridge() != null && getBridge().getWebView() != null) {
-                    String safeCallerName = callerName != null ? callerName.replace("'", "\\'") : "User";
-                    String script = String.format(
-                        "window.handleIncomingCallAction && window.handleIncomingCallAction('%s', '%s', '%s', '%s', '%s', '%s');",
-                        action != null ? action : "show",
-                        callId != null ? callId : "",
-                        callerId != null ? callerId : "",
-                        safeCallerName,
-                        callType != null ? callType : "voice",
-                        callerAvatar != null ? callerAvatar : ""
-                    );
+                    String script = "window.handleIncomingCallAction && window.handleIncomingCallAction(" +
+                        JSONObject.quote(action != null ? action : "show") + "," +
+                        JSONObject.quote(callId != null ? callId : "") + "," +
+                        JSONObject.quote(callerId != null ? callerId : "") + "," +
+                        JSONObject.quote(callerName != null ? callerName : "User") + "," +
+                        JSONObject.quote(callType != null ? callType : "voice") + "," +
+                        JSONObject.quote(callerAvatar != null ? callerAvatar : "") + ");";
                     getBridge().getWebView().evaluateJavascript(script, null);
                 }
             } catch (Exception ignored) {}
@@ -238,7 +235,7 @@ public class MainActivity extends BridgeActivity {
         runOnUiThread(() -> {
             try {
                 if (getBridge() != null && getBridge().getWebView() != null) {
-                    String script = String.format("window.handleNotificationDeepLink && window.handleNotificationDeepLink('%s');", conversationId);
+                    String script = "window.handleNotificationDeepLink && window.handleNotificationDeepLink(" + JSONObject.quote(conversationId) + ");";
                     getBridge().getWebView().evaluateJavascript(script, null);
                 }
             } catch (Exception ignored) {}
@@ -259,7 +256,7 @@ public class MainActivity extends BridgeActivity {
                     runOnUiThread(() -> {
                         try {
                             if (getBridge() != null && getBridge().getWebView() != null) {
-                                String script = String.format("window.handleNativeFcmToken && window.handleNativeFcmToken('%s');", token);
+                                String script = "window.handleNativeFcmToken && window.handleNativeFcmToken(" + JSONObject.quote(token) + ");";
                                 getBridge().getWebView().evaluateJavascript(script, null);
                             }
                         } catch (Exception ignored) {}

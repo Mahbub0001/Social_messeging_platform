@@ -23,12 +23,13 @@ class FriendServiceClass {
       const title = "New Friend Request";
       const content = `${senderName} has sent you a friend request.`;
 
-      await supabase.from("user_notifications").insert({
-        user_id: receiverId,
-        title,
-        content,
-        type: "friend_request",
+      const { error: notificationError } = await supabase.rpc("create_user_notification", {
+        p_user_id: receiverId,
+        p_title: title,
+        p_content: content,
+        p_type: "friend_request",
       });
+      if (notificationError) throw notificationError;
 
       await pushNotificationService.sendDirectUserPush(
         receiverId,
@@ -54,12 +55,13 @@ class FriendServiceClass {
       const title = "Friend Request Accepted";
       const content = `${responderName} accepted your friend request.`;
 
-      await supabase.from("user_notifications").insert({
-        user_id: senderId,
-        title,
-        content,
-        type: "friend_accept",
+      const { error: notificationError } = await supabase.rpc("create_user_notification", {
+        p_user_id: senderId,
+        p_title: title,
+        p_content: content,
+        p_type: "friend_accept",
       });
+      if (notificationError) throw notificationError;
 
       await pushNotificationService.sendDirectUserPush(
         senderId,

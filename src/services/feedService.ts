@@ -796,10 +796,11 @@ export class FeedService {
       // Graceful Supabase sync
       if (!isMockMode && supabase) {
         try {
-          await supabase
-            .from("feed_posts")
-            .update({ reactions: post.reactions })
-            .eq("id", postId);
+          const { error } = await supabase.rpc("update_post_reactions", {
+            p_post_id: postId,
+            p_reactions: post.reactions,
+          });
+          if (error) throw error;
         } catch (supabaseErr) {
           console.warn("feedService: Supabase reaction sync failed, persisted locally", supabaseErr);
         }
@@ -856,12 +857,9 @@ export class FeedService {
       // Graceful Supabase sync
       if (!isMockMode && supabase) {
         try {
-          await Promise.all([
-            supabase
-              .from("feed_posts")
-              .update({ shares_count: originalPost.sharesCount })
-              .eq("id", postId),
-            supabase.from("feed_posts").insert({
+          const { error } = await supabase.rpc("create_repost", {
+            p_original_id: postId,
+            p_repost: {
               id: newPost.id,
               user_id: newPost.userId,
               author: newPost.author,
@@ -870,12 +868,10 @@ export class FeedService {
               media_type: newPost.mediaType,
               created_at: newPost.createdAt,
               reactions: newPost.reactions,
-              shares_count: 0,
               reposted_from: newPost.repostedFrom,
-              comments_count: 0,
-              comments: [],
-            }),
-          ]);
+            },
+          });
+          if (error) throw error;
         } catch (supabaseErr) {
           console.warn("feedService: Supabase repost sync failed, persisted locally", supabaseErr);
         }
@@ -934,13 +930,12 @@ export class FeedService {
       // Graceful Supabase sync
       if (!isMockMode && supabase) {
         try {
-          await supabase
-            .from("feed_posts")
-            .update({
-              comments: post.comments,
-              comments_count: post.commentsCount,
-            })
-            .eq("id", postId);
+          const { error } = await supabase.rpc("update_post_comments", {
+            p_post_id: postId,
+            p_comments: post.comments,
+            p_comments_count: post.commentsCount,
+          });
+          if (error) throw error;
         } catch (supabaseErr) {
           console.warn("feedService: Supabase comment sync failed, persisted locally", supabaseErr);
         }

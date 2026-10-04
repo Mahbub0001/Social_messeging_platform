@@ -9,6 +9,11 @@ lerna-debug.log*
 
 node_modules
 dist
+.env
+firebase-service-account.json
+google-services.json
+*.keystore
+*.jks
 dist-ssr
 *.local
 

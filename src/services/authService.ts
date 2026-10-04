@@ -209,11 +209,7 @@ class AuthServiceClass {
     let emailToUse = cleanId;
 
     if (!cleanId.includes("@")) {
-      if (cleanId.toLowerCase() === "mahbub") {
-        emailToUse = "mahbub@admin.kothabarta.com";
-      } else {
-        emailToUse = `${cleanId.toLowerCase().replace(/\s+/g, "")}@kothabarta.com`;
-      }
+      emailToUse = `${cleanId.toLowerCase().replace(/\s+/g, "")}@kothabarta.com`;
     }
 
     if (isMockMode) {
@@ -261,58 +257,6 @@ class AuthServiceClass {
         email: emailToUse,
         password,
       });
-
-      // Seamless auto-provisioning for mahbub / mahbub
-      if (error && cleanId.toLowerCase() === "mahbub" && password === "mahbub") {
-        const signUpRes = await supabase.auth.signUp({
-          email: "mahbub@admin.kothabarta.com",
-          password: "mahbub",
-          options: {
-            data: {
-              username: "mahbub",
-              role: "admin",
-            },
-          },
-        });
-
-        if (signUpRes.data?.session) {
-          data = signUpRes.data;
-          error = null;
-          if (signUpRes.data.user?.id) {
-            await supabase.from("profiles").upsert({
-              id: signUpRes.data.user.id,
-              username: "mahbub",
-              bio: "System Administrator",
-              role: "admin",
-              is_banned: false,
-            });
-          }
-        } else {
-          const retry = await supabase.auth.signInWithPassword({
-            email: "mahbub@admin.kothabarta.com",
-            password: "mahbub",
-          });
-          data = retry.data;
-          error = retry.error;
-        }
-      }
-
-      // Ensure mahbub always has admin role in profiles table
-      if (
-        data?.session?.user &&
-        (cleanId.toLowerCase() === "mahbub" ||
-          cleanId.toLowerCase() === "mahbub0001" ||
-          data.session.user.email?.toLowerCase().includes("mahbub"))
-      ) {
-        try {
-          await supabase
-            .from("profiles")
-            .update({ role: "admin" })
-            .eq("id", data.session.user.id);
-        } catch (e) {
-          console.warn("Failed to set admin role in authService:", e);
-        }
-      }
 
       return { data, error };
     }
@@ -510,12 +454,11 @@ class AuthServiceClass {
       this.notifyListeners();
       return { data: profiles[profileIndex], error: null };
     } else {
-      const { data: updatedData, error } = await supabase
-        .from("profiles")
-        .update(data)
-        .eq("id", userId)
-        .select()
-        .single();
+      const { data: updatedData, error } = await supabase.rpc("update_my_profile", {
+        p_username: data.username ?? null,
+        p_bio: data.bio ?? null,
+        p_avatar_url: data.avatar_url ?? null,
+      });
       
       if (error) {
         if (error.code === "23505") {

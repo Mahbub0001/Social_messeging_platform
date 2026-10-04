@@ -1,291 +1,166 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type User } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Helper to base64url encode
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+function json(body: Record<string, unknown>, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 function base64url(buffer: ArrayBuffer | Uint8Array): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-// Convert PEM PKCS#8 private key string to ArrayBuffer
 function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const b64 = pem
-    .replace(/-----BEGIN[ A-Z_-]+-----/g, "")
-    .replace(/-----END[ A-Z_-]+-----/g, "")
-    .replace(/[\r\n\s]/g, "");
+  const b64 = pem.replace(/-----BEGIN[ A-Z_-]+-----/g, "").replace(/-----END[ A-Z_-]+-----/g, "").replace(/[\r\n\s]/g, "");
   const binary = atob(b64);
   const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes.buffer;
 }
 
-// Generate Google OAuth2 access token for FCM v1 using Service Account credentials
-async function getGoogleAccessToken(serviceAccount: {
-  client_email: string;
-  private_key: string;
-}): Promise<string> {
+async function getGoogleAccessToken(serviceAccount: { client_email: string; private_key: string }): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  const header = { alg: "RS256", typ: "JWT" };
-  const claims = {
-    iss: serviceAccount.client_email,
-    scope: "https://www.googleapis.com/auth/firebase.messaging",
-    aud: "https://oauth2.googleapis.com/token",
-    exp: now + 3600,
-    iat: now,
-  };
-
-  const encodedHeader = base64url(new TextEncoder().encode(JSON.stringify(header)));
-  const encodedClaims = base64url(new TextEncoder().encode(JSON.stringify(claims)));
-  const dataToSign = new TextEncoder().encode(`${encodedHeader}.${encodedClaims}`);
-
-  const keyBuffer = pemToArrayBuffer(serviceAccount.private_key);
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    keyBuffer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    dataToSign
-  );
-
-  const jwt = `${encodedHeader}.${encodedClaims}.${base64url(signature)}`;
-
+  const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const claims = base64url(new TextEncoder().encode(JSON.stringify({ iss: serviceAccount.client_email, scope: "https://www.googleapis.com/auth/firebase.messaging", aud: "https://oauth2.googleapis.com/token", exp: now + 3600, iat: now })));
+  const key = await crypto.subtle.importKey("pkcs8", pemToArrayBuffer(serviceAccount.private_key), { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(`${header}.${claims}`));
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${header}.${claims}.${base64url(signature)}`,
   });
+  const data = await response.json();
+  if (!response.ok || !data.access_token) throw new Error("FCM OAuth token request failed");
+  return data.access_token;
+}
 
-  const resData = await response.json();
-  if (!response.ok || !resData.access_token) {
-    throw new Error(`Failed to get Google Access Token: ${JSON.stringify(resData)}`);
+async function authenticate(req: Request, url: string, anonKey: string): Promise<{ user: User; client: ReturnType<typeof createClient> } | null> {
+  const authorization = req.headers.get("Authorization");
+  if (!authorization?.startsWith("Bearer ")) return null;
+  const client = createClient(url, anonKey, { global: { headers: { Authorization: authorization } } });
+  const { data, error } = await client.auth.getUser();
+  return error || !data.user ? null : { user: data.user, client };
+}
+
+async function isAdmin(adminClient: ReturnType<typeof createClient>, userId: string): Promise<boolean> {
+  const { data } = await adminClient.from("profiles").select("role").eq("id", userId).maybeSingle();
+  return data?.role === "admin";
+}
+
+async function sendToTokens(adminClient: ReturnType<typeof createClient>, tokens: { id: string; token: string }[], message: Record<string, unknown>, serviceAccount: any): Promise<number> {
+  if (!tokens.length) return 0;
+  const accessToken = await getGoogleAccessToken(serviceAccount);
+  const endpoint = `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
+  const staleIds: string[] = [];
+  let sent = 0;
+  for (const item of tokens) {
+    try {
+      const response = await fetch(endpoint, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token: item.token, ...message } }) });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok) sent++;
+      if (response.status === 404 || body.error?.message?.includes("UNREGISTERED") || body.error?.details?.some((d: any) => d.errorCode === "UNREGISTERED")) staleIds.push(item.id);
+    } catch (error) { console.warn("FCM delivery failed:", error); }
   }
-
-  return resData.access_token;
+  if (staleIds.length) await adminClient.from("user_push_tokens").delete().in("id", staleIds);
+  return sent;
 }
 
 Deno.serve(async (req: Request) => {
-  // CORS headers
-  if (req.method === "OPTIONS") {
-    return new Response("ok", {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-      },
-    });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  if (!supabaseUrl || !anonKey || !serviceKey) return json({ error: "Push service is not configured" }, 500);
+
+  const authenticated = await authenticate(req, supabaseUrl, anonKey);
+  if (!authenticated) return json({ error: "Authentication required" }, 401);
+  const adminClient = createClient(supabaseUrl, serviceKey);
 
   try {
     const body = await req.json();
-    const { conversationId, senderId, senderName, content, mediaType } = body;
+    const action = typeof body.action === "string" ? body.action : "chat_message";
+    let tokens: { id: string; token: string }[] = [];
+    let message: Record<string, unknown>;
 
-    if (!conversationId || !senderId) {
-      return new Response(
-        JSON.stringify({ error: "conversationId and senderId are required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // 1. Get recipients in the conversation (excluding the sender)
-    const { data: members, error: memError } = await supabase
-      .from("conversation_members")
-      .select("user_id")
-      .eq("conversation_id", conversationId)
-      .neq("user_id", senderId);
-
-    if (memError || !members || members.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No recipients found for push notification" }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    const recipientUserIds = members.map((m) => m.user_id);
-
-    // 2. Filter out anyone who has blocked the sender
-    const { data: blocks } = await supabase
-      .from("blocks")
-      .select("blocker_id")
-      .in("blocker_id", recipientUserIds)
-      .eq("blocked_id", senderId);
-
-    const blockerIds = new Set((blocks || []).map((b) => b.blocker_id));
-    let activeRecipientIds = recipientUserIds.filter((id) => !blockerIds.has(id));
-
-    // Filter out recipients who muted this conversation
-    if (activeRecipientIds.length > 0) {
-      try {
-        const { data: mutePrefs } = await supabase
-          .from("user_conversation_prefs")
-          .select("user_id, is_muted, mute_until")
-          .eq("conversation_id", conversationId)
-          .in("user_id", activeRecipientIds)
-          .eq("is_muted", true);
-
-        if (mutePrefs && mutePrefs.length > 0) {
-          const nowTime = Date.now();
-          const mutedUserIds = new Set(
-            mutePrefs
-              .filter((p: any) => !p.mute_until || new Date(p.mute_until).getTime() > nowTime)
-              .map((p: any) => p.user_id)
-          );
-          activeRecipientIds = activeRecipientIds.filter((id: string) => !mutedUserIds.has(id));
-        }
-      } catch (muteErr) {
-        console.warn("Could not check user_conversation_prefs:", muteErr);
+    if (action === "chat_message") {
+      const conversationId = String(body.conversationId || "");
+      if (!conversationId) return json({ error: "conversationId is required" }, 400);
+      const { data: membership } = await adminClient.from("conversation_members").select("user_id").eq("conversation_id", conversationId).eq("user_id", authenticated.user.id).maybeSingle();
+      if (!membership) return json({ error: "Conversation membership required" }, 403);
+      const { data: sender } = await adminClient.from("profiles").select("username, full_name").eq("id", authenticated.user.id).single();
+      const { data: members } = await adminClient.from("conversation_members").select("user_id").eq("conversation_id", conversationId).neq("user_id", authenticated.user.id);
+      const recipientIds = (members || []).map((row: any) => row.user_id);
+      const { data: blocks } = recipientIds.length ? await adminClient.from("blocks").select("blocker_id").in("blocker_id", recipientIds).eq("blocked_id", authenticated.user.id) : { data: [] };
+      const blocked = new Set((blocks || []).map((row: any) => row.blocker_id));
+      const allowedRecipients = recipientIds.filter((id: string) => !blocked.has(id));
+      const { data: pushTokens } = allowedRecipients.length ? await adminClient.from("user_push_tokens").select("id, token").in("user_id", allowedRecipients) : { data: [] };
+      tokens = pushTokens || [];
+      message = { data: { conversationId, senderId: authenticated.user.id, senderName: sender?.username || sender?.full_name || "Someone", title: sender?.username || "Kotha Barta", body: String(body.content || "Sent a new message"), type: "chat_message" }, android: { priority: "high" } };
+    } else if (action === "system_broadcast") {
+      if (!(await isAdmin(adminClient, authenticated.user.id))) return json({ error: "Administrator access required" }, 403);
+      const { data: pushTokens } = await adminClient.from("user_push_tokens").select("id, token");
+      tokens = pushTokens || [];
+      message = { notification: { title: String(body.title || "Kotha Barta"), body: String(body.content || "") }, data: { type: "system_announcement" }, android: { priority: "high", notification: { channel_id: "messages", sound: "default" } } };
+    } else if (action === "user_push") {
+      const data = body.data && typeof body.data === "object" ? body.data : {};
+      const type = String((data as any).type || "");
+      const targetUserId = String(body.targetUserId || "");
+      const adminAllowed = await isAdmin(adminClient, authenticated.user.id);
+      let relationshipAllowed = false;
+      if (type === "friend_request") {
+        const { data: request } = await adminClient.from("friend_requests").select("id").eq("sender_id", authenticated.user.id).eq("receiver_id", targetUserId).eq("status", "pending").maybeSingle();
+        relationshipAllowed = Boolean(request);
+      } else if (type === "friend_accept") {
+        const { data: request } = await adminClient.from("friend_requests").select("id").eq("sender_id", targetUserId).eq("receiver_id", authenticated.user.id).eq("status", "accepted").maybeSingle();
+        relationshipAllowed = Boolean(request);
       }
+      if (!targetUserId || (!adminAllowed && !relationshipAllowed)) return json({ error: "Not authorized to send this notification" }, 403);
+      const { data: pushTokens } = await adminClient.from("user_push_tokens").select("id, token").eq("user_id", targetUserId);
+      tokens = pushTokens || [];
+      const safeData = Object.fromEntries(Object.entries(data).filter(([key]) => ["senderId", "responderId"].includes(key)));
+      message = { notification: { title: String(body.title || "Kotha Barta"), body: String(body.content || "") }, data: { ...safeData, type }, android: { priority: "high", notification: { channel_id: "messages", sound: "default" } } };
+    } else if (action === "incoming_call") {
+      const conversationId = String(body.conversationId || "");
+      const receiverId = String(body.receiverId || "");
+      if (!conversationId || !receiverId) return json({ error: "Call conversation and receiver are required" }, 400);
+      const { data: callerMember } = await adminClient.from("conversation_members").select("user_id").eq("conversation_id", conversationId).eq("user_id", authenticated.user.id).maybeSingle();
+      const { data: receiverMember } = await adminClient.from("conversation_members").select("user_id").eq("conversation_id", conversationId).eq("user_id", receiverId).maybeSingle();
+      if (!callerMember || !receiverMember) return json({ error: "Call participants are not conversation members" }, 403);
+      const { data: caller } = await adminClient.from("profiles").select("username, full_name").eq("id", authenticated.user.id).single();
+      const { data: pushTokens } = await adminClient.from("user_push_tokens").select("id, token").eq("user_id", receiverId);
+      tokens = pushTokens || [];
+      const callerName = caller?.username || caller?.full_name || "User";
+      message = { data: { type: "incoming_call", callId: String(body.callId || ""), callerId: authenticated.user.id, callerName, callerAvatar: String(body.callerAvatar || ""), callType: String(body.callType || "voice"), conversationId }, android: { priority: "high", ttl: "60s" } };
+    } else if (action === "call_cancelled") {
+      const conversationId = String(body.conversationId || "");
+      const receiverId = String(body.receiverId || "");
+      if (!receiverId || !conversationId) return json({ error: "Call conversation and receiver are required" }, 400);
+      const { data: callerMember } = await adminClient.from("conversation_members").select("user_id").eq("conversation_id", conversationId).eq("user_id", authenticated.user.id).maybeSingle();
+      const { data: receiverMember } = await adminClient.from("conversation_members").select("user_id").eq("conversation_id", conversationId).eq("user_id", receiverId).maybeSingle();
+      if (!callerMember || !receiverMember) return json({ error: "Call participants are not conversation members" }, 403);
+      const { data: pushTokens } = await adminClient.from("user_push_tokens").select("id, token").eq("user_id", receiverId);
+      tokens = pushTokens || [];
+      message = { data: { type: "call_cancelled", callId: String(body.callId || "") }, android: { priority: "high" } };
+    } else {
+      return json({ error: "Unsupported push action" }, 400);
     }
 
-    if (activeRecipientIds.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "All recipients have blocked sender or muted conversation" }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 3. Fetch active push tokens for these recipients
-    const { data: pushTokens, error: tokenError } = await supabase
-      .from("user_push_tokens")
-      .select("id, user_id, token")
-      .in("user_id", activeRecipientIds);
-
-    if (tokenError || !pushTokens || pushTokens.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No registered device push tokens for recipients" }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 4. Load Firebase Service Account
-    let serviceAccount: any = null;
-    const envServiceAccount = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
-    if (envServiceAccount) {
-      try {
-        serviceAccount = JSON.parse(envServiceAccount);
-      } catch {
-        serviceAccount = null;
-      }
-    }
-
-    if (!serviceAccount) {
-      return new Response(
-        JSON.stringify({
-          error: "FIREBASE_SERVICE_ACCOUNT environment variable is not configured on Supabase.",
-        }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 5. Get Google OAuth2 Token
-    const accessToken = await getGoogleAccessToken(serviceAccount);
-    const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`;
-
-    // 6. Build notification message
-    const notificationTitle = senderName || "Kotha Barta";
-    const notificationBody =
-      content && content.trim() !== ""
-        ? content
-        : mediaType
-        ? `Sent a ${mediaType}`
-        : "Sent a new message";
-
-    const staleTokenIds: string[] = [];
-    const results = [];
-
-    // 7. Send FCM push to each device token
-    for (const item of pushTokens) {
-      const payload = {
-        message: {
-          token: item.token,
-          // DATA-ONLY: no top-level "notification" field.
-          // Guarantees KothaBartaMessagingService.onMessageReceived() is called
-          // even when the app is in background/killed, so the inline reply
-          // (RemoteInput) action is always attached to the notification.
-          data: {
-            conversationId: String(conversationId),
-            senderId: String(senderId),
-            senderName: String(senderName || "Someone"),
-            title: String(notificationTitle),
-            body: String(notificationBody),
-            type: "chat_message",
-          },
-          android: {
-            priority: "high",
-          },
-        },
-      };
-
-      const fcmRes = await fetch(fcmEndpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const resBody = await fcmRes.json();
-      results.push({ token: item.token, status: fcmRes.status, response: resBody });
-
-      // If token is invalid or unregistered, queue for cleanup
-      if (
-        fcmRes.status === 404 ||
-        (resBody.error &&
-          (resBody.error.message?.includes("UNREGISTERED") ||
-            resBody.error.details?.some((d: any) => d.errorCode === "UNREGISTERED")))
-      ) {
-        staleTokenIds.push(item.id);
-      }
-    }
-
-    // 8. Clean up stale tokens asynchronously
-    if (staleTokenIds.length > 0) {
-      await supabase.from("user_push_tokens").delete().in("id", staleTokenIds);
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        sent: results.length,
-        results,
-      }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
-    );
-  } catch (error: any) {
+    let serviceAccount: any;
+    try { serviceAccount = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT") || ""); } catch (_) { return json({ error: "Firebase service account is not configured" }, 500); }
+    if (!serviceAccount?.project_id || !serviceAccount?.client_email || !serviceAccount?.private_key) return json({ error: "Firebase service account is invalid" }, 500);
+    const sent = await sendToTokens(adminClient, tokens, message, serviceAccount);
+    return json({ success: true, sent });
+  } catch (error) {
     console.error("Error in send-push-notification:", error);
-    return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        },
-      }
-    );
+    return json({ error: "Push dispatch failed" }, 500);
   }
 });

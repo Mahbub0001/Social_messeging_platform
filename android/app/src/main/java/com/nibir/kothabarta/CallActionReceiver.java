@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
+import org.json.JSONObject;
 
 public class CallActionReceiver extends BroadcastReceiver {
 
@@ -38,11 +39,9 @@ public class CallActionReceiver extends BroadcastReceiver {
             if (mainActivity != null && mainActivity.getBridge() != null && mainActivity.getBridge().getWebView() != null) {
                 mainActivity.runOnUiThread(() -> {
                     try {
-                        String script = String.format(
-                            "window.handleIncomingCallAction && window.handleIncomingCallAction('decline', '%s', '%s');",
-                            callId != null ? callId : "",
-                            callerId != null ? callerId : ""
-                        );
+                        String script = "window.handleIncomingCallAction && window.handleIncomingCallAction(\"decline\", " +
+                            JSONObject.quote(callId != null ? callId : "") + "," +
+                            JSONObject.quote(callerId != null ? callerId : "") + ");";
                         mainActivity.getBridge().getWebView().evaluateJavascript(script, null);
                     } catch (Exception e) {
                         Log.e(TAG, "Error executing decline script on WebView: " + e.getMessage());

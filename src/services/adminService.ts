@@ -144,13 +144,12 @@ class AdminService {
       }
 
       let users = (data || []).map((u: any) => {
-        const isMahbub = u.username?.toLowerCase() === "mahbub" || u.username?.toLowerCase() === "mahbub0001";
         return {
           id: u.id,
           username: u.username || "User",
           avatar_url: u.avatar_url || null,
           bio: u.bio || null,
-          role: u.role || (isMahbub ? "admin" : "user"),
+          role: u.role || "user",
           is_banned: Boolean(u.is_banned),
           banned_reason: u.banned_reason || null,
           banned_at: u.banned_at || null,
@@ -203,26 +202,12 @@ class AdminService {
 
       if (error || !data) return null;
 
-      const isMahbub = data.username?.toLowerCase() === "mahbub" || data.username?.toLowerCase() === "mahbub0001";
-
-      if (isMahbub && data.role !== "admin") {
-        try {
-          await supabase
-            .from("profiles")
-            .update({ role: "admin" })
-            .eq("id", userId);
-          data.role = "admin";
-        } catch (healErr) {
-          console.warn("Auto-healing admin role error in getUserProfile:", healErr);
-        }
-      }
-
       return {
         id: data.id,
         username: data.username || "User",
         avatar_url: data.avatar_url || null,
         bio: data.bio || null,
-        role: isMahbub ? "admin" : (data.role || "user"),
+        role: data.role || "user",
         is_banned: Boolean(data.is_banned),
         banned_reason: data.banned_reason || null,
         banned_at: data.banned_at || null,
@@ -480,30 +465,6 @@ class AdminService {
     if (isMockMode) return { success: true };
 
     try {
-      // Ensure admin profile has role: 'admin' in database before insert
-      if (data.adminId) {
-        try {
-          const { data: profileCheck } = await supabase
-            .from("profiles")
-            .select("username, role")
-            .eq("id", data.adminId)
-            .maybeSingle();
-
-          const isMahbub =
-            profileCheck?.username?.toLowerCase() === "mahbub" ||
-            profileCheck?.username?.toLowerCase() === "mahbub0001";
-
-          if (isMahbub && profileCheck?.role !== "admin") {
-            await supabase
-              .from("profiles")
-              .update({ role: "admin" })
-              .eq("id", data.adminId);
-          }
-        } catch (healErr) {
-          console.warn("Auto-promote admin error before announcement insert:", healErr);
-        }
-      }
-
       const { error } = await supabase.from("system_announcements").insert({
         admin_id: data.adminId || null,
         title: data.title,
