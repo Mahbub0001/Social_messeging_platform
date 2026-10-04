@@ -205,6 +205,9 @@ public class MainActivity extends BridgeActivity {
                 convId = extras.getString("conversation_id");
             }
             if (convId != null && !convId.isEmpty()) {
+                // A notification tap is a read action even when this is already
+                // the selected React conversation (so its state does not change).
+                KothaBartaMessagingService.clearConversationNotifications(this, convId);
                 pendingConversationId = convId;
                 dispatchConversationToWebView(convId);
             }
@@ -324,6 +327,11 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void setActiveConversation(String convId) {
             activeConversationId = (convId != null && !convId.isEmpty()) ? convId : null;
+            // Opening a chat marks only that chat's native notification as read.
+            // Notifications for all other conversations remain in the shade.
+            if (activeConversationId != null) {
+                KothaBartaMessagingService.clearConversationNotifications(MainActivity.this, activeConversationId);
+            }
         }
 
         @JavascriptInterface

@@ -17,12 +17,16 @@ import android.os.PowerManager;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.Person;
 import androidx.core.app.RemoteInput;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Random;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class KothaBartaMessagingService extends FirebaseMessagingService {
 
@@ -34,6 +38,15 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
     public static final String CALL_CHANNEL_NAME = "Incoming Calls";
     public static final String KEY_TEXT_REPLY = "key_direct_reply";
     public static final String ACTION_DIRECT_REPLY = "com.nibir.kothabarta.ACTION_DIRECT_REPLY";
+
+    // A notification is kept for each unread conversation.  The system group lets
+    // Android show several conversations separately while also providing one app
+    // summary in the notification shade.
+    private static final String MESSAGE_GROUP_KEY = "com.nibir.kothabarta.MESSAGE_GROUP";
+    private static final String UNREAD_MESSAGES_PREFS = "kb_unread_notification_messages";
+    private static final String UNREAD_MESSAGES_KEY = "conversations";
+    private static final int GROUP_SUMMARY_NOTIFICATION_ID = 900001;
+    private static final int MAX_MESSAGES_PER_CONVERSATION = 25;
 
     public static final String EXTRA_CONVERSATION_ID = "conversationId";
     public static final String EXTRA_SENDER_ID = "senderId";
@@ -227,10 +240,11 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
                 }
             }
 
-            // 2. Generate stable notification ID per conversation so new messages group cleanly
-            int notifId = conversationId != null && !conversationId.isEmpty()
-                ? Math.abs(conversationId.hashCode())
-                : new Random().nextInt(100000);
+            // 2. Use one stable child notification per conversation. Unlike the
+            // previous implementation, the child contains a persisted message
+            // history, so receiving "How are you?" never erases an unread "Hi".
+            int notifId = getNotificationId(conversationId);
+            JSONArray unreadMessages = appendUnreadMessage(conversationId, senderName, body);
 
             // 3. Create Tap Intent (Deep link directly to chat in MainActivity)
             Intent tapIntent = new Intent(this, MainActivity.class);
@@ -266,16 +280,35 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
                 }
             } catch (Exception ignored) {}
 
+            Person self = new Person.Builder().setName("You").build();
+            NotificationCompat.MessagingStyle messagingStyle = new NotificationCompat.MessagingStyle(self)
+                .setConversationTitle(title)
+                .setGroupConversation(false);
+            for (int i = 0; i < unreadMessages.length(); i++) {
+                JSONObject message = unreadMessages.optJSONObject(i);
+                if (message == null) continue;
+                String messageText = message.optString("body", "নতুন বার্তা এসেছে");
+                String messageSender = message.optString("senderName", title);
+                long timestamp = message.optLong("timestamp", System.currentTimeMillis());
+                Person sender = new Person.Builder().setName(messageSender).build();
+                messagingStyle.addMessage(messageText, timestamp, sender);
+            }
+
+            String latestBody = unreadMessages.length() > 1
+                ? unreadMessages.length() + " new messages"
+                : body;
             NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(iconRes)
                 .setContentTitle(title)
-                .setContentText(body)
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+                .setContentText(latestBody)
+                .setSubText(unreadMessages.length() > 1 ? unreadMessages.length() + " unread messages" : null)
+                .setStyle(messagingStyle)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setAutoCancel(true)
                 .setColor(Color.parseColor("#6366F1"))
                 .setContentIntent(tapPendingIntent)
+                .setGroup(MESSAGE_GROUP_KEY)
                 .setDefaults(NotificationCompat.DEFAULT_ALL);
 
             // 4. Attach WhatsApp/Messenger-style Inline Direct Reply (RemoteInput) for chat messages
@@ -313,9 +346,126 @@ public class KothaBartaMessagingService extends FirebaseMessagingService {
             }
 
             notificationManager.notify(notifId, builder.build());
+            updateGroupSummary(this, notificationManager);
             Log.d(TAG, "Notification successfully posted for conversation: " + conversationId + ", notifId: " + notifId);
         } catch (Throwable t) {
             Log.e(TAG, "Error posting notification: " + t.getMessage(), t);
+        }
+    }
+
+    private static int getNotificationId(String conversationId) {
+        return conversationId != null && !conversationId.isEmpty()
+            ? (conversationId.hashCode() & 0x7fffffff)
+            : new Random().nextInt(100000);
+    }
+
+    private JSONArray appendUnreadMessage(String conversationId, String senderName, String body) {
+        if (conversationId == null || conversationId.isEmpty()) {
+            JSONArray messages = new JSONArray();
+            messages.put(createMessageJson(senderName, body));
+            return messages;
+        }
+
+        try {
+            android.content.SharedPreferences prefs = getSharedPreferences(UNREAD_MESSAGES_PREFS, Context.MODE_PRIVATE);
+            JSONObject conversations = new JSONObject(prefs.getString(UNREAD_MESSAGES_KEY, "{}"));
+            JSONObject conversation = conversations.optJSONObject(conversationId);
+            if (conversation == null) conversation = new JSONObject();
+            JSONArray messages = conversation.optJSONArray("messages");
+            if (messages == null) messages = new JSONArray();
+
+            messages.put(createMessageJson(senderName, body));
+            while (messages.length() > MAX_MESSAGES_PER_CONVERSATION) {
+                JSONArray trimmed = new JSONArray();
+                for (int i = 1; i < messages.length(); i++) trimmed.put(messages.get(i));
+                messages = trimmed;
+            }
+
+            conversation.put("title", senderName != null && !senderName.isEmpty() ? senderName : "কথা বার্তা (Kotha Barta)");
+            conversation.put("messages", messages);
+            conversations.put(conversationId, conversation);
+            prefs.edit().putString(UNREAD_MESSAGES_KEY, conversations.toString()).apply();
+            return messages;
+        } catch (JSONException e) {
+            Log.w(TAG, "Could not store unread notification history", e);
+            JSONArray messages = new JSONArray();
+            messages.put(createMessageJson(senderName, body));
+            return messages;
+        }
+    }
+
+    private JSONObject createMessageJson(String senderName, String body) {
+        JSONObject message = new JSONObject();
+        try {
+            message.put("senderName", senderName != null ? senderName : "Someone");
+            message.put("body", body != null ? body : "নতুন বার্তা এসেছে");
+            message.put("timestamp", System.currentTimeMillis());
+        } catch (JSONException ignored) {}
+        return message;
+    }
+
+    /** Removes only the conversation the user has opened; other unread chats stay visible. */
+    public static void clearConversationNotifications(Context context, String conversationId) {
+        if (context == null || conversationId == null || conversationId.isEmpty()) return;
+        try {
+            NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) notificationManager.cancel(getNotificationId(conversationId));
+            clearConversationNotificationHistory(context, conversationId);
+        } catch (Exception e) {
+            Log.w(TAG, "Could not clear conversation notification", e);
+        }
+    }
+
+    /** Clears stored unread lines without cancelling a temporary UI notification (used after inline reply). */
+    public static void clearConversationNotificationHistory(Context context, String conversationId) {
+        if (context == null || conversationId == null || conversationId.isEmpty()) return;
+        try {
+            android.content.SharedPreferences prefs = context.getSharedPreferences(UNREAD_MESSAGES_PREFS, Context.MODE_PRIVATE);
+            JSONObject conversations = new JSONObject(prefs.getString(UNREAD_MESSAGES_KEY, "{}"));
+            conversations.remove(conversationId);
+            prefs.edit().putString(UNREAD_MESSAGES_KEY, conversations.toString()).apply();
+
+            NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) updateGroupSummary(context, notificationManager);
+        } catch (Exception e) {
+            Log.w(TAG, "Could not clear conversation notification history", e);
+        }
+    }
+
+    private static void updateGroupSummary(Context context, NotificationManager notificationManager) {
+        try {
+            android.content.SharedPreferences prefs = context.getSharedPreferences(UNREAD_MESSAGES_PREFS, Context.MODE_PRIVATE);
+            JSONObject conversations = new JSONObject(prefs.getString(UNREAD_MESSAGES_KEY, "{}"));
+            if (conversations.length() == 0) {
+                notificationManager.cancel(GROUP_SUMMARY_NOTIFICATION_ID);
+                return;
+            }
+
+            int totalMessages = 0;
+            NotificationCompat.InboxStyle inboxStyle = new NotificationCompat.InboxStyle();
+            java.util.Iterator<String> keys = conversations.keys();
+            while (keys.hasNext()) {
+                String conversationId = keys.next();
+                JSONObject conversation = conversations.optJSONObject(conversationId);
+                if (conversation == null) continue;
+                JSONArray messages = conversation.optJSONArray("messages");
+                int count = messages != null ? messages.length() : 0;
+                totalMessages += count;
+                inboxStyle.addLine(conversation.optString("title", "কথা বার্তা") + " · " + count + " message" + (count == 1 ? "" : "s"));
+            }
+
+            NotificationCompat.Builder summary = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_notify_chat)
+                .setContentTitle("কথা বার্তা (Kotha Barta)")
+                .setContentText(totalMessages + " unread message" + (totalMessages == 1 ? "" : "s"))
+                .setStyle(inboxStyle.setSummaryText(totalMessages + " unread message" + (totalMessages == 1 ? "" : "s")))
+                .setGroup(MESSAGE_GROUP_KEY)
+                .setGroupSummary(true)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true);
+            notificationManager.notify(GROUP_SUMMARY_NOTIFICATION_ID, summary.build());
+        } catch (Exception e) {
+            Log.w(TAG, "Could not update notification group summary", e);
         }
     }
 

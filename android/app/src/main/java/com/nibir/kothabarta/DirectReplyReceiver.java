@@ -74,6 +74,9 @@ public class DirectReplyReceiver extends BroadcastReceiver {
                 }
 
                 notifManager.notify(notificationId, repliedNotif.build());
+                // Replying means the incoming lines in this conversation are no
+                // longer unread; leave the short "reply sent" confirmation visible.
+                KothaBartaMessagingService.clearConversationNotificationHistory(context, conversationId);
             }
         } catch (Exception e) {
             Log.e(TAG, "Error updating reply notification: " + e.getMessage());
