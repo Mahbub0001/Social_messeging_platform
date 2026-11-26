@@ -79,11 +79,11 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
             <div
               className={`w-[52px] h-[52px] rounded-full p-[2px] transition-all group-hover:scale-105 ${
                 hasMyStory
-                  ? "bg-gradient-to-tr from-violet-500 via-fuchsia-500 to-amber-400 shadow-sm shadow-violet-500/25"
-                  : "border border-dashed border-slate-600 group-hover:border-violet-400 p-[1.5px]"
+                  ? "bg-gradient-to-tr from-teal-400 via-emerald-400 to-amber-400 shadow-sm shadow-teal-500/20"
+                  : "border border-dashed border-slate-400/60 dark:border-slate-600 group-hover:border-teal-400 p-[1.5px]"
               }`}
             >
-              <div className="w-full h-full rounded-full overflow-hidden bg-slate-800 ring-2 ring-slate-900">
+              <div className="w-full h-full rounded-full overflow-hidden bg-slate-200 dark:bg-[#161A25] ring-2 ring-white dark:ring-[#11141C]">
                 <img
                   src={myAvatar}
                   alt="My Story"
@@ -100,7 +100,7 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
               onUploadClick();
             }}
             title="Add new story"
-            className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-violet-600 hover:bg-violet-500 active:scale-95 text-white flex items-center justify-center ring-2 ring-slate-900 shadow-md transition-all z-10"
+            className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-teal-600 hover:bg-teal-500 active:scale-95 text-white flex items-center justify-center ring-2 ring-white dark:ring-[#11141C] shadow-md transition-all z-10"
           >
             <Plus size={12} strokeWidth={3} />
           </button>
@@ -135,11 +135,11 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
               <div
                 className={`w-[52px] h-[52px] rounded-full p-[2px] transition-all group-hover:scale-105 ${
                   group.hasUnviewed
-                    ? "bg-gradient-to-tr from-violet-500 via-pink-500 to-amber-400 shadow-sm shadow-violet-500/20"
-                    : "bg-slate-700/70"
+                    ? "bg-gradient-to-tr from-rose-500 via-amber-400 to-teal-400 shadow-sm shadow-teal-500/20"
+                    : "bg-slate-300 dark:bg-slate-700/70"
                 }`}
               >
-                <div className="w-full h-full rounded-full overflow-hidden bg-slate-800 ring-2 ring-slate-900">
+                <div className="w-full h-full rounded-full overflow-hidden bg-slate-200 dark:bg-[#161A25] ring-2 ring-white dark:ring-[#11141C]">
                   <img
                     src={
                       sanitizeUrl(group.avatar) ||
@@ -155,7 +155,7 @@ export const StoryCircles: React.FC<StoryCirclesProps> = ({
 
               {/* Multiple stories indicator badge */}
               {group.storyCount > 1 && (
-                <div className="absolute -bottom-0.5 -right-0.5 bg-gradient-to-tr from-violet-600 to-indigo-600 text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center ring-2 ring-slate-900 shadow">
+                <div className="absolute -bottom-0.5 -right-0.5 bg-teal-600 text-white text-[9px] font-bold w-4.5 h-4.5 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-[#11141C] shadow">
                   {group.storyCount}
                 </div>
               )}

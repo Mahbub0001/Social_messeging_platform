@@ -231,12 +231,12 @@ export const ProfilePanel: React.FC<ProfilePanelProps> = ({ onClose, onOpenStory
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="absolute top-0 right-0 z-30 w-full sm:w-[360px] h-full bg-slate-900 border-l border-slate-800 flex flex-col shadow-2xl"
+      className="absolute top-0 right-0 z-30 w-full sm:w-[360px] h-full bg-[#F7F6F2] dark:bg-[#11141C] border-l border-[#E6E4DD] dark:border-white/[0.08] flex flex-col shadow-2xl"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-slate-900 border-b border-slate-800">
-        <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-          <User className="w-4.5 h-4.5 text-violet-400" />
+      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-[#F7F6F2] dark:bg-[#11141C] border-b border-[#E6E4DD] dark:border-white/[0.08]">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <User className="w-4.5 h-4.5 text-teal-600 dark:text-teal-400" />
           <span>Profile Settings</span>
         </h3>
         <button

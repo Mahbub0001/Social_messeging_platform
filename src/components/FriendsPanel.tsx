@@ -234,12 +234,12 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({ onClose, onOpenUserP
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
       transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="absolute top-0 right-0 z-30 w-full sm:w-[380px] h-full bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col shadow-2xl transition-colors font-sans"
+      className="absolute top-0 right-0 z-30 w-full sm:w-[380px] h-full bg-[#F7F6F2] dark:bg-[#11141C] border-l border-[#E6E4DD] dark:border-white/[0.08] flex flex-col shadow-2xl transition-colors font-sans"
     >
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
+      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-white dark:bg-[#11141C] border-b border-[#E6E4DD] dark:border-white/[0.08] shrink-0">
         <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+          <div className="p-1.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
             <Users className="w-4 h-4" />
           </div>
           <span>{getTranslation(language, "friendsAndRequests")}</span>

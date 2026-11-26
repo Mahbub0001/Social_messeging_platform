@@ -1,4 +1,6 @@
 import React from "react";
+import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -6,31 +8,49 @@ interface AuthLayoutProps {
 
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen bg-slate-950 overflow-hidden px-4 select-none">
-      {/* Decorative background blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-violet-900/20 rounded-full blur-[120px] pointer-events-none animate-pulse"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-900/20 rounded-full blur-[120px] pointer-events-none animate-pulse" style={{ animationDelay: "2s" }}></div>
+    <div className="relative flex flex-col items-center justify-center min-h-screen bg-[#0B0D12] text-[#F5F3EE] overflow-hidden px-4 py-8 select-none">
+      {/* Subtle architectural grid + single controlled jade atmospheric glow */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.04]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)",
+          backgroundSize: "44px 44px",
+        }}
+      />
+      <div className="absolute top-[-18%] left-1/2 -translate-x-1/2 w-[540px] h-[340px] bg-teal-500/10 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="w-full max-w-md z-10">
+      <div className="w-full max-w-[420px] z-10">
+        {/* Back to home */}
+        <div className="mb-6 flex items-center justify-between">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Kotha Barta</span>
+          </Link>
+        </div>
+
         {/* Brand Header */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="mb-3 animate-bounce" style={{ animationDuration: "3s" }}>
-            <img
-              src="/logo.png"
-              alt="Kotha Barta Logo"
-              className="w-16 h-16 rounded-2xl object-cover shadow-xl shadow-violet-500/20 border border-slate-700/50"
-            />
+        <div className="flex items-center gap-3.5 mb-6">
+          <img
+            src="/logo.png"
+            alt="Kotha Barta Logo"
+            className="w-12 h-12 rounded-2xl object-cover shadow-lg border border-white/10"
+          />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white leading-tight">
+              কথাবার্তা
+            </h1>
+            <p className="text-xs text-slate-400">
+              Private messaging, stories & live calls
+            </p>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-indigo-300 to-cyan-300 font-sans">
-            কথাবার্তা
-          </h1>
-          <p className="mt-1 text-sm text-slate-400 font-sans">
-            Connect in Real-Time, Anywhere
-          </p>
         </div>
 
         {/* Card wrapper */}
-        <div className="backdrop-blur-xl bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-slate-950/50">
+        <div className="bg-[#13161F]/95 backdrop-blur-xl border border-[#222736] rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/50">
           {children}
         </div>
       </div>

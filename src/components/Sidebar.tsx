@@ -211,13 +211,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const avatarFallbackLetter = username.charAt(0).toUpperCase();
 
   return (
-    <div className="flex flex-col h-full w-full bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-colors">
+    <div className="flex flex-col h-full w-full bg-[#F7F6F2] dark:bg-[#11141C] border-r border-[#E6E4DD] dark:border-white/[0.07] transition-colors">
       {/* ── Row 1: Brand + Actions ── */}
-      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-[#F7F6F2] dark:bg-[#11141C] border-b border-[#E6E4DD] dark:border-white/[0.07]">
         {/* Brand */}
         <div className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="Kotha Barta Logo" className="w-8 h-8 rounded-xl object-cover shadow-xs border border-slate-200/50 dark:border-slate-800" />
-          <span className="text-md font-bold tracking-wider text-slate-800 dark:text-slate-100">কথাবার্তা</span>
+          <img src="/logo.png" alt="Kotha Barta Logo" className="w-8 h-8 rounded-xl object-cover shadow-xs border border-black/5 dark:border-white/10" />
+          <span className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100">কথাবার্তা</span>
         </div>
 
         {/* Right actions: theme toggle + friends + avatar menu */}
@@ -319,20 +319,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* ── Row 2: Mode Switcher ── */}
       <div className="px-3 pb-2 pt-2">
-        <div className="relative flex bg-slate-200/80 dark:bg-slate-800/70 p-1 rounded-xl border border-slate-300/80 dark:border-slate-700/60 transition-colors shadow-xs">
+        <div className="relative flex bg-[#EAE7DF] dark:bg-[#181C28] p-1 rounded-xl border border-[#DFDCD2] dark:border-white/[0.07] transition-colors shadow-2xs">
           <button
             onClick={() => onViewChange("chat")}
             className={cn(
               "relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-colors z-10 select-none",
               activeView === "chat"
-                ? "text-violet-700 dark:text-white"
+                ? "text-teal-700 dark:text-white"
                 : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
             )}
           >
             {activeView === "chat" && (
               <motion.div
                 layoutId="sidebarModePill"
-                className="absolute inset-0 bg-white dark:bg-violet-600 rounded-lg shadow-sm -z-10"
+                className="absolute inset-0 bg-white dark:bg-teal-600 rounded-lg shadow-sm -z-10"
                 transition={{ type: "spring", stiffness: 450, damping: 35 }}
               />
             )}
@@ -344,14 +344,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={cn(
               "relative flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-colors z-10 select-none",
               activeView === "feed"
-                ? "text-indigo-700 dark:text-white"
+                ? "text-teal-700 dark:text-white"
                 : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
             )}
           >
             {activeView === "feed" && (
               <motion.div
                 layoutId="sidebarModePill"
-                className="absolute inset-0 bg-white dark:bg-indigo-600 rounded-lg shadow-sm -z-10"
+                className="absolute inset-0 bg-white dark:bg-teal-600 rounded-lg shadow-sm -z-10"
                 transition={{ type: "spring", stiffness: 450, damping: 35 }}
               />
             )}
@@ -428,7 +428,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onCreateGroup}
               title="Create Group"
-              className="flex items-center gap-1 px-2.5 py-1 bg-violet-600/10 hover:bg-violet-600 border border-violet-500/20 text-violet-600 dark:text-violet-400 hover:text-white text-2xs font-semibold rounded-lg transition-all"
+              className="flex items-center gap-1 px-2.5 py-1 bg-teal-600/10 hover:bg-teal-600 border border-teal-500/25 text-teal-700 dark:text-teal-400 hover:text-white text-2xs font-semibold rounded-lg transition-all"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Group</span>
@@ -536,9 +536,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={cn(
                       "w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left group cursor-pointer select-none",
                       isSelected
-                        ? "bg-violet-500/10 dark:bg-violet-600/15 border border-violet-500/30 dark:border-violet-500/20 shadow-xs"
-                        : "hover:bg-slate-200/60 dark:hover:bg-slate-800/50 border border-transparent",
-                      hasUnread && !isSelected && "bg-violet-500/[0.04] dark:bg-violet-500/[0.06]"
+                        ? "bg-teal-500/10 dark:bg-teal-500/15 border border-teal-500/30 dark:border-teal-500/25 shadow-2xs"
+                        : "hover:bg-[#EAE7DF]/70 dark:hover:bg-white/[0.04] border border-transparent",
+                      hasUnread && !isSelected && "bg-teal-500/[0.04] dark:bg-teal-500/[0.06]"
                     )}
                   >
                     <div className="relative shrink-0 select-none">
@@ -548,12 +548,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         className={cn(
                           "w-11 h-11 rounded-full object-cover bg-slate-200 dark:bg-slate-800 border transition-all",
                           hasUnread
-                            ? "border-violet-400/60 dark:border-violet-500/60 ring-2 ring-violet-500/20"
-                            : "border-slate-200 dark:border-slate-700/60"
+                            ? "border-teal-500/60 ring-2 ring-teal-500/20"
+                            : "border-slate-200 dark:border-white/10"
                         )}
                       />
                       {isOnline && (
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-100 dark:border-slate-900 rounded-full shadow-xs ring-1 ring-emerald-500/30" />
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#F7F6F2] dark:border-[#11141C] rounded-full shadow-xs" />
                       )}
                     </div>
 
@@ -564,7 +564,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           hasUnread
                             ? "font-bold text-slate-950 dark:text-white"
                             : "font-semibold text-slate-800 dark:text-slate-100",
-                          isSelected && "text-violet-900 dark:text-violet-200"
+                          isSelected && "text-teal-900 dark:text-teal-200"
                         )}>
                           {title}
                         </h4>
@@ -575,7 +575,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <span className={cn(
                             "text-2xs font-sans transition-colors",
                             hasUnread
-                              ? "text-violet-600 dark:text-violet-400 font-bold"
+                              ? "text-teal-600 dark:text-teal-400 font-bold"
                               : "text-slate-400 dark:text-slate-500 font-normal"
                           )}>
                             {timeStr}
@@ -596,7 +596,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </div>
                       <div className="flex items-center justify-between gap-1">
                         {isTyping ? (
-                          <span className="text-2xs font-semibold text-violet-500 dark:text-violet-400 animate-pulse">
+                          <span className="text-2xs font-semibold text-teal-600 dark:text-teal-400 animate-pulse">
                             typing...
                           </span>
                         ) : (
@@ -614,7 +614,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <motion.span
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            className="inline-flex items-center justify-center px-1.5 py-0.5 min-w-[1.25rem] h-5 rounded-full text-3xs font-bold bg-violet-600 text-white shadow-xs shrink-0 ml-1"
+                            className="inline-flex items-center justify-center px-1.5 py-0.5 min-w-[1.25rem] h-5 rounded-full text-3xs font-bold bg-teal-600 text-white shadow-xs shrink-0 ml-1"
                           >
                             {unreadCount > 99 ? "99+" : unreadCount}
                           </motion.span>

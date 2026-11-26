@@ -154,63 +154,33 @@ export const BhuiyanAiButton: React.FC<BhuiyanAiButtonProps> = ({ onClick, isOpe
         )}
       </AnimatePresence>
 
-      {/* Main Floating Glowing Orb Button */}
+      {/* Main Floating Button */}
       <motion.button
         type="button"
         onClick={handleClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        whileHover={{ scale: 1.08 }}
+        whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
-        whileDrag={{ scale: 1.12 }}
+        whileDrag={{ scale: 1.1 }}
         aria-label="Open Bhuiyan AI"
-        className="relative group p-0 w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center focus:outline-none cursor-grab active:cursor-grabbing"
+        className="relative group p-0 w-13 h-13 md:w-14 md:h-14 rounded-2xl flex items-center justify-center focus:outline-none cursor-grab active:cursor-grabbing"
       >
-        {/* Animated Radiant Pulse Halo Rings */}
-        <motion.div
-          animate={{
-            scale: [1, 1.35, 1],
-            opacity: [0.35, 0.75, 0.35],
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          className="absolute inset-0 rounded-full bg-gradient-to-tr from-violet-600 via-indigo-500 to-cyan-400 blur-md pointer-events-none"
-        />
-
-        {/* Outer Rotating Glowing Gradient Ring */}
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-          className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-400 opacity-75 blur-[2px] group-hover:opacity-100 transition-opacity pointer-events-none"
-        />
+        {/* Subtle teal halo */}
+        <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-tr from-teal-500/60 to-emerald-400/50 blur-[4px] opacity-60 group-hover:opacity-95 transition-opacity pointer-events-none" />
 
         {/* Orb Core Container */}
-        <div className="relative w-full h-full rounded-full bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 border border-violet-400/40 flex items-center justify-center shadow-2xl overflow-hidden pointer-events-none">
-          {/* Inner Light Glow */}
-          <div className="absolute inset-0 bg-radial from-violet-500/30 via-transparent to-transparent opacity-80" />
-
-          {/* Center Dynamic Icon */}
-          <motion.div
-            animate={{
-              rotate: isOpen ? 180 : [0, 5, -5, 0],
-            }}
-            transition={{
-              rotate: isOpen ? { duration: 0.3 } : { repeat: Infinity, duration: 4, ease: "easeInOut" },
-            }}
-            className="relative z-10 text-white flex items-center justify-center"
-          >
+        <div className="relative w-full h-full rounded-2xl bg-[#11141C] border border-teal-400/40 flex items-center justify-center shadow-xl shadow-black/40 overflow-hidden pointer-events-none">
+          <div className="relative z-10 text-white flex items-center justify-center">
             {isOpen ? (
-              <Sparkles className="w-7 h-7 text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+              <Sparkles className="w-6 h-6 text-teal-300" />
             ) : (
               <div className="relative">
-                <Bot className="w-7 h-7 text-violet-200 group-hover:text-white drop-shadow-[0_0_10px_rgba(167,139,250,0.8)] transition-colors" />
-                <Sparkles className="w-3.5 h-3.5 text-amber-300 absolute -top-1 -right-1 animate-pulse" />
+                <Bot className="w-6 h-6 text-teal-200 group-hover:text-white transition-colors" />
+                <span className="w-2 h-2 rounded-full bg-teal-400 absolute -top-0.5 -right-0.5 ring-2 ring-[#11141C]" />
               </div>
             )}
-          </motion.div>
+          </div>
         </div>
 
         {/* Pending Scheduled Messages Badge */}
@@ -218,7 +188,7 @@ export const BhuiyanAiButton: React.FC<BhuiyanAiButtonProps> = ({ onClick, isOpe
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute -top-1 -right-1 z-20 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-slate-950 shadow-md pointer-events-none"
+            className="absolute -top-1.5 -right-1.5 z-20 bg-amber-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#0B0D12] shadow-md pointer-events-none"
             title={`${pendingCount} scheduled message(s)`}
           >
             <Clock className="w-2.5 h-2.5 inline mr-0.5" />

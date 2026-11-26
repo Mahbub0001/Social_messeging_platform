@@ -170,18 +170,18 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors">
+    <div className="flex flex-col h-full overflow-hidden bg-[#F7F6F2] dark:bg-[#0B0D12] transition-colors">
       {/* ── Sticky glassmorphic header ── */}
-      <div className="sticky top-0 z-10 backdrop-blur-md bg-white/90 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800/80 transition-colors">
-        <div className="flex items-center justify-between px-4 py-3">
+      <div className="sticky top-0 z-10 backdrop-blur-xl bg-white/90 dark:bg-[#11141C]/90 border-b border-[#E6E4DD] dark:border-white/[0.07] transition-colors">
+        <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3">
           <h1 className="font-bold text-slate-900 dark:text-slate-100 text-base flex items-center gap-2">
-            <Rss className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <Rss className="w-5 h-5 text-teal-600 dark:text-teal-400" />
             <span>{getTranslation(language, "communityFeed")}</span>
           </h1>
           <button
             type="button"
             onClick={handleRefresh}
-            className={`p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors ${
+            className={`p-2 rounded-full text-slate-500 dark:text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/30 transition-colors ${
               isRefreshing ? "animate-spin" : ""
             }`}
             aria-label="Refresh"
@@ -203,13 +203,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
                   "relative flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-colors duration-150 whitespace-nowrap z-10 select-none",
                   active
                     ? "text-white"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200/80 dark:hover:bg-slate-800"
+                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 bg-[#EAE7DF] dark:bg-white/[0.06] hover:bg-[#DFDCD2] dark:hover:bg-white/[0.1]"
                 )}
               >
                 {active && (
                   <motion.div
                     layoutId="feedFilterPill"
-                    className="absolute inset-0 bg-indigo-600 rounded-full shadow-xs -z-10"
+                    className="absolute inset-0 bg-teal-600 rounded-full shadow-xs -z-10"
                     transition={{ type: "spring", stiffness: 500, damping: 35 }}
                   />
                 )}

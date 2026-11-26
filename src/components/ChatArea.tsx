@@ -556,18 +556,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
   // Fallback placeholder when no chat is selected (rendered AFTER all hooks have executed)
   if (!activeChat) {
     return (
-      <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-950/60 select-none transition-colors">
+      <div className="flex-1 flex flex-col bg-[#F7F6F2] dark:bg-[#0B0D12] kb-chat-canvas select-none transition-colors">
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <motion.img
+          <img
             src="/logo.png"
             alt="Kotha Barta Logo"
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            className="w-20 h-20 rounded-3xl object-cover shadow-xl shadow-violet-500/20 mb-6 border border-slate-200 dark:border-slate-800"
+            className="w-16 h-16 rounded-2xl object-cover shadow-lg mb-5 border border-black/10 dark:border-white/10"
           />
-          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2 font-sans">কথাবার্তা চ্যাট রুম</h3>
-          <p className="max-w-xs text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-sans">
-            Select a conversation from the sidebar or find friends to start messaging securely.
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1.5">কথাবার্তা চ্যাট রুম</h3>
+          <p className="max-w-xs text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Select a conversation from the sidebar or find friends to start messaging.
           </p>
         </div>
       </div>
@@ -593,7 +591,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
       )}
 
       {/* Chat Area Header */}
-      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-slate-100/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors shadow-2xs">
+      <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-white/90 dark:bg-[#11141C]/90 backdrop-blur-xl border-b border-[#E6E4DD] dark:border-white/[0.07] transition-colors shadow-2xs">
         {showSearchInput ? (
           <div className="flex-1 flex items-center gap-2 bg-white dark:bg-slate-950/60 px-3 py-1.5 rounded-xl border border-slate-300/80 dark:border-slate-800 animate-slideDown shadow-2xs">
             <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" />
@@ -724,7 +722,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
       )}
 
       {/* Message Feed */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-3 bg-slate-50 dark:bg-slate-950 transition-colors">
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-3 bg-[#F7F6F2] dark:bg-[#0B0D12] kb-chat-canvas transition-colors">
         {messagesLoading ? (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 gap-2 font-sans">
             <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
@@ -854,8 +852,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
                         className={cn(
                           "p-3.5 rounded-2xl relative shadow-xs text-xs leading-relaxed break-words border flex flex-col gap-2 min-w-[210px] cursor-pointer select-none",
                           isSelf
-                            ? "bg-violet-600 text-white rounded-tr-xs border-violet-500"
-                            : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 rounded-tl-xs border-slate-200 dark:border-slate-800 shadow-2xs"
+                            ? "bg-teal-600 text-white rounded-tr-xs border-teal-500"
+                            : "bg-white dark:bg-[#151923] text-slate-800 dark:text-slate-100 rounded-tl-xs border-[#E6E4DD] dark:border-white/[0.08] shadow-2xs"
                         )}
                       >
                         {/* Call Log Card */}
@@ -1003,8 +1001,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
                           isDeleted
                             ? "bg-slate-200/60 dark:bg-slate-900/40 text-slate-400 dark:text-slate-500 border border-slate-300/40 dark:border-slate-800/40 italic font-sans rounded-2xl"
                             : isSelf
-                            ? "bg-violet-600 text-white font-sans rounded-2xl rounded-tr-xs shadow-violet-500/10"
-                            : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans border border-slate-200/90 dark:border-slate-800/90 rounded-2xl rounded-tl-xs shadow-2xs"
+                            ? "bg-teal-600 text-white font-sans rounded-2xl rounded-tr-xs shadow-teal-950/20"
+                            : "bg-white dark:bg-[#151923] text-slate-800 dark:text-slate-100 font-sans border border-[#E6E4DD] dark:border-white/[0.08] rounded-2xl rounded-tl-xs shadow-2xs"
                         )}
                       >
                         {/* Quoted Message Card (Inside Bubble) */}
@@ -1215,7 +1213,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
         </div>
       ) : (
       /* Input Action Controls */
-      <form onSubmit={handleSend} className="px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-100/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-slate-800 backdrop-blur-md flex items-center gap-2.5 transition-colors">
+      <form onSubmit={handleSend} className="px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 dark:bg-[#11141C]/95 border-t border-[#E6E4DD] dark:border-white/[0.07] backdrop-blur-xl flex items-center gap-2.5 transition-colors">
         {/* Hidden File input */}
         <input
           type="file"
@@ -1294,7 +1292,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
               transition={{ duration: 0.15 }}
               type="submit"
               title="Send message"
-              className="p-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl shadow-md shadow-violet-500/25 transition-colors shrink-0"
+              className="p-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl shadow-md shadow-teal-500/25 transition-colors shrink-0"
             >
               <Send className="w-4.5 h-4.5" />
             </motion.button>
