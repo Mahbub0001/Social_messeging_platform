@@ -79,6 +79,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     const isMahbub =
       user.user_metadata?.username?.toLowerCase() === "mahbub" ||
+      user.user_metadata?.username?.toLowerCase() === "nibir123" ||
+      user.email?.toLowerCase() === "nibirbhuiyan24@gmail.com" ||
       user.email?.toLowerCase().includes("admin");
     if (isMahbub) {
       setIsAdmin(true);

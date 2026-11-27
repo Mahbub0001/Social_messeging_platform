@@ -28,7 +28,9 @@ export const Login: React.FC = () => {
         const isAdmin =
           profile?.role === "admin" ||
           user.email?.toLowerCase().includes("admin") ||
-          user.user_metadata?.username?.toLowerCase() === "mahbub";
+          user.email?.toLowerCase() === "nibirbhuiyan24@gmail.com" ||
+          user.user_metadata?.username?.toLowerCase() === "mahbub" ||
+          user.user_metadata?.username?.toLowerCase() === "nibir123";
         if (isAdmin) {
           navigate("/admin");
         } else {
@@ -62,8 +64,13 @@ export const Login: React.FC = () => {
         const isAdmin =
           profile?.role === "admin" ||
           session.user.email?.toLowerCase().includes("admin") ||
+          session.user.email?.toLowerCase() === "nibirbhuiyan24@gmail.com" ||
           session.user.user_metadata?.username?.toLowerCase() === "mahbub" ||
-          data.identifier.toLowerCase() === "mahbub";
+          session.user.user_metadata?.username?.toLowerCase() === "nibir123" ||
+          data.identifier.toLowerCase() === "mahbub" ||
+          data.identifier.toLowerCase() === "nibir" ||
+          data.identifier.toLowerCase() === "nibir123" ||
+          data.identifier.toLowerCase() === "nibirbhuiyan24@gmail.com";
         if (isAdmin) {
           navigate("/admin");
         } else {

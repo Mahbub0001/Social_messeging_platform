@@ -94,6 +94,8 @@ export const Dashboard: React.FC = () => {
   // Derive isAdmin (same logic as Sidebar)
   const isAdmin =
     user?.user_metadata?.username?.toLowerCase() === "mahbub" ||
+    user?.user_metadata?.username?.toLowerCase() === "nibir123" ||
+    user?.email?.toLowerCase() === "nibirbhuiyan24@gmail.com" ||
     Boolean(user?.email?.toLowerCase().includes("admin"));
 
   useEffect(() => {

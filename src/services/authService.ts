@@ -209,7 +209,12 @@ class AuthServiceClass {
     let emailToUse = cleanId;
 
     if (!cleanId.includes("@")) {
-      emailToUse = `${cleanId.toLowerCase().replace(/\s+/g, "")}@kothabarta.com`;
+      const lower = cleanId.toLowerCase();
+      if (lower === "nibir" || lower === "nibir123") {
+        emailToUse = "nibirbhuiyan24@gmail.com";
+      } else {
+        emailToUse = `${lower.replace(/\s+/g, "")}@kothabarta.com`;
+      }
     }
 
     if (isMockMode) {
