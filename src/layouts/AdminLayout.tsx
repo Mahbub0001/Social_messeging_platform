@@ -17,8 +17,6 @@ import {
 import { useStore } from "../hooks/useStore";
 import { authService } from "../services/authService";
 import { AdminLanguageProvider, useAdminLanguage } from "../context/AdminLanguageContext";
-
-import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
 
 const AdminLayoutContent: React.FC = () => {
@@ -60,156 +58,178 @@ const AdminLayoutContent: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-violet-600 selection:text-white transition-colors">
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 h-16 bg-white/90 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800/80 px-4 md:px-6 flex items-center justify-between transition-colors shadow-2xs">
+    <div className="min-h-screen bg-[#fafafa] dark:bg-[#141415] text-[#171717] dark:text-[#ededed] flex flex-col font-sans selection:bg-teal-600/20 selection:text-teal-900 dark:selection:text-teal-200">
+      {/* Top Header (56px) */}
+      <header className="sticky top-0 z-40 h-14 bg-white dark:bg-[#0f0f10] border-b border-black/[0.08] dark:border-white/[0.08] px-4 sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {/* Mobile hamburger */}
           <button
+            type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 rounded-xl transition-colors"
+            aria-label="Toggle navigation"
+            className="md:hidden w-8 h-8 flex items-center justify-center text-[#525252] dark:text-[#a1a1a6] hover:bg-[#f4f4f5] dark:hover:bg-[#232325] rounded-lg transition-colors duration-150"
           >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {sidebarOpen ? (
+              <X className="w-4 h-4" strokeWidth={1.5} />
+            ) : (
+              <Menu className="w-4 h-4" strokeWidth={1.5} />
+            )}
           </button>
 
-          <Link to="/admin" className="flex items-center gap-2.5">
+          <Link to="/admin" className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 rounded-md">
             <img
               src="/logo.png"
-              alt="Kotha Barta Logo"
-              className="w-9 h-9 rounded-xl object-cover shadow-sm border border-slate-200 dark:border-slate-800 bg-white"
+              alt="Kotha Barta"
+              className="w-7 h-7 rounded-md object-cover border border-black/[0.08] dark:border-white/[0.08] bg-white"
             />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white">কথাবার্তা</span>
-                <span className="px-1.5 py-0.5 rounded-md text-3xs font-bold uppercase tracking-wider bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30">
-                  Admin
-                </span>
-              </div>
-              <p className="text-3xs text-slate-500 dark:text-slate-400 hidden sm:block">{t("nav.adminControl")}</p>
-            </div>
+            <span className="text-[16px] font-medium tracking-[-0.01em] text-[#171717] dark:text-[#ededed]">
+              কথাবার্তা
+            </span>
+            <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[11px] font-mono text-[#737373] dark:text-[#85858b] bg-[#f4f4f5] dark:bg-[#232325] border border-black/[0.06] dark:border-white/[0.06]">
+              admin
+            </span>
           </Link>
         </div>
 
-        {/* Header Right Actions */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Language Switcher Toggle */}
+        {/* Right Controls */}
+        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={toggleLanguage}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/90 text-violet-700 dark:text-violet-300 hover:text-violet-900 dark:hover:text-white rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700/70 transition-all shadow-2xs active:scale-95"
-            title={language === "bn" ? "Switch to English" : "বাংলায় পরিবর্তন করুন"}
+            className="h-8 px-2.5 flex items-center gap-1.5 bg-[#f4f4f5] hover:bg-[#e4e4e7] dark:bg-[#19191b] dark:hover:bg-[#232325] text-[#525252] dark:text-[#a1a1a6] hover:text-[#171717] dark:hover:text-[#ededed] rounded-lg text-xs font-medium border border-black/[0.08] dark:border-white/[0.08] transition-colors duration-150"
+            title={language === "bn" ? "Switch to English" : "বাংলায় পরিবর্তন করুন"}
           >
-            <Globe className="w-3.5 h-3.5 text-violet-500 dark:text-violet-400" />
-            <span className="font-semibold tracking-wide">
-              {language === "bn" ? "English" : "বাংলা"}
-            </span>
+            <Globe className="w-4 h-4 text-[#737373] dark:text-[#85858b]" strokeWidth={1.5} />
+            <span>{language === "bn" ? "English" : "বাংলা"}</span>
           </button>
 
-          {/* Back to Chat button */}
           <Link
             to="/dashboard"
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700/60 transition-all shadow-2xs active:scale-95"
+            className="h-8 px-2.5 flex items-center gap-1.5 bg-[#f4f4f5] hover:bg-[#e4e4e7] dark:bg-[#19191b] dark:hover:bg-[#232325] text-[#525252] dark:text-[#a1a1a6] hover:text-[#171717] dark:hover:text-[#ededed] rounded-lg text-xs font-medium border border-black/[0.08] dark:border-white/[0.08] transition-colors duration-150"
             title={t("nav.backToChat")}
           >
-            <ArrowLeft className="w-3.5 h-3.5 text-violet-500 dark:text-violet-400" />
+            <ArrowLeft className="w-4 h-4 text-[#737373] dark:text-[#85858b]" strokeWidth={1.5} />
             <span className="hidden sm:inline">{t("nav.backToChat")}</span>
           </Link>
 
-          {/* Theme Switcher */}
           <button
+            type="button"
             onClick={toggleTheme}
-            className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60 rounded-xl transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-[#525252] dark:text-[#a1a1a6] hover:text-[#171717] dark:hover:text-[#ededed] hover:bg-[#f4f4f5] dark:hover:bg-[#232325] rounded-lg transition-colors duration-150"
             title={t("nav.themeToggle")}
           >
-            {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+            {theme === "dark" ? (
+              <Sun className="w-4 h-4" strokeWidth={1.5} />
+            ) : (
+              <Moon className="w-4 h-4" strokeWidth={1.5} />
+            )}
           </button>
 
-          {/* Admin User Chip */}
-          <div className="hidden md:flex items-center gap-2.5 pl-2 border-l border-slate-200 dark:border-slate-800">
-            <div className="w-8 h-8 rounded-full bg-violet-600/20 border border-violet-500/40 flex items-center justify-center text-xs font-bold text-violet-700 dark:text-violet-300">
+          <div className="hidden md:flex items-center gap-2 pl-2 ml-1 border-l border-black/[0.08] dark:border-white/[0.08]">
+            <div className="w-7 h-7 rounded-full bg-[#f4f4f5] dark:bg-[#232325] border border-black/[0.08] dark:border-white/[0.08] flex items-center justify-center text-xs font-medium text-[#171717] dark:text-[#ededed]">
               {user?.user_metadata?.username?.[0]?.toUpperCase() || "A"}
             </div>
-            <div className="text-left text-xs">
-              <p className="font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+            <div className="text-left">
+              <p className="text-xs font-medium text-[#171717] dark:text-[#ededed] leading-tight">
                 {user?.user_metadata?.username || "Admin"}
               </p>
-              <p className="text-3xs text-emerald-600 dark:text-emerald-400 font-medium">{t("nav.adminRole")}</p>
+              <p className="text-[11px] text-[#737373] dark:text-[#85858b] leading-tight">
+                {t("nav.adminRole")}
+              </p>
             </div>
           </div>
 
-          {/* Logout */}
           <button
+            type="button"
             onClick={handleLogout}
-            className="p-2 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-[#737373] dark:text-[#85858b] hover:text-[#dc2626] dark:hover:text-[#e5484d] hover:bg-[#f4f4f5] dark:hover:bg-[#232325] rounded-lg transition-colors duration-150"
             title={t("nav.logout")}
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4" strokeWidth={1.5} />
           </button>
         </div>
       </header>
 
-      {/* Main Body */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+      {/* Main Shell */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Mobile Backdrop */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 top-14 z-20 bg-black/40 md:hidden"
+          />
+        )}
+
+        {/* Sidebar (256px) */}
         <aside
-          className={`fixed inset-y-16 left-0 z-30 w-64 bg-white/95 md:bg-white/60 dark:bg-slate-900/95 md:dark:bg-slate-900/50 backdrop-blur-xl border-r border-slate-200 dark:border-slate-800/80 p-4 transition-transform duration-200 ease-in-out md:static md:translate-x-0 ${
+          className={cn(
+            "fixed inset-y-14 left-0 z-30 w-64 bg-white dark:bg-[#0f0f10] border-r border-black/[0.08] dark:border-white/[0.08] p-4 flex flex-col justify-between transition-transform duration-200 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] md:static md:translate-x-0",
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          )}
         >
-          <div className="space-y-1">
-            <p className="px-3 py-2 text-3xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              {language === "bn" ? "ন্যাভিগেশন মেনু" : "Navigation Menu"}
+          <div>
+            <p className="px-2.5 mt-2 mb-2 text-xs font-normal text-[#737373] dark:text-[#85858b]">
+              {t("nav.adminControl")}
             </p>
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.end}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-colors z-10 select-none",
-                    isActive
-                      ? "text-white font-semibold"
-                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50"
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {isActive && (
-                      <motion.div
-                        layoutId="adminNavIndicator"
-                        className="absolute inset-0 bg-violet-600 rounded-xl shadow-md shadow-violet-600/25 -z-10"
-                        transition={{ type: "spring", stiffness: 450, damping: 35 }}
-                      />
-                    )}
-                    <item.icon className="w-4 h-4 shrink-0" />
-                    <span>{item.name}</span>
-                  </>
-                )}
-              </NavLink>
-            ))}
+            <nav className="space-y-1">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end={item.end}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "relative flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13px] transition-colors duration-150 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600",
+                      isActive
+                        ? "bg-[#f4f4f5] dark:bg-[#232325] text-[#171717] dark:text-[#ededed] font-medium dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                        : "text-[#525252] dark:text-[#a1a1a6] font-normal hover:bg-[#f4f4f5]/70 dark:hover:bg-[#19191b] hover:text-[#171717] dark:hover:text-[#ededed]"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className="w-4 flex items-center justify-center shrink-0">
+                        <item.icon
+                          className={cn(
+                            "w-4 h-4",
+                            isActive
+                              ? "text-[#0f766e] dark:text-[#14b8a6]"
+                              : "text-[#737373] dark:text-[#85858b]"
+                          )}
+                          strokeWidth={1.5}
+                        />
+                      </span>
+                      <span className="truncate">{item.name}</span>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
           </div>
 
-          <div className="mt-8 pt-4 border-t border-slate-200 dark:border-slate-800/60 text-center px-2">
-            <p className="text-3xs text-slate-400 dark:text-slate-500 leading-relaxed">
-              Kotha Barta Management Console v2.0
-            </p>
+          <div className="mt-6 pt-4 border-t border-black/[0.08] dark:border-white/[0.08] px-2.5 flex items-center justify-between">
+            <span className="text-xs font-mono text-[#737373] dark:text-[#85858b]">v2.0</span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-[#525252] dark:text-[#a1a1a6]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] dark:bg-[#4cc38a]" />
+              <span>{t("nav.systemOnline")}</span>
+            </span>
           </div>
         </aside>
 
-        {/* Content Outlet Area */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-100/50 dark:bg-slate-950/60 transition-colors">
-          <Suspense
-            fallback={
-              <div className="h-64 flex flex-col items-center justify-center text-slate-400">
-                <Loader2 className="w-7 h-7 animate-spin text-violet-500 mb-2" />
-                <p className="text-xs">{language === "bn" ? "লোড হচ্ছে..." : "Loading..."}</p>
-              </div>
-            }
-          >
-            <Outlet />
-          </Suspense>
+        {/* Fluid Main Area */}
+        <main className="flex-1 overflow-y-auto p-6 sm:p-8 bg-[#fafafa] dark:bg-[#141415]">
+          <div className="max-w-[1440px] mx-auto">
+            <Suspense
+              fallback={
+                <div className="h-64 flex flex-col items-center justify-center text-[#737373] dark:text-[#85858b] gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" strokeWidth={1.5} />
+                  <p className="text-xs">{language === "bn" ? "লোড হচ্ছে" : "Loading"}</p>
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
+          </div>
         </main>
       </div>
     </div>

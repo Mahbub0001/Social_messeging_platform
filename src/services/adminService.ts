@@ -116,6 +116,27 @@ class AdminService {
   }
 
   /**
+   * Fetch recent message timestamps for daily volume charts
+   */
+  public async getMessageTimestamps(days: number = 30): Promise<string[]> {
+    if (isMockMode) return [];
+    try {
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("messages")
+        .select("created_at")
+        .gte("created_at", since)
+        .order("created_at", { ascending: true })
+        .limit(2000);
+
+      if (error || !data) return [];
+      return data.map((m: any) => m.created_at).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Fetch registered users with optional search and filters
    */
   public async getUsers(

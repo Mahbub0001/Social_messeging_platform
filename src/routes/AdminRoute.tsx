@@ -42,14 +42,13 @@ export const AdminRoute: React.FC = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300">
-        <Loader2 className="w-8 h-8 animate-spin text-violet-500 mb-3" />
-        <p className="text-sm font-medium animate-pulse">অ্যাডমিন অধিকার যাচাই করা হচ্ছে...</p>
+      <div className="min-h-screen bg-[#fafafa] dark:bg-[#141415] flex flex-col items-center justify-center text-[#525252] dark:text-[#a1a1a6] gap-3">
+        <Loader2 className="w-5 h-5 animate-spin text-[#737373] dark:text-[#85858b]" strokeWidth={1.5} />
+        <p className="text-[13px] font-normal">অ্যাডমিন অধিকার যাচাই করা হচ্ছে</p>
       </div>
     );
   }
 
-  // Not logged in -> Redirect to login
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -61,24 +60,25 @@ export const AdminRoute: React.FC = () => {
     user?.user_metadata?.username?.toLowerCase() === "mahbub" ||
     user?.user_metadata?.username?.toLowerCase() === "nibir123";
 
-  // Logged in but not admin -> Show Access Denied UI
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-900/90 border border-red-500/20 rounded-2xl p-6 text-center shadow-2xl backdrop-blur-xl">
-          <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 text-red-400">
-            <ShieldAlert className="w-8 h-8" />
+      <div className="min-h-screen bg-[#fafafa] dark:bg-[#141415] flex items-center justify-center p-6">
+        <div className="max-w-sm w-full bg-white dark:bg-[#19191b] border border-black/[0.08] dark:border-white/[0.08] rounded-xl p-6 text-center shadow-[0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-none">
+          <div className="w-10 h-10 bg-[#f4f4f5] dark:bg-[#232325] border border-black/[0.08] dark:border-white/[0.08] rounded-lg flex items-center justify-center mx-auto mb-4 text-[#dc2626] dark:text-[#e5484d]">
+            <ShieldAlert className="w-4 h-4" strokeWidth={1.5} />
           </div>
-          <h2 className="text-xl font-bold text-slate-100 mb-2">অননুমোদিত প্রবেশাধিকার</h2>
-          <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-            এই অ্যাডমিন পোর্টালটি শুধুমাত্র সিস্টেম অ্যাডমিনিস্ট্রেটরদের জন্য সংরক্ষিত। আপনার অ্যাকাউন্টে এই সেকশনটি দেখার অনুমতি নেই।
+          <h2 className="text-lg font-medium text-[#171717] dark:text-[#ededed] mb-2">
+            অননুমোদিত প্রবেশাধিকার
+          </h2>
+          <p className="text-[13px] text-[#525252] dark:text-[#a1a1a6] mb-6 leading-relaxed">
+            এই পোর্টালটি শুধুমাত্র সিস্টেম অ্যাডমিনিস্ট্রেটরদের জন্য সংরক্ষিত। আপনার অ্যাকাউন্টে এখানে প্রবেশের অনুমতি নেই।
           </p>
           <button
             onClick={() => navigate("/dashboard")}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-violet-600/20 active:scale-[0.98]"
+            className="w-full h-9 flex items-center justify-center gap-2 px-4 bg-[#171717] hover:bg-[#262626] text-[#fafafa] dark:bg-[#ededed] dark:hover:bg-white dark:text-[#141415] rounded-lg text-[13px] font-medium transition-colors duration-150"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>চ্যাটে ফিরে যান (Back to Chat)</span>
+            <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
+            <span>চ্যাটে ফিরুন</span>
           </button>
         </div>
       </div>

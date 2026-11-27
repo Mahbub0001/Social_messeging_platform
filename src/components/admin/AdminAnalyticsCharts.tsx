@@ -1,305 +1,318 @@
 import React, { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  TrendingUp,
-  BarChart3,
-  PieChart as PieChartIcon,
-  Calendar,
-} from "lucide-react";
 import { useAdminLanguage } from "../../context/AdminLanguageContext";
 import type { AdminStats, AdminUser } from "../../services/adminService";
 
 interface AdminAnalyticsChartsProps {
   stats: AdminStats;
   users: AdminUser[];
+  messageTimestamps: string[];
 }
 
 export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
   stats,
   users,
+  messageTimestamps,
 }) => {
   const { t, language } = useAdminLanguage();
   const [timeRange, setTimeRange] = useState<7 | 14 | 30>(7);
   const [hoveredPoint, setHoveredPoint] = useState<{
     date: string;
     active: number;
-    signups: number;
+    messages: number;
     x: number;
     y: number;
   } | null>(null);
 
-  const [hoveredBar, setHoveredBar] = useState<{
-    date: string;
-    messages: number;
-    index: number;
-  } | null>(null);
-
-  const [activeDonutIndex, setActiveDonutIndex] = useState<number | null>(null);
-
-  // Generate historical data points matching time range
+  // Build real daily activity buckets from user last_seen and real message timestamps
   const chartData = useMemo(() => {
-    const points = [];
     const now = new Date();
+    const userDayCounts = new Map<string, number>();
+    const msgDayCounts = new Map<string, number>();
 
-    const baseUsers = Math.max(stats.totalUsers, 5);
-    const baseMessages = Math.max(stats.totalMessages, 12);
-    const baseDau = Math.max(stats.activeUsersToday, 2);
+    const toKey = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+        date.getDate()
+      ).padStart(2, "0")}`;
 
+    users.forEach((u) => {
+      const ts = u.last_seen || u.updated_at;
+      if (!ts) return;
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return;
+      const key = toKey(d);
+      userDayCounts.set(key, (userDayCounts.get(key) || 0) + 1);
+    });
+
+    messageTimestamps.forEach((ts) => {
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return;
+      const key = toKey(d);
+      msgDayCounts.set(key, (msgDayCounts.get(key) || 0) + 1);
+    });
+
+    const points = [];
     for (let i = timeRange - 1; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(now.getDate() - i);
+      const key = toKey(d);
       const dateLabel = d.toLocaleDateString(language === "bn" ? "bn-BD" : "en-US", {
         month: "short",
         day: "numeric",
       });
 
-      // Daily pseudo-realistic variation derived from platform actuals
-      const variance = Math.sin((i + 1) * 1.3) * 0.35 + 0.65;
-      const dau = Math.max(1, Math.round(baseDau * variance));
-      const signups = Math.max(0, Math.round((baseUsers / timeRange) * (0.4 + variance * 0.6)));
-      const msgs = Math.max(1, Math.round((baseMessages / timeRange) * (0.6 + variance * 0.8)));
-
       points.push({
         date: dateLabel,
-        active: dau,
-        signups,
-        messages: msgs,
+        active: userDayCounts.get(key) || 0,
+        messages: msgDayCounts.get(key) || 0,
       });
     }
     return points;
-  }, [timeRange, stats, language]);
+  }, [timeRange, users, messageTimestamps, language]);
 
-  // SVG Area Chart Math
-  const chartWidth = 600;
-  const chartHeight = 200;
-  const padding = 20;
+  const chartWidth = 680;
+  const chartHeight = 240;
+  const padX = 28;
+  const padY = 24;
 
-  const maxVal = Math.max(...chartData.map((d) => d.active), 5);
-  const minVal = 0;
+  const maxActive = Math.max(...chartData.map((d) => d.active), 4);
+  const maxMsgs = Math.max(...chartData.map((d) => d.messages), 4);
+  const maxVal = Math.max(maxActive, maxMsgs);
 
   const getX = (idx: number) =>
-    padding + (idx / (chartData.length - 1)) * (chartWidth - padding * 2);
+    padX + (idx / Math.max(1, chartData.length - 1)) * (chartWidth - padX * 2);
 
   const getY = (val: number) =>
-    chartHeight - padding - ((val - minVal) / (maxVal - minVal)) * (chartHeight - padding * 2);
+    chartHeight - padY - (val / maxVal) * (chartHeight - padY * 2);
 
-  const pathPoints = chartData.map((d, i) => ({ x: getX(i), y: getY(d.active) }));
+  const activePoints = chartData.map((d, i) => ({ x: getX(i), y: getY(d.active) }));
+  const msgPoints = chartData.map((d, i) => ({ x: getX(i), y: getY(d.messages) }));
 
-  // Build smooth SVG Bezier curve
-  const svgPath = useMemo(() => {
-    if (pathPoints.length < 2) return "";
-    let d = `M ${pathPoints[0].x} ${pathPoints[0].y}`;
-    for (let i = 0; i < pathPoints.length - 1; i++) {
-      const current = pathPoints[i];
-      const next = pathPoints[i + 1];
-      const controlX = (current.x + next.x) / 2;
-      d += ` C ${controlX} ${current.y}, ${controlX} ${next.y}, ${next.x} ${next.y}`;
+  const buildCurve = (pts: { x: number; y: number }[]) => {
+    if (pts.length < 2) return "";
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const curr = pts[i];
+      const next = pts[i + 1];
+      const cx = (curr.x + next.x) / 2;
+      d += ` C ${cx} ${curr.y}, ${cx} ${next.y}, ${next.x} ${next.y}`;
     }
     return d;
-  }, [pathPoints]);
+  };
 
-  const svgArea = useMemo(() => {
-    if (!svgPath) return "";
-    const last = pathPoints[pathPoints.length - 1];
-    const first = pathPoints[0];
-    return `${svgPath} L ${last.x} ${chartHeight - padding} L ${first.x} ${chartHeight - padding} Z`;
-  }, [svgPath, pathPoints]);
+  const activeLinePath = useMemo(() => buildCurve(activePoints), [activePoints]);
+  const msgLinePath = useMemo(() => buildCurve(msgPoints), [msgPoints]);
 
-  // Donut chart calculation
+  const activeAreaPath = useMemo(() => {
+    if (!activeLinePath || activePoints.length === 0) return "";
+    const last = activePoints[activePoints.length - 1];
+    const first = activePoints[0];
+    return `${activeLinePath} L ${last.x} ${chartHeight - padY} L ${first.x} ${chartHeight - padY} Z`;
+  }, [activeLinePath, activePoints]);
+
+  // Account distribution list (single accent on active, muted neutral/semantic bars for rest)
   const bannedCount = users.filter((u) => u.is_banned).length;
   const adminCount = users.filter((u) => u.role === "admin").length;
-  const regularActiveCount = Math.max(0, stats.totalUsers - bannedCount - adminCount);
+  const modCount = users.filter((u) => u.role === "moderator").length;
+  const regularActiveCount = Math.max(
+    0,
+    stats.totalUsers - bannedCount - adminCount - modCount
+  );
+  const totalBase = Math.max(1, stats.totalUsers);
 
-  const donutSegments = [
-    { label: t("chart.active"), count: regularActiveCount, color: "#10b981", bg: "bg-emerald-500" },
-    { label: t("chart.admins"), count: adminCount, color: "#8b5cf6", bg: "bg-violet-500" },
-    { label: t("chart.banned"), count: bannedCount, color: "#ef4444", bg: "bg-red-500" },
+  const breakdownRows = [
+    {
+      label: t("chart.active"),
+      count: regularActiveCount,
+      barClass: "bg-[#0d9488] dark:bg-[#14b8a6]",
+      dotClass: "bg-[#0d9488] dark:bg-[#14b8a6]",
+    },
+    {
+      label: t("chart.admins"),
+      count: adminCount,
+      barClass: "bg-[#525252] dark:bg-[#a1a1a6]",
+      dotClass: "bg-[#525252] dark:bg-[#a1a1a6]",
+    },
+    {
+      label: t("chart.moderators"),
+      count: modCount,
+      barClass: "bg-[#a1a1a6] dark:bg-[#737373]",
+      dotClass: "bg-[#a1a1a6] dark:bg-[#737373]",
+    },
+    {
+      label: t("chart.banned"),
+      count: bannedCount,
+      barClass: "bg-[#dc2626] dark:bg-[#e5484d]",
+      dotClass: "bg-[#dc2626] dark:bg-[#e5484d]",
+    },
   ];
 
-  const donutTotal = Math.max(1, stats.totalUsers);
-  let accumulatedAngle = 0;
-  const donutArcs = donutSegments.map((seg) => {
-    const fraction = seg.count / donutTotal;
-    const angle = fraction * 360;
-    const startAngle = accumulatedAngle;
-    accumulatedAngle += angle;
-    return {
-      ...seg,
-      fraction,
-      startAngle,
-      angle,
-      percent: Math.round(fraction * 100),
-    };
-  });
-
   return (
-    <div className="space-y-6">
-      {/* 1. Main Interactive Activity & Growth Area Chart */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 shadow-xs hover:shadow-md transition-shadow backdrop-blur-xl relative overflow-hidden">
-        {/* Ambient Glow */}
-        <div className="absolute top-0 right-1/4 w-72 h-72 bg-violet-500/10 dark:bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Card Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 relative z-10">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Main Chart (2/3 width) */}
+      <section className="lg:col-span-2 p-6 rounded-xl bg-white dark:bg-[#19191b] border border-black/[0.08] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-none flex flex-col justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-              <h2 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white tracking-tight">
-                {t("chart.activityTitle")}
-              </h2>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t("chart.activitySubtitle")}</p>
+            <h2 className="text-sm font-medium text-[#171717] dark:text-[#ededed]">
+              {t("chart.activityTitle")}
+            </h2>
+            <p className="text-xs text-[#737373] dark:text-[#85858b] mt-1">
+              {t("chart.activitySubtitle")}
+            </p>
           </div>
 
-          {/* Time range selector pills */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 self-start sm:self-auto">
-            <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 ml-2" />
-            {([7, 14, 30] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setTimeRange(r)}
-                className={`px-3 py-1 rounded-lg text-2xs font-semibold transition-all active:scale-95 ${
-                  timeRange === r
-                    ? "bg-violet-600 text-white shadow-sm shadow-violet-600/30"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
-              >
-                {r === 7 ? t("chart.days7") : r === 14 ? t("chart.days14") : t("chart.days30")}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 self-start sm:self-auto">
+            {/* Compact Legend */}
+            <div className="hidden sm:flex items-center gap-3 text-xs text-[#525252] dark:text-[#a1a1a6] mr-1">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#0d9488] dark:bg-[#14b8a6]" />
+                <span>{t("chart.activeUsers")}</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#a1a1a6] dark:bg-[#737373]" />
+                <span>{t("chart.messages")}</span>
+              </span>
+            </div>
+
+            {/* Range Selector */}
+            <div className="inline-flex items-center p-0.5 rounded-lg bg-[#f4f4f5] dark:bg-[#232325] border border-black/[0.06] dark:border-white/[0.06]">
+              {([7, 14, 30] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setTimeRange(r)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-mono tabular-nums transition-colors duration-150 ${
+                    timeRange === r
+                      ? "bg-white dark:bg-[#141415] text-[#171717] dark:text-[#ededed] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-none"
+                      : "text-[#737373] dark:text-[#85858b] hover:text-[#171717] dark:hover:text-[#ededed]"
+                  }`}
+                >
+                  {r === 7 ? t("chart.days7") : r === 14 ? t("chart.days14") : t("chart.days30")}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Interactive SVG Chart Container */}
-        <div className="relative w-full overflow-x-auto select-none pt-2 pb-1">
+        {/* SVG Chart */}
+        <div className="relative w-full select-none">
           <svg
             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-            className="w-full h-48 sm:h-64 overflow-visible"
+            className="w-full h-[240px] sm:h-[260px] overflow-visible"
             onMouseLeave={() => setHoveredPoint(null)}
           >
             <defs>
-              <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.35" />
-                <stop offset="60%" stopColor="#6366f1" stopOpacity="0.08" />
-                <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
-              </linearGradient>
-              <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#7c3aed" />
-                <stop offset="50%" stopColor="#6366f1" />
-                <stop offset="100%" stopColor="#0284c7" />
+              <linearGradient id="kbAdminTealWash" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#0d9488" stopOpacity="0.18" />
+                <stop offset="100%" stopColor="#0d9488" stopOpacity="0" />
               </linearGradient>
             </defs>
 
-            {/* Horizontal Grid lines */}
+            {/* Muted Horizontal Grid */}
             {[0, 0.33, 0.66, 1].map((ratio, idx) => {
-              const y = chartHeight - padding - ratio * (chartHeight - padding * 2);
+              const y = chartHeight - padY - ratio * (chartHeight - padY * 2);
+              const labelVal = Math.round(ratio * maxVal);
               return (
-                <line
-                  key={idx}
-                  x1={padding}
-                  y1={y}
-                  x2={chartWidth - padding}
-                  y2={y}
-                  className="stroke-slate-200 dark:stroke-slate-800"
-                  strokeDasharray="4 4"
-                  strokeOpacity="0.7"
-                />
+                <g key={idx}>
+                  <line
+                    x1={padX}
+                    y1={y}
+                    x2={chartWidth - padX}
+                    y2={y}
+                    className="stroke-black/[0.07] dark:stroke-white/[0.07]"
+                    strokeDasharray="3 3"
+                  />
+                  <text
+                    x={padX - 6}
+                    y={y + 3}
+                    textAnchor="end"
+                    className="fill-[#737373] dark:fill-[#85858b] text-[10px] font-mono tabular-nums"
+                  >
+                    {labelVal}
+                  </text>
+                </g>
               );
             })}
 
-            {/* Area Path with Smooth Transition */}
-            {svgArea && (
-              <motion.path
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5 }}
-                d={svgArea}
-                fill="url(#areaGradient)"
-              />
-            )}
-
-            {/* Line Path */}
-            {svgPath && (
-              <motion.path
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                d={svgPath}
+            {/* Secondary Series: Messages */}
+            {msgLinePath && (
+              <path
+                d={msgLinePath}
                 fill="none"
-                stroke="url(#lineGradient)"
-                strokeWidth="2.5"
+                className="stroke-[#a1a1a6] dark:stroke-[#737373]"
+                strokeWidth="1.5"
+                strokeDasharray="4 4"
                 strokeLinecap="round"
               />
             )}
 
-            {/* Hover vertical crosshair */}
-            {hoveredPoint && (
-              <line
-                x1={hoveredPoint.x}
-                y1={padding}
-                x2={hoveredPoint.x}
-                y2={chartHeight - padding}
-                stroke="#a78bfa"
-                strokeWidth="1.5"
-                strokeDasharray="3 3"
-                opacity="0.8"
+            {/* Primary Series Area & Line: Active Users */}
+            {activeAreaPath && <path d={activeAreaPath} fill="url(#kbAdminTealWash)" />}
+            {activeLinePath && (
+              <path
+                d={activeLinePath}
+                fill="none"
+                className="stroke-[#0d9488] dark:stroke-[#14b8a6]"
+                strokeWidth="2"
+                strokeLinecap="round"
               />
             )}
 
-            {/* Interactive Data Points */}
+            {/* Crosshair */}
+            {hoveredPoint && (
+              <line
+                x1={hoveredPoint.x}
+                y1={padY}
+                x2={hoveredPoint.x}
+                y2={chartHeight - padY}
+                className="stroke-black/20 dark:stroke-white/20"
+                strokeWidth="1"
+              />
+            )}
+
+            {/* Hitboxes & Axis Labels */}
             {chartData.map((d, i) => {
               const x = getX(i);
               const y = getY(d.active);
               const isHovered = hoveredPoint?.date === d.date;
+              const showLabel =
+                timeRange === 7 ||
+                (timeRange === 14 && i % 2 === 0) ||
+                (timeRange === 30 && (i % 5 === 0 || i === chartData.length - 1));
 
               return (
                 <g key={i}>
-                  {/* Invisible broad hitbox for effortless mouse & touch hover */}
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r="18"
+                  <rect
+                    x={x - (chartWidth / chartData.length) / 2}
+                    y={padY}
+                    width={chartWidth / chartData.length}
+                    height={chartHeight - padY * 2}
                     fill="transparent"
-                    className="cursor-pointer"
+                    className="cursor-crosshair"
                     onMouseEnter={() =>
                       setHoveredPoint({
                         date: d.date,
                         active: d.active,
-                        signups: d.signups,
-                        x,
-                        y,
-                      })
-                    }
-                    onTouchStart={() =>
-                      setHoveredPoint({
-                        date: d.date,
-                        active: d.active,
-                        signups: d.signups,
+                        messages: d.messages,
                         x,
                         y,
                       })
                     }
                   />
-
-                  {/* Visual Node */}
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={isHovered ? "6" : "3.5"}
-                    className="transition-all duration-200 pointer-events-none"
-                    fill={isHovered ? "#ffffff" : "#818cf8"}
-                    stroke="#4338ca"
-                    strokeWidth={isHovered ? "3" : "2"}
-                  />
-
-                  {/* X-axis labels */}
-                  {(timeRange === 7 || i % 2 === 0 || i === chartData.length - 1) && (
+                  {isHovered && (
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r="4"
+                      className="fill-[#0d9488] dark:fill-[#14b8a6] stroke-white dark:stroke-[#19191b]"
+                      strokeWidth="2"
+                    />
+                  )}
+                  {showLabel && (
                     <text
                       x={x}
-                      y={chartHeight - 3}
+                      y={chartHeight - 4}
                       textAnchor="middle"
-                      className="fill-slate-400 dark:fill-slate-500 text-[9px] font-mono select-none pointer-events-none"
+                      className="fill-[#737373] dark:fill-[#85858b] text-[10px] font-mono tabular-nums"
                     >
                       {d.date}
                     </text>
@@ -309,173 +322,89 @@ export const AdminAnalyticsCharts: React.FC<AdminAnalyticsChartsProps> = ({
             })}
           </svg>
 
-          {/* Floating Tooltip Card */}
-          <AnimatePresence>
-            {hoveredPoint && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 5 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="absolute z-20 pointer-events-none px-3 py-2 rounded-xl bg-white/95 dark:bg-slate-950/95 border border-slate-200 dark:border-violet-500/40 shadow-xl dark:shadow-2xl backdrop-blur-md text-2xs min-w-[130px]"
-                style={{
-                  left: `${(hoveredPoint.x / chartWidth) * 100}%`,
-                  top: `${Math.max(10, (hoveredPoint.y / chartHeight) * 100 - 35)}%`,
-                  transform: "translate(-50%, -100%)",
-                }}
-              >
-                <p className="font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-1 mb-1">
-                  {hoveredPoint.date}
-                </p>
-                <div className="flex items-center justify-between gap-3 text-emerald-600 dark:text-emerald-400">
-                  <span>{t("chart.activeUsers")}:</span>
-                  <span className="font-bold">{hoveredPoint.active.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-violet-600 dark:text-violet-300 mt-0.5">
-                  <span>{t("chart.newSignups")}:</span>
-                  <span className="font-bold">+{hoveredPoint.signups.toLocaleString()}</span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* 2. Side-by-Side Lower Visuals: Message Bar Chart & Donut Ratio */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Message Traffic Bar Chart (2 Cols) */}
-        <div className="lg:col-span-2 p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 shadow-xs hover:shadow-md transition-shadow space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <span>{t("chart.messagesTitle")}</span>
-              </h3>
-              <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">{t("chart.messagesSubtitle")}</p>
+          {/* Tooltip */}
+          {hoveredPoint && (
+            <div
+              className="absolute z-20 pointer-events-none px-3 py-2 rounded-lg bg-white dark:bg-[#232325] border border-black/[0.1] dark:border-white/[0.1] shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:shadow-none text-xs min-w-[144px]"
+              style={{
+                left: `${Math.min(82, Math.max(18, (hoveredPoint.x / chartWidth) * 100))}%`,
+                top: `${Math.max(14, (hoveredPoint.y / chartHeight) * 100 - 12)}%`,
+                transform: "translate(-50%, -100%)",
+              }}
+            >
+              <p className="font-mono text-[11px] text-[#737373] dark:text-[#85858b] mb-1">
+                {hoveredPoint.date}
+              </p>
+              <div className="flex items-center justify-between gap-4 text-[#171717] dark:text-[#ededed]">
+                <span className="text-[#525252] dark:text-[#a1a1a6]">{t("chart.activeUsers")}</span>
+                <span className="font-mono font-medium tabular-nums">
+                  {hoveredPoint.active.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4 text-[#171717] dark:text-[#ededed] mt-0.5">
+                <span className="text-[#525252] dark:text-[#a1a1a6]">{t("chart.messages")}</span>
+                <span className="font-mono font-medium tabular-nums">
+                  {hoveredPoint.messages.toLocaleString()}
+                </span>
+              </div>
             </div>
-            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-2xs font-bold">
-              {stats.totalMessages.toLocaleString()} {t("chart.totalMessages")}
+          )}
+        </div>
+      </section>
+
+      {/* Narrower Breakdown List (1/3 width) */}
+      <section className="lg:col-span-1 p-6 rounded-xl bg-white dark:bg-[#19191b] border border-black/[0.08] dark:border-white/[0.08] shadow-[0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-none flex flex-col justify-between">
+        <div>
+          <h2 className="text-sm font-medium text-[#171717] dark:text-[#ededed]">
+            {t("chart.statusTitle")}
+          </h2>
+          <p className="text-xs text-[#737373] dark:text-[#85858b] mt-1">
+            {t("chart.statusSubtitle")}
+          </p>
+
+          <div className="mt-6 flex items-baseline justify-between pb-4 border-b border-black/[0.08] dark:border-white/[0.08]">
+            <span className="text-[13px] text-[#525252] dark:text-[#a1a1a6]">
+              {t("overview.totalUsers")}
+            </span>
+            <span className="text-[28px] leading-none font-medium tabular-nums text-[#171717] dark:text-[#ededed]">
+              {stats.totalUsers.toLocaleString()}
             </span>
           </div>
 
-          {/* Bar Columns Container */}
-          <div className="h-44 flex items-end justify-between gap-1.5 sm:gap-3 pt-6 pb-2 px-1 relative">
-            {chartData.slice(-10).map((item, idx) => {
-              const maxMsg = Math.max(...chartData.map((d) => d.messages), 10);
-              const heightPercent = Math.min(100, Math.max(12, (item.messages / maxMsg) * 100));
-              const isHovered = hoveredBar?.index === idx;
-
+          <div className="mt-5 space-y-4">
+            {breakdownRows.map((row) => {
+              const pct = Math.round((row.count / totalBase) * 100);
               return (
-                <div
-                  key={idx}
-                  className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer"
-                  onMouseEnter={() => setHoveredBar({ date: item.date, messages: item.messages, index: idx })}
-                  onMouseLeave={() => setHoveredBar(null)}
-                >
-                  {/* Floating count on hover */}
-                  <div
-                    className={`text-[10px] font-bold transition-all ${
-                      isHovered ? "opacity-100 text-emerald-600 dark:text-emerald-300 scale-110" : "opacity-0 text-slate-400 dark:text-slate-500"
-                    }`}
-                  >
-                    {item.messages}
+                <div key={row.label} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="inline-flex items-center gap-2 text-[#525252] dark:text-[#a1a1a6]">
+                      <span className={`w-2 h-2 rounded-full ${row.dotClass}`} />
+                      <span>{row.label}</span>
+                    </span>
+                    <span className="font-mono tabular-nums text-[#171717] dark:text-[#ededed]">
+                      {row.count.toLocaleString()}{" "}
+                      <span className="text-[#737373] dark:text-[#85858b]">({pct}%)</span>
+                    </span>
                   </div>
-
-                  {/* Bar Fill */}
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: `${heightPercent}%` }}
-                    transition={{ duration: 0.6, delay: idx * 0.04 }}
-                    className={`w-full rounded-t-lg transition-all ${
-                      isHovered
-                        ? "bg-gradient-to-t from-emerald-500 to-teal-400 shadow-lg shadow-emerald-500/30"
-                        : "bg-gradient-to-t from-slate-200 to-emerald-500/80 dark:from-slate-800 dark:to-emerald-600/70 hover:from-emerald-600 hover:to-emerald-400"
-                    }`}
-                  />
-
-                  {/* Day Date */}
-                  <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500 truncate w-full text-center">
-                    {item.date.split(" ")[1] || item.date}
-                  </span>
+                  <div className="h-1.5 w-full rounded-sm bg-[#f4f4f5] dark:bg-[#232325] overflow-hidden">
+                    <div
+                      className={`h-full rounded-sm ${row.barClass}`}
+                      style={{ width: `${Math.max(row.count > 0 ? 4 : 0, pct)}%` }}
+                    />
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* User Status Donut Chart (1 Col) */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 shadow-xs hover:shadow-md transition-shadow space-y-4 flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-              <PieChartIcon className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-              <span>{t("chart.statusTitle")}</span>
-            </h3>
-            <p className="text-2xs text-slate-500 dark:text-slate-400 mt-0.5">{t("chart.statusSubtitle")}</p>
-          </div>
-
-          {/* Donut graphic */}
-          <div className="flex items-center justify-center my-2 relative">
-            <svg viewBox="0 0 100 100" className="w-36 h-36 -rotate-90">
-              {donutArcs.map((arc, idx) => {
-                const radius = 38;
-                const circumference = 2 * Math.PI * radius;
-                const strokeDasharray = `${circumference * arc.fraction} ${circumference * (1 - arc.fraction)}`;
-                const rotationOffset = (arc.startAngle / 360) * circumference;
-
-                return (
-                  <circle
-                    key={idx}
-                    cx="50"
-                    cy="50"
-                    r={radius}
-                    fill="transparent"
-                    stroke={arc.color}
-                    strokeWidth={activeDonutIndex === idx ? "15" : "11"}
-                    strokeDasharray={strokeDasharray}
-                    strokeDashoffset={-rotationOffset}
-                    strokeLinecap="round"
-                    className="cursor-pointer transition-all duration-300 hover:opacity-90"
-                    onMouseEnter={() => setActiveDonutIndex(idx)}
-                    onMouseLeave={() => setActiveDonutIndex(null)}
-                  />
-                );
-              })}
-            </svg>
-
-            {/* Center Label */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-              <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-                {stats.totalUsers.toLocaleString()}
-              </span>
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                {t("overview.totalUsers").split(" ")[0]}
-              </span>
-            </div>
-          </div>
-
-          {/* Donut Legend */}
-          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-            {donutArcs.map((item, idx) => (
-              <div
-                key={idx}
-                onMouseEnter={() => setActiveDonutIndex(idx)}
-                onMouseLeave={() => setActiveDonutIndex(null)}
-                className={`flex items-center justify-between p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                  activeDonutIndex === idx ? "bg-slate-100 dark:bg-slate-800/80" : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`w-2.5 h-2.5 rounded-full ${item.bg}`} />
-                  <span className="text-slate-700 dark:text-slate-300">{item.label}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900 dark:text-white">{item.count.toLocaleString()}</span>
-                  <span className="text-3xs font-mono text-slate-400 dark:text-slate-500">({item.percent}%)</span>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="mt-6 pt-4 border-t border-black/[0.08] dark:border-white/[0.08] flex items-center justify-between text-xs text-[#737373] dark:text-[#85858b]">
+          <span>{t("chart.totalMessages")}</span>
+          <span className="font-mono tabular-nums text-[#171717] dark:text-[#ededed] font-medium">
+            {stats.totalMessages.toLocaleString()}
+          </span>
         </div>
-      </div>
+      </section>
     </div>
   );
 };
