@@ -50,7 +50,7 @@ export const Landing: React.FC = () => {
           <img
             src="/logo.png"
             alt="Kotha Barta Logo"
-            className="w-9 h-9 rounded-xl object-cover border border-white/10 shadow-sm"
+            className="w-9 h-9 rounded-xl object-cover border border-white/10 shadow-sm bg-white"
           />
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-bold tracking-tight text-white">কথাবার্তা</span>

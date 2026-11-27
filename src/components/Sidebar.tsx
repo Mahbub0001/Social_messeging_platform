@@ -216,7 +216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex items-center justify-between px-4 pt-[max(0.75rem,calc(0.75rem+env(safe-area-inset-top,0px)))] pb-3 bg-[#F7F6F2] dark:bg-[#11141C] border-b border-[#E6E4DD] dark:border-white/[0.07]">
         {/* Brand */}
         <div className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="Kotha Barta Logo" className="w-8 h-8 rounded-xl object-cover shadow-xs border border-black/5 dark:border-white/10" />
+          <img src="/logo.png" alt="Kotha Barta Logo" className="w-8 h-8 rounded-xl object-cover shadow-xs border border-black/5 dark:border-white/10 bg-white" />
           <span className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100">কথাবার্তা</span>
         </div>
 

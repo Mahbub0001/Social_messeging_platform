@@ -37,7 +37,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
           <img
             src="/logo.png"
             alt="Kotha Barta Logo"
-            className="w-12 h-12 rounded-2xl object-cover shadow-lg border border-white/10"
+            className="w-12 h-12 rounded-2xl object-cover shadow-lg border border-white/10 bg-white"
           />
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white leading-tight">

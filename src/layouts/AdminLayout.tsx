@@ -76,7 +76,7 @@ const AdminLayoutContent: React.FC = () => {
             <img
               src="/logo.png"
               alt="Kotha Barta Logo"
-              className="w-9 h-9 rounded-xl object-cover shadow-sm border border-slate-200 dark:border-slate-800"
+              className="w-9 h-9 rounded-xl object-cover shadow-sm border border-slate-200 dark:border-slate-800 bg-white"
             />
             <div>
               <div className="flex items-center gap-2">

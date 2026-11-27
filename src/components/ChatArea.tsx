@@ -561,7 +561,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ onBack, onOpenUserProfile })
           <img
             src="/logo.png"
             alt="Kotha Barta Logo"
-            className="w-16 h-16 rounded-2xl object-cover shadow-lg mb-5 border border-black/10 dark:border-white/10"
+            className="w-16 h-16 rounded-2xl object-cover shadow-lg mb-5 border border-black/10 dark:border-white/10 bg-white"
           />
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1.5">কথাবার্তা চ্যাট রুম</h3>
           <p className="max-w-xs text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
